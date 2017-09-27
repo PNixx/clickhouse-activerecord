@@ -1,6 +1,7 @@
 require 'active_record/connection_adapters/abstract_adapter'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
+require 'active_record/connection_adapters/clickhouse/oid/big_integer'
 
 module ActiveRecord
   class Base
@@ -75,6 +76,7 @@ module ActiveRecord
       NATIVE_DATABASE_TYPES = {
         string: { name: 'String', limit: 255 },
         integer: { name: 'UInt32' },
+        big_integer: { name: 'UInt64', limit: 8 },
         float: { name: 'Float32' },
         datetime: { name: 'DateTime' },
         date: { name: 'Date' },
@@ -114,15 +116,15 @@ module ActiveRecord
         register_class_with_limit m, 'String', Type::String
         register_class_with_limit m, 'Nullable(String)', Type::String
         register_class_with_limit m, 'Uint8', Type::UnsignedInteger
-        register_class_with_limit m, 'Uint64', Type::BigInteger
-        register_class_with_limit m, 'Int64', Type::BigInteger
         register_class_with_limit m, 'Date',  Clickhouse::OID::Date
         register_class_with_limit m, 'DateTime',  Clickhouse::OID::DateTime
         m.alias_type 'UInt16', 'uint8'
         m.alias_type 'UInt32', 'uint8'
+        m.register_type 'UInt64', Clickhouse::OID::BigInteger.new
         m.alias_type 'Int8', 'int8'
         m.alias_type 'Int16', 'int8'
         m.alias_type 'Int32', 'int8'
+        m.alias_type 'Int64', 'UInt64'
       end
 
       # Queries the database and returns the results in an Array-like object
