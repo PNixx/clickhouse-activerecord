@@ -114,15 +114,15 @@ module ActiveRecord
         register_class_with_limit m, 'String', Type::String
         register_class_with_limit m, 'Nullable(String)', Type::String
         register_class_with_limit m, 'Uint8', Type::UnsignedInteger
+        register_class_with_limit m, 'Uint64', Type::BigInteger
+        register_class_with_limit m, 'Int64', Type::BigInteger
         register_class_with_limit m, 'Date',  Clickhouse::OID::Date
         register_class_with_limit m, 'DateTime',  Clickhouse::OID::DateTime
         m.alias_type 'UInt16', 'uint8'
         m.alias_type 'UInt32', 'uint8'
-        m.alias_type 'UInt64', 'uint8'
         m.alias_type 'Int8', 'int8'
         m.alias_type 'Int16', 'int8'
         m.alias_type 'Int32', 'int8'
-        m.alias_type 'Int64', 'int8'
       end
 
       # Queries the database and returns the results in an Array-like object
