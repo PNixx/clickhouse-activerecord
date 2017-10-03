@@ -5,7 +5,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 Gem::Specification.new do |spec|
   spec.name          = 'clickhouse-activerecord'
-  spec.version       = '0.1.3'
+  spec.version       = '0.2.0'
   spec.authors       = ['Sergey Odintsov']
   spec.email         = ['nixx.dj@gmail.com']
 
@@ -22,7 +22,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = ['lib']
 
   spec.add_dependency "bundler", ">= 1.13.4"
-  spec.add_dependency 'rails', '>= 4.1.8'
+  spec.add_dependency 'rails', '>= 5.0'
 
   spec.add_development_dependency 'bundler', '~> 1.15'
   spec.add_development_dependency 'rake', '~> 10.0'

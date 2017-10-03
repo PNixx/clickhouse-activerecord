@@ -26,10 +26,6 @@ module ActiveRecord
   module ConnectionAdapters
 
     class ClickhouseColumn < Column
-      def initialize(name, default, cast_type, sql_type = nil, null = true)
-        super(name, default, cast_type, sql_type, null)
-        @default_function = 'now'
-      end
 
       private
 
@@ -89,7 +85,7 @@ module ActiveRecord
         @connection_parameters = connection_parameters
         @config = config
 
-        @visitor = Arel::Visitors::ToSql.new self
+        @prepared_statements = false
 
         connect
       end
@@ -140,7 +136,7 @@ module ActiveRecord
         end
       end
 
-      def exec_query(sql, name = nil, _binds = [])
+      def exec_query(sql, name = nil, binds = [], prepare: false)
         result = execute(sql, name)
         ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'])
       end
@@ -170,10 +166,10 @@ module ActiveRecord
         query('SHOW TABLES', name)['data'].flatten
       end
 
-      def columns(table_name, _name = nil) #:nodoc:
-        table_structure(table_name).map do |field|
-          ClickhouseColumn.new(field[0], field[3].present? ? field[3] : nil, lookup_cast_type(field[1]), field[1], field[1].include?('Nullable'))
-        end
+      def new_column_from_field(table_name, field) # :nondoc:
+        sql_type = field[1]
+        type_metadata = fetch_type_metadata(sql_type)
+        ClickhouseColumn.new(field[0], field[3].present? ? field[3] : nil, type_metadata, field[1].include?('Nullable'), table_name, nil)
       end
 
       def indexes(_table_name, _name = nil) #:nodoc:
@@ -187,6 +183,10 @@ module ActiveRecord
         false
       end
 
+      def data_sources
+        tables
+      end
+
       protected
 
       def table_structure(table_name)
@@ -194,6 +194,7 @@ module ActiveRecord
         raise(ActiveRecord::StatementInvalid, "Could not find table '#{table_name}'") if data.empty?
         data
       end
+      alias column_definitions table_structure
 
       def last_inserted_id(result)
         result
