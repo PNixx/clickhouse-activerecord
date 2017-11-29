@@ -1,3 +1,4 @@
+require 'clickhouse-activerecord/arel/visitors/to_sql'
 require 'active_record/connection_adapters/abstract_adapter'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
@@ -21,6 +22,21 @@ module ActiveRecord
         ConnectionAdapters::ClickhouseAdapter.new(nil, logger, [host, port], { user: config[:username], password: config[:password], database: database }.compact)
       end
     end
+  end
+
+  module ModelSchema
+
+    module ClassMethods
+      def is_view
+        @is_view || false
+      end
+
+      # @param [Boolean] value
+      def is_view=(value)
+        @is_view = value
+      end
+    end
+
   end
 
   module ConnectionAdapters
@@ -89,7 +105,7 @@ module ActiveRecord
         @connection_parameters = connection_parameters
         @config = config
 
-        @visitor = Arel::Visitors::ToSql.new self
+        @visitor = ClickhouseActiverecord::Arel::Visitors::ToSql.new self
 
         connect
       end

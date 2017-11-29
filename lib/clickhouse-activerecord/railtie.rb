@@ -1,4 +1,4 @@
-module Clickhouse
+module ClickhouseActiverecord
   require 'rails'
 
   class Railtie < Rails::Railtie
