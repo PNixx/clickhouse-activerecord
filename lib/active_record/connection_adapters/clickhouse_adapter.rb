@@ -102,6 +102,10 @@ module ActiveRecord
         case sql_type
           when 'Nullable(String)'
             255
+          when /Nullable\(U?Int(8|16)\)/
+            4
+          when /Nullable\(U?Int(32|64)\)/
+            8
           else
             super
         end
@@ -114,11 +118,11 @@ module ActiveRecord
         register_class_with_limit m, 'Uint8', Type::UnsignedInteger
         register_class_with_limit m, 'Date',  Clickhouse::OID::Date
         register_class_with_limit m, 'DateTime',  Clickhouse::OID::DateTime
-        m.alias_type 'UInt16', 'uint8'
+        m.alias_type 'UInt16', 'uint4'
         m.alias_type 'UInt32', 'uint8'
         m.register_type 'UInt64', Clickhouse::OID::BigInteger.new
-        m.alias_type 'Int8', 'int8'
-        m.alias_type 'Int16', 'int8'
+        m.alias_type 'Int8', 'int4'
+        m.alias_type 'Int16', 'int4'
         m.alias_type 'Int32', 'int8'
         m.alias_type 'Int64', 'UInt64'
       end
