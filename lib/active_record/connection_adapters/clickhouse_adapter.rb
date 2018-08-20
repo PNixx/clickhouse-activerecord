@@ -149,7 +149,7 @@ module ActiveRecord
 
       # Queries the database and returns the results in an Array-like object
       def query(sql, _name = nil)
-        res = @connection.get("/?#{@config.merge(query: "#{sql} FORMAT JSONCompact").to_param}")
+        res = @connection.post("/?#{@config.to_param}", "#{sql} FORMAT JSONCompact")
         raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}" unless res.code.to_i == 200
         JSON.parse res.body
       end
