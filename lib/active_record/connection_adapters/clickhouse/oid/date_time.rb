@@ -20,7 +20,7 @@ module ActiveRecord
           # Type cast a value for schema dumping. This method is private, as we are
           # hoping to remove it entirely.
           def type_cast_for_schema(value) # :nodoc:
-            value
+            value.inspect
           end
 
         end
