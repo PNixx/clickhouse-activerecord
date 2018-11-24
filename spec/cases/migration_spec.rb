@@ -72,6 +72,19 @@ RSpec.describe 'Migration', :migrations do
       end
     end
 
+    describe 'drop table' do
+      it 'drops table' do
+        migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_drop_table')
+        quietly { ActiveRecord::MigrationContext.new(migrations_dir).up(1) }
+
+        expect(ActiveRecord::Base.connection.tables).to include('some')
+
+        quietly { ActiveRecord::MigrationContext.new(migrations_dir).up(2) }
+
+        expect(ActiveRecord::Base.connection.tables).not_to include('some')
+      end
+    end
+
     describe 'add column' do
       it 'adds a new column' do
         migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_add_column')
