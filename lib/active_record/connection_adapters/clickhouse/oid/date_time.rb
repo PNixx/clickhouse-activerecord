@@ -4,6 +4,13 @@ module ActiveRecord
       module OID # :nodoc:
         class DateTime < Type::DateTime # :nodoc:
 
+          def serialize(value)
+            value = super
+            return value unless value.acts_like?(:time)
+
+            value.to_time.strftime('%Y-%m-%d %H:%M:%S')
+          end
+
           def type_cast_from_database(value)
             value
           end
@@ -11,7 +18,7 @@ module ActiveRecord
           # Type cast a value for schema dumping. This method is private, as we are
           # hoping to remove it entirely.
           def type_cast_for_schema(value) # :nodoc:
-            value.inspect
+            value
           end
 
         end
