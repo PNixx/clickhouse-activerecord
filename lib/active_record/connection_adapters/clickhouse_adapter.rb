@@ -137,22 +137,6 @@ module ActiveRecord
       # Executes insert +sql+ statement in the context of this connection using
       # +binds+ as the bind substitutes. +name+ is logged along with
       # the executed +sql+ statement.
-      def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil)
-        new_sql = sql.dup.sub(/ (DEFAULT )?VALUES/, " VALUES")
-        log(new_sql, "#{adapter_name} #{name}") do
-          res = @connection.post("/?#{@config.to_param}", new_sql)
-          raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}" unless res.code.to_i == 200
-          true
-        end
-      end
-
-      def update(_arel, _name = nil, _binds = [])
-        raise ActiveRecord::ActiveRecordError, 'Clickhouse update is not supported'
-      end
-
-      def delete(_arel, _name = nil, _binds = [])
-        raise ActiveRecord::ActiveRecordError, 'Clickhouse delete is not supported'
-      end
 
       # SCHEMA STATEMENTS ========================================
 

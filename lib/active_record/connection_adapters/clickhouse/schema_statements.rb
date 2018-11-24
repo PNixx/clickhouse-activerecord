@@ -8,9 +8,23 @@ module ActiveRecord
           do_execute(sql, name)
         end
 
+        def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil)
+          new_sql = sql.dup.sub(/ (DEFAULT )?VALUES/, " VALUES")
+          do_clean_execute(sql, name)
+          true
+        end
+
         def exec_query(sql, name = nil, binds = [], prepare: false)
           result = do_execute(sql, name)
           ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'])
+        end
+
+        def exec_update(_sql, _name = nil, _binds = [])
+          raise ActiveRecord::ActiveRecordError, 'Clickhouse update is not supported'
+        end
+
+        def exec_delete(_sql, _name = nil, _binds = [])
+          raise ActiveRecord::ActiveRecordError, 'Clickhouse delete is not supported'
         end
 
         def table_structure(table_name)
@@ -40,9 +54,12 @@ module ActiveRecord
 
         def do_execute(sql, name = nil)
           formatted_sql = apply_format(sql, 'JSONCompact')
+          do_clean_execute(formatted_sql, name)
+        end
 
-          log(formatted_sql, "#{adapter_name} #{name}") do
-            res = @connection.post("/?#{@config.to_param}", formatted_sql)
+        def do_clean_execute(sql, name = nil)
+          log(sql, "#{adapter_name} #{name}") do
+            res = @connection.post("/?#{@config.to_param}", sql)
 
             process_response(res)
           end
