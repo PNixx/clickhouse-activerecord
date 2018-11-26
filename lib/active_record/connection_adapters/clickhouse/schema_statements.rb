@@ -10,7 +10,7 @@ module ActiveRecord
 
         def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil)
           new_sql = sql.dup.sub(/ (DEFAULT )?VALUES/, " VALUES")
-          do_clean_execute(sql, name)
+          do_execute(new_sql, name, format: nil)
           true
         end
 
@@ -27,18 +27,9 @@ module ActiveRecord
           raise ActiveRecord::ActiveRecordError, 'Clickhouse delete is not supported'
         end
 
-        def table_structure(table_name)
-          result = do_execute("DESCRIBE TABLE #{table_name}", table_name)
-          data = result['data']
-
-          raise(ActiveRecord::StatementInvalid, "Could not find table '#{table_name}'") if data.empty?
-
-          data
-        end
-        alias column_definitions table_structure
-
         def tables(name = nil)
-          result = do_execute('SHOW TABLES', name)
+          result = do_system_execute('SHOW TABLES', name)
+          return [] if result.nil?
           result['data'].flatten
         end
 
@@ -49,17 +40,21 @@ module ActiveRecord
         private
 
         def apply_format(sql, format)
-          "#{sql} FORMAT #{format}"
+          format ? "#{sql} FORMAT #{format}" : sql
         end
 
-        def do_execute(sql, name = nil)
-          formatted_sql = apply_format(sql, 'JSONCompact')
-          do_clean_execute(formatted_sql, name)
-        end
-
-        def do_clean_execute(sql, name = nil)
+        def do_execute(sql, name = nil, format: 'JSONCompact')
           log(sql, "#{adapter_name} #{name}") do
-            res = @connection.post("/?#{@config.to_param}", sql)
+            formatted_sql = apply_format(sql, format)
+            res = @connection.post("/?#{@config.to_param}", formatted_sql)
+
+            process_response(res)
+          end
+        end
+
+        def do_system_execute(sql, name = nil)
+          log_with_debug(sql, "#{adapter_name} #{name}") do
+            res = @connection.post("/?#{@config.to_param}", "#{sql} FORMAT JSONCompact")
 
             process_response(res)
           end
@@ -73,6 +68,11 @@ module ActiveRecord
             raise ActiveRecord::ActiveRecordError,
               "Response code: #{res.code}:\n#{res.body}"
           end
+        end
+
+        def log_with_debug(sql, name = nil)
+          return yield unless self.pool.spec.config[:debug]
+          log(sql, "#{name} (system)") { yield }
         end
 
         def schema_creation
@@ -92,7 +92,7 @@ module ActiveRecord
         protected
 
         def table_structure(table_name)
-          result = do_execute("DESCRIBE TABLE #{table_name}", table_name)
+          result = do_system_execute("DESCRIBE TABLE #{table_name}", table_name)
           data = result['data']
 
           return data unless data.empty?
