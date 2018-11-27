@@ -33,8 +33,21 @@ module ActiveRecord
           result['data'].flatten
         end
 
+        # Not indexes on clickhouse
+        def indexes(table_name, name = nil)
+          []
+        end
+
         def data_sources
           tables
+        end
+
+        def do_system_execute(sql, name = nil)
+          log_with_debug(sql, "#{adapter_name} #{name}") do
+            res = @connection.post("/?#{@config.to_param}", "#{sql} FORMAT JSONCompact")
+
+            process_response(res)
+          end
         end
 
         private
@@ -47,14 +60,6 @@ module ActiveRecord
           log(sql, "#{adapter_name} #{name}") do
             formatted_sql = apply_format(sql, format)
             res = @connection.post("/?#{@config.to_param}", formatted_sql)
-
-            process_response(res)
-          end
-        end
-
-        def do_system_execute(sql, name = nil)
-          log_with_debug(sql, "#{adapter_name} #{name}") do
-            res = @connection.post("/?#{@config.to_param}", "#{sql} FORMAT JSONCompact")
 
             process_response(res)
           end

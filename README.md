@@ -29,6 +29,7 @@ development_clickhouse:
   host: localhost
   username: username
   password: password
+  debug: true # use for showing in to log technical information
 ```
 
 Add to your model:
@@ -39,7 +40,15 @@ class Action < ActiveRecord::Base
 end
 ```
 
-Or global connection, but schema dump don't works:
+For materialized view model add:
+```ruby
+class ActionView < ActiveRecord::Base
+  establish_connection "#{Rails.env}_clickhouse".to_sym
+  self.is_view = true
+end
+```
+
+Or global connection:
 
 ```yml
 development:
@@ -54,14 +63,22 @@ Schema dump:
 
     $ rake clickhouse:schema:dump
     
+We use schema for emulate development or tests environment on PostgreSQL adapter.
+    
 ### Insert and select data
 
 ```ruby
 Action.where(url: 'http://example.com', date: Date.current).where.not(name: nil).order(created_at: :desc).limit(10)
-=> #<ActiveRecord::Relation [#<Action *** >]>
+# Clickhouse Action Load (10.3ms)  SELECT  actions.* FROM actions WHERE actions.date = '2017-11-29' AND actions.url = 'http://example.com' AND (actions.name IS NOT NULL)  ORDER BY actions.created_at DESC LIMIT 10
+#=> #<ActiveRecord::Relation [#<Action *** >]>
 
 Action.create(url: 'http://example.com', date: Date.yesterday)
-=> true
+# Clickhouse Action Load (10.8ms)  INSERT INTO actions (url, date) VALUES ('http://example.com', '2017-11-28')
+#=> true
+ 
+ActionView.maximum(:date)
+# Clickhouse (10.3ms)  SELECT maxMerge(actions.date) FROM actions
+#=> 'Wed, 29 Nov 2017'
 ```
 
 NOTE: Creating tables in developing.
