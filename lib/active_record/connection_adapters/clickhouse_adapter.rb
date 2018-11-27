@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'clickhouse-activerecord/arel/visitors/to_sql'
 require 'active_record/connection_adapters/abstract_adapter'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
@@ -27,6 +28,18 @@ module ActiveRecord
       end
     end
   end
+
+  module ModelSchema
+     module ClassMethods
+      def is_view
+        @is_view || false
+      end
+       # @param [Boolean] value
+      def is_view=(value)
+        @is_view = value
+      end
+    end
+   end
 
   module ConnectionAdapters
     class ClickhouseColumn < Column
@@ -95,6 +108,10 @@ module ActiveRecord
         @prepared_statements = false
 
         connect
+      end
+
+      def arel_visitor # :nodoc:
+        ClickhouseActiverecord::Arel::Visitors::ToSql.new(self)
       end
 
       def native_database_types #:nodoc:

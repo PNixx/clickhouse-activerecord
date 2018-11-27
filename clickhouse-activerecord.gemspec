@@ -3,10 +3,11 @@
 
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+require File.expand_path('../lib/clickhouse-activerecord/version', __FILE__)
 
 Gem::Specification.new do |spec|
   spec.name          = 'clickhouse-activerecord'
-  spec.version       = '0.2.2'
+  spec.version       = ClickhouseActiverecord::VERSION
   spec.authors       = ['Sergey Odintsov']
   spec.email         = ['nixx.dj@gmail.com']
 
