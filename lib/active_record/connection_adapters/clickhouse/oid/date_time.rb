@@ -1,8 +1,17 @@
+# frozen_string_literal: true
+
 module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module OID # :nodoc:
         class DateTime < Type::DateTime # :nodoc:
+
+          def serialize(value)
+            value = super
+            return value unless value.acts_like?(:time)
+
+            value.to_time.strftime('%Y-%m-%d %H:%M:%S')
+          end
 
           def type_cast_from_database(value)
             value
