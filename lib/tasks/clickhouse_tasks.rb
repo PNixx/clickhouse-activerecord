@@ -10,9 +10,9 @@ class ClickhouseTasks
         q = format('CREATE DATABASE "%s"', db_name)
         connection.execute(q)
 
-        puts format('Database "%s" created', db_name)
+        format('Database "%s" created', db_name)
       rescue ActiveRecord::ActiveRecordError => e
-        puts e.message
+        e.message
       end
     end
 
@@ -24,24 +24,21 @@ class ClickhouseTasks
         q = format('DROP DATABASE IF EXISTS "%s"', db_name)
         connection.execute(q)
 
-        puts format('Database "%s" droped', db_name)
+        format('Database "%s" droped', db_name)
       rescue ActiveRecord::ActiveRecordError => e
-        puts e.message
+        e.message
       end
     end
 
     def purge(env = Rails.env)
-      with_captured_stdout do
-        drop(env)
-        create(env)
-      end
-      puts format('Database "%s" purged', configuration(env)['database'])
+      drop(env)
+      create(env)
+
+      format('Database "%s" purged', configuration(env)['database'])
     end
 
     def structure_load(env = Rails.env)
-      with_captured_stdout do
-        purge(env)
-      end
+      purge(env)
       establish_connection configuration(env)
       
       File.read(Rails.root.join('db', 'clickhouse_structure.sql')).split(';').each do |q|
@@ -49,7 +46,7 @@ class ClickhouseTasks
         connection.execute(q) if q.length > 0
       end
 
-      puts format('Database "%s" structure loaded', configuration(env)['database'])
+      format('Database "%s" structure loaded', configuration(env)['database'])
     end
 
     def structure_dump(env = Rails.env)
@@ -65,7 +62,7 @@ class ClickhouseTasks
         end
       end
 
-      puts format('Database "%s" structure dumped', configuration(env)['database'])
+      format('Database "%s" structure dumped', configuration(env)['database'])
     end
 
     def schema_dump(env = Rails.env)
@@ -75,16 +72,14 @@ class ClickhouseTasks
         ActiveRecord::SchemaDumper.dump(connection, file)
       end
 
-      puts format('Database "%s" schema dumped', configuration(env)['database'])
+      format('Database "%s" schema dumped', configuration(env)['database'])
     end
 
     def test_clone(env = Rails.env)
-      with_captured_stdout do
-        structure_dump(env)
-        structure_load(:test)
-      end
+      structure_dump(env)
+      structure_load(:test)
 
-      puts format('Database "%s" cloned to "%s"', configuration(env)['database'], configuration(:test)['database'])
+      format('Database "%s" cloned to "%s"', configuration(env)['database'], configuration(:test)['database'])
     end
 
     private
@@ -95,15 +90,6 @@ class ClickhouseTasks
 
     def configuration_without_database(env = Rails.env)
       configuration(env).merge("database" => nil)
-    end
-
-    def with_captured_stdout
-      original_stdout = $stdout
-      $stdout = StringIO.new
-      yield
-      $stdout.string
-    ensure
-      $stdout = original_stdout
     end
   end
 end
