@@ -59,6 +59,8 @@ module ActiveRecord
         end
 
         def do_execute(sql, name = nil, format: 'JSONCompact')
+          return if /^RELEASE|SAVEPOINT|ROLLBACK/.match? sql # prevent transactions in RSpec
+
           log(sql, "#{adapter_name} #{name}") do
             formatted_sql = apply_format(sql, format)
             res = @connection.post("/?#{@config.to_param}", formatted_sql)

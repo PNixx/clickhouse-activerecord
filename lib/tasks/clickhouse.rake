@@ -53,5 +53,10 @@ namespace :clickhouse do
     task structure_load: :environment do
       ClickhouseTasks::structure_load(:test)
     end
+
+    desc 'Clone testing database structure'
+    task clone: :environment do
+      ClickhouseTasks::test_clone
+    end
   end
 end

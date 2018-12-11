@@ -78,6 +78,15 @@ class ClickhouseTasks
       puts format('Database "%s" schema dumped', configuration(env)['database'])
     end
 
+    def test_clone(env = Rails.env)
+      with_captured_stdout do
+        structure_dump(env)
+        structure_load(:test)
+      end
+
+      puts format('Database "%s" cloned to "%s"', configuration(env)['database'], configuration(:test)['database'])
+    end
+
     private
 
     def configuration(env = Rails.env)
