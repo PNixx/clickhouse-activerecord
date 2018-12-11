@@ -15,7 +15,7 @@ namespace :clickhouse do
 
     desc 'Dump database schema'
     task dump: :environment do
-      ClickhouseTasks::schema_dump
+      puts ClickhouseTasks::schema_dump
     end
   end
 
@@ -23,12 +23,12 @@ namespace :clickhouse do
 
     desc 'Dump database structure'
     task dump: :environment do
-      ClickhouseTasks::structure_dump
+      puts ClickhouseTasks::structure_dump
     end
 
     desc 'Load database structure (truncates data)'
     task load: :environment do
-      ClickhouseTasks::structure_load
+      puts ClickhouseTasks::structure_load
     end
   end
 
@@ -36,27 +36,27 @@ namespace :clickhouse do
 
     desc 'Create testing database'
     task create: :environment do
-      ClickhouseTasks::create(:test)
+      puts ClickhouseTasks::create(:test)
     end
 
     desc 'Drop testing database'
     task drop: :environment do
-      ClickhouseTasks::drop(:test)
+      puts ClickhouseTasks::drop(:test)
     end
 
     desc 'Purge testing database'
     task purge: :environment do
-      ClickhouseTasks::purge(:test)
+      puts ClickhouseTasks::purge(:test)
     end
 
     desc 'Load testing database structure'
     task structure_load: :environment do
-      ClickhouseTasks::structure_load(:test)
+      puts ClickhouseTasks::structure_load(:test)
     end
 
     desc 'Clone testing database structure'
     task clone: :environment do
-      ClickhouseTasks::test_clone
+      puts ClickhouseTasks::test_clone
     end
   end
 end
