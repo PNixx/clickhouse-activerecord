@@ -43,6 +43,8 @@ module ActiveRecord
         end
 
         def do_system_execute(sql, name = nil)
+          return if /^RELEASE|SAVEPOINT|ROLLBACK/.match? sql # prevent transactions in RSpec
+
           log_with_debug(sql, "#{adapter_name} #{name}") do
             res = @connection.post("/?#{@config.to_param}", "#{sql} FORMAT JSONCompact")
 
