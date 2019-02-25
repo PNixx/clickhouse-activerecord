@@ -8,6 +8,7 @@ require 'active_record/connection_adapters/clickhouse/oid/big_integer'
 require 'active_record/connection_adapters/clickhouse/schema_definitions'
 require 'active_record/connection_adapters/clickhouse/schema_creation'
 require 'active_record/connection_adapters/clickhouse/schema_statements'
+require 'net/http'
 
 module ActiveRecord
   class Base
@@ -15,7 +16,7 @@ module ActiveRecord
       # Establishes a connection to the database that's used by all Active Record objects
       def clickhouse_connection(config)
         config = config.symbolize_keys
-        host = config[:host]
+        host = config[:host] || 'localhost'
         port = config[:port] || 8123
 
         if config.key?(:database)
@@ -124,11 +125,13 @@ module ActiveRecord
 
       def extract_limit(sql_type) # :nodoc:
         case sql_type
-          when 'Nullable(String)'
-            255
-          when /Nullable\(U?Int(8|16)\)/
-            4
-          when /Nullable\(U?Int(32|64)\)/
+          when /(Nullable)?\(?String\)?/
+            super('String')
+          when /(Nullable)?\(?U?Int8\)?/
+            super('int2')
+          when /(Nullable)?\(?U?Int(16|32)\)?/
+            super('int4')
+          when /(Nullable)?\(?U?Int(64)\)?/
             8
           else
             super
@@ -137,18 +140,17 @@ module ActiveRecord
 
       def initialize_type_map(m) # :nodoc:
         super
-        register_class_with_limit m, 'String', Type::String
-        register_class_with_limit m, 'Nullable(String)', Type::String
-        register_class_with_limit m, 'Uint8', Type::UnsignedInteger
+        register_class_with_limit m, %r(String), Type::String
         register_class_with_limit m, 'Date',  Clickhouse::OID::Date
         register_class_with_limit m, 'DateTime',  Clickhouse::OID::DateTime
-        m.alias_type 'UInt16', 'uint4'
-        m.alias_type 'UInt32', 'uint8'
-        m.register_type 'UInt64', Clickhouse::OID::BigInteger.new
-        m.alias_type 'Int8', 'int4'
-        m.alias_type 'Int16', 'int4'
-        m.alias_type 'Int32', 'int8'
-        m.alias_type 'Int64', 'UInt64'
+        register_class_with_limit m, %r(Uint8), Type::UnsignedInteger
+        m.alias_type 'UInt16', 'UInt8'
+        m.alias_type 'UInt32', 'UInt8'
+        register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
+        register_class_with_limit m, %r(Int8), Type::Integer
+        m.alias_type 'Int16', 'Int8'
+        m.alias_type 'Int32', 'Int8'
+        register_class_with_limit m, %r(Int64), Type::Integer
       end
 
       # Executes insert +sql+ statement in the context of this connection using
@@ -161,6 +163,10 @@ module ActiveRecord
         pk = table_structure(table_name).first
         return 'id' if pk.present? && pk[0] == 'id'
         false
+      end
+
+      def create_schema_dumper(options) # :nodoc:
+        ClickhouseActiverecord::SchemaDumper.create(self, options)
       end
 
       protected
