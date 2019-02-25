@@ -61,11 +61,13 @@ RSpec.describe 'Migration', :migrations do
 
               current_schema = schema(model)
 
-              expect(current_schema.keys.count).to eq(2)
+              expect(current_schema.keys.count).to eq(3)
               expect(current_schema).to have_key('id')
               expect(current_schema).to have_key('money')
+              expect(current_schema).to have_key('balance')
               expect(current_schema['id'].sql_type).to eq('UInt32')
-              expect(current_schema['money'].sql_type).to eq('Decimal(16, 4)')
+              expect(current_schema['money'].sql_type).to eq('Nullable(Decimal(16, 4))')
+              expect(current_schema['balance'].sql_type).to eq('Decimal(32, 2)')
             end
           end
         end
@@ -98,7 +100,7 @@ RSpec.describe 'Migration', :migrations do
         expect(current_schema).to have_key('new_column')
         expect(current_schema['id'].sql_type).to eq('UInt32')
         expect(current_schema['date'].sql_type).to eq('Date')
-        expect(current_schema['new_column'].sql_type).to eq('UInt64')
+        expect(current_schema['new_column'].sql_type).to eq('Nullable(UInt64)')
       end
     end
 

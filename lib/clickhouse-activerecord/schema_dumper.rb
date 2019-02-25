@@ -1,5 +1,5 @@
 module ClickhouseActiverecord
-  class SchemaDumper < ActiveRecord::SchemaDumper
+  class SchemaDumper < ::ActiveRecord::ConnectionAdapters::SchemaDumper
 
     def table(table, stream)
       stream.puts "  # TABLE: #{table}"

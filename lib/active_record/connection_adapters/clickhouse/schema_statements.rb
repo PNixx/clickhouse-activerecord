@@ -33,6 +33,42 @@ module ActiveRecord
           result['data'].flatten
         end
 
+        def table_options(table)
+          sql = do_system_execute("SHOW CREATE TABLE #{table}")['data'].try(:first).try(:first)
+          { options: sql.gsub(/^(?:.*?)ENGINE = (.*?)$/, '\\1') }
+        end
+
+        # @todo copied from  ActiveRecord::ConnectionAdapters::SchemaStatements v5.2.2
+        # Why version column type of String, but insert to Integer?
+        def assume_migrated_upto_version(version, migrations_paths)
+          migrations_paths = Array(migrations_paths)
+          version = version.to_i
+          sm_table = quote_table_name(ActiveRecord::SchemaMigration.table_name)
+
+          migrated = ActiveRecord::SchemaMigration.all_versions.map(&:to_i)
+          versions = migration_context.migration_files.map do |file|
+            migration_context.parse_migration_filename(file).first.to_i
+          end
+
+          unless migrated.include?(version)
+            do_execute( "INSERT INTO #{sm_table} (version) VALUES (#{quote(version.to_s)})", 'SchemaMigration', format: nil)
+          end
+
+          inserting = (versions - migrated).select { |v| v < version }
+          if inserting.any?
+            if (duplicate = inserting.detect { |v| inserting.count(v) > 1 })
+              raise "Duplicate migration #{duplicate}. Please renumber your migrations to resolve the conflict."
+            end
+            if supports_multi_insert?
+              do_system_execute insert_versions_sql(inserting)
+            else
+              inserting.each do |v|
+                do_system_execute insert_versions_sql(v)
+              end
+            end
+          end
+        end
+
         # Not indexes on clickhouse
         def indexes(table_name, name = nil)
           []
