@@ -112,7 +112,7 @@ module ActiveRecord
         end
 
         def log_with_debug(sql, name = nil)
-          return yield unless self.pool.spec.config[:debug]
+          return yield unless @debug
           log(sql, "#{name} (system)") { yield }
         end
 
@@ -127,7 +127,10 @@ module ActiveRecord
         def new_column_from_field(table_name, field)
           sql_type = field[1]
           type_metadata = fetch_type_metadata(sql_type)
-          ClickhouseColumn.new(field[0], field[3].present? ? field[3] : nil, type_metadata, field[1].include?('Nullable'), table_name, nil)
+          default = field[3]
+          default_value = extract_value_from_default(default)
+          default_function = extract_default_function(default_value, default)
+          ClickhouseColumn.new(field[0], default_value, type_metadata, field[1].include?('Nullable'), table_name, default_function)
         end
 
         protected
@@ -142,6 +145,35 @@ module ActiveRecord
             "Could not find table '#{table_name}'"
         end
         alias column_definitions table_structure
+
+        private
+
+        # Extracts the value from a PostgreSQL column default definition.
+        def extract_value_from_default(default)
+          case default
+            # Quoted types
+          when /\Anow\(\)\z/m
+            nil
+            # Boolean types
+          when "true".freeze, "false".freeze
+            default
+            # Object identifier types
+          when /\A-?\d+\z/
+            $1
+          else
+            # Anything else is blank, some user type, or some function
+            # and we can't know the value of that, so return nil.
+            nil
+          end
+        end
+
+        def extract_default_function(default_value, default) # :nodoc:
+          default if has_default_function?(default_value, default)
+        end
+
+        def has_default_function?(default_value, default) # :nodoc:
+          !default_value && (%r{\w+\(.*\)} === default)
+        end
       end
     end
   end

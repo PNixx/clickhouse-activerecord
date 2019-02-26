@@ -1,6 +1,6 @@
 # Clickhouse::Activerecord
 
-A Ruby database ActiveRecord driver for ClickHouse. Support Rails >= 5.0.
+A Ruby database ActiveRecord driver for ClickHouse. Support Rails >= 5.2.
 
 ## Installation
 
@@ -59,9 +59,29 @@ development:
   password: password
 ```
 
-Schema dump:
+### Rake tasks
+
+Create / drop / purge / reset database:
+ 
+    $ rake clickhouse:create
+    $ rake clickhouse:drop
+    $ rake clickhouse:purge
+    $ rake clickhouse:reset
+    
+Migration:
+
+    $ rails g clickhouse_migration MIGRATION_NAME COLUMNS
+    $ rake clickhouse:migrate
+    
+Rollback migration not supported!
+
+Schema dump to `db/clickhouse_schema.rb` file:
 
     $ rake clickhouse:schema:dump
+    
+Schema load from `db/clickhouse_schema.rb` file:
+
+    $ rake clickhouse:schema:load
     
 We use schema for emulate development or tests environment on PostgreSQL adapter.
     
@@ -80,8 +100,6 @@ ActionView.maximum(:date)
 # Clickhouse (10.3ms)  SELECT maxMerge(actions.date) FROM actions
 #=> 'Wed, 29 Nov 2017'
 ```
-
-NOTE: Creating tables in developing.
 
 ## Donations
 

@@ -10,6 +10,7 @@ module ActiveRecord
         end
 
         def add_column_options!(sql, options)
+          sql << " DEFAULT #{quote_default_expression(options[:default], options[:column])}" if options_include_default?(options)
           if options[:null] || options[:null].nil?
             sql.gsub!(/\s+(.*)/, ' Nullable(\1)')
           end

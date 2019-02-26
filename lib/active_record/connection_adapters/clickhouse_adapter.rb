@@ -25,7 +25,7 @@ module ActiveRecord
           raise ArgumentError, 'No database specified. Missing argument: database.'
         end
 
-        ConnectionAdapters::ClickhouseAdapter.new(nil, logger, [host, port], { user: config[:username], password: config[:password], database: database }.compact)
+        ConnectionAdapters::ClickhouseAdapter.new(nil, logger, [host, port], { user: config[:username], password: config[:password], database: database }.compact, config[:debug])
       end
     end
   end
@@ -44,43 +44,6 @@ module ActiveRecord
 
   module ConnectionAdapters
     class ClickhouseColumn < Column
-
-      private
-
-      # Extracts the value from a PostgreSQL column default definition.
-      def extract_value_from_default(default)
-        case default
-          # Quoted types
-        when /\A[\(B]?'(.*)'.*::"?([\w. ]+)"?(?:\[\])?\z/m
-          # The default 'now'::date is CURRENT_DATE
-          if $1 == "now".freeze && $2 == "date".freeze
-            nil
-          else
-            $1.gsub("''".freeze, "'".freeze)
-          end
-          # Boolean types
-        when "true".freeze, "false".freeze
-          default
-          # Numeric types
-        when /\A\(?(-?\d+(\.\d*)?)\)?(::bigint)?\z/
-          $1
-          # Object identifier types
-        when /\A-?\d+\z/
-          $1
-        else
-          # Anything else is blank, some user type, or some function
-          # and we can't know the value of that, so return nil.
-          nil
-        end
-      end
-
-      def extract_default_function(default_value, default) # :nodoc:
-        default if has_default_function?(default_value, default)
-      end
-
-      def has_default_function?(default_value, default) # :nodoc:
-        !default_value && (%r{\w+\(.*\)} === default)
-      end
 
     end
 
@@ -101,10 +64,11 @@ module ActiveRecord
       include Clickhouse::SchemaStatements
 
       # Initializes and connects a Clickhouse adapter.
-      def initialize(connection, logger, connection_parameters, config)
+      def initialize(connection, logger, connection_parameters, config, debug = false)
         super(connection, logger)
         @connection_parameters = connection_parameters
         @config = config
+        @debug = debug
 
         @prepared_statements = false
 
@@ -167,6 +131,28 @@ module ActiveRecord
 
       def create_schema_dumper(options) # :nodoc:
         ClickhouseActiverecord::SchemaDumper.create(self, options)
+      end
+
+      # Create a new ClickHouse database.
+      def create_database(name)
+        sql = "CREATE DATABASE #{quote_table_name(name)}"
+        log_with_debug(sql, adapter_name) do
+          res = @connection.post("/?#{@config.except(:database).to_param}", "CREATE DATABASE #{quote_table_name(name)}")
+          process_response(res)
+        end
+      end
+
+      # Drops a ClickHouse database.
+      def drop_database(name) #:nodoc:
+        sql = "DROP DATABASE IF EXISTS #{quote_table_name(name)}"
+        log_with_debug(sql, adapter_name) do
+          res = @connection.post("/?#{@config.except(:database).to_param}", sql)
+          process_response(res)
+        end
+      end
+
+      def drop_table(table_name, options = {}) # :nodoc:
+        do_execute "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
       end
 
       protected
