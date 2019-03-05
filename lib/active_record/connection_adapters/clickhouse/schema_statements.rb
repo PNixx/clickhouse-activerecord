@@ -60,7 +60,7 @@ module ActiveRecord
               raise "Duplicate migration #{duplicate}. Please renumber your migrations to resolve the conflict."
             end
             if supports_multi_insert?
-              do_system_execute insert_versions_sql(inserting)
+              do_system_execute insert_versions_sql(inserting.map(&:to_s))
             else
               inserting.each do |v|
                 do_system_execute insert_versions_sql(v)
