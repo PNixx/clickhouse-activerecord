@@ -1,3 +1,10 @@
+### Version 0.3.4 (Jun 28, 2019)
+
+ * Fix DateTime sql format without microseconds for Rails 5.2 
+ * Support ssl connection
+ * Migration support
+ * Rake tasks for create / drop database
+ 
 ### Version 0.3.0 (Nov 27, 2018)
 
  * Support materialized view

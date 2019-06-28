@@ -117,6 +117,19 @@ module ActiveRecord
         register_class_with_limit m, %r(Int64), Type::Integer
       end
 
+      # Quoting time without microseconds
+      def quoted_date(value)
+        if value.acts_like?(:time)
+          zone_conversion_method = ActiveRecord::Base.default_timezone == :utc ? :getutc : :getlocal
+
+          if value.respond_to?(zone_conversion_method)
+            value = value.send(zone_conversion_method)
+          end
+        end
+
+        value.to_s(:db)
+      end
+
       # Executes insert +sql+ statement in the context of this connection using
       # +binds+ as the bind substitutes. +name+ is logged along with
       # the executed +sql+ statement.
