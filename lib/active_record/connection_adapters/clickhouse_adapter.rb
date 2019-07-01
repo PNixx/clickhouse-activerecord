@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'clickhouse-activerecord/arel/visitors/to_sql'
+require 'clickhouse-activerecord/arel/table'
 require 'active_record/connection_adapters/abstract_adapter'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
@@ -30,6 +31,14 @@ module ActiveRecord
     end
   end
 
+  module TypeCaster
+    class Map
+      def is_view
+        types.is_view
+      end
+    end
+  end
+
   module ModelSchema
      module ClassMethods
       def is_view
@@ -39,6 +48,11 @@ module ActiveRecord
       def is_view=(value)
         @is_view = value
       end
+
+      def arel_table # :nodoc:
+        @arel_table ||= ClickhouseActiverecord::Arel::Table.new(table_name, type_caster: type_caster)
+      end
+
     end
    end
 
@@ -128,6 +142,10 @@ module ActiveRecord
         end
 
         value.to_s(:db)
+      end
+
+      def column_name_for_operation(operation, node) # :nodoc:
+        column_name_from_arel_node(node)
       end
 
       # Executes insert +sql+ statement in the context of this connection using
