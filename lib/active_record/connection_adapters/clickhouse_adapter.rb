@@ -209,6 +209,19 @@ module ActiveRecord
         end
       end
 
+      def create_table(table_name, comment: nil, **options)
+        cluster = pool.spec.config[:cluster]
+        if cluster.nil?
+          super
+        else
+          super(
+            "#{table_name} ON CLUSTER #{cluster}",
+            comment: comment,
+            **options
+          )
+        end
+      end
+
       # Drops a ClickHouse database.
       def drop_database(name) #:nodoc:
         sql = "DROP DATABASE IF EXISTS #{quote_table_name(name)}"

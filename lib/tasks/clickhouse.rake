@@ -2,6 +2,70 @@
 
 namespace :clickhouse do
 
+  task prepare_schema_migration_table: :environment do
+    cluster, database, replica = ActiveRecord::Base.connection_config.values_at(:cluster, :database, :replica)
+    return if cluster.nil?
+
+    connection = ActiveRecord::Base.connection
+    key_options = connection.internal_string_options_for_primary_key
+    block = Proc.new do |t|
+      t.string :version, key_options
+    end
+    distributed_table_name = ".#{ActiveRecord::SchemaMigration.table_name}_distributed"
+    unless connection.table_exists?(distributed_table_name)
+      options = { id: false }
+      if replica
+        shard = replica.is_a?(String) ? replica : '{shard}'
+        options[:options] = <<-SQL
+          ReplicatedMergeTree('/clickhouse/tables/{cluster}/#{shard}/#{database}.`#{distributed_table_name}`', '{replica}')
+          PARTITION BY version ORDER BY (version) SETTINGS index_granularity = 8192
+        SQL
+      end
+      connection.create_table("`#{distributed_table_name}`", options, &block)
+    end
+    unless connection.table_exists?(ActiveRecord::SchemaMigration.table_name)
+      connection.create_table(
+        ActiveRecord::SchemaMigration.table_name,
+        id: false,
+        options: "Distributed(#{cluster},#{database},`#{distributed_table_name}`,sipHash64(version))",
+        &block
+      )
+    end
+  end
+
+  task prepare_internal_metadata_table: :environment do
+    cluster, database, replica = ActiveRecord::Base.connection_config.values_at(:cluster, :database, :replica)
+    return if cluster.nil?
+
+    connection = ActiveRecord::Base.connection
+    key_options = connection.internal_string_options_for_primary_key
+    block = Proc.new do |t|
+      t.string :key, key_options
+      t.string :value
+      t.timestamps
+    end
+    distributed_table_name = ".#{ActiveRecord::InternalMetadata.table_name}_distributed"
+    unless connection.table_exists?(distributed_table_name)
+      options = { id: false }
+      if replica
+        shard = replica.is_a?(String) ? replica : '{shard}'
+        options[:options] = <<-SQL
+          ReplicatedMergeTree('/clickhouse/tables/{cluster}/#{shard}/#{database}.`#{distributed_table_name}`', '{replica}')
+          PARTITION BY toDate(created_at) ORDER BY (created_at) SETTINGS index_granularity = 8192
+        SQL
+      end
+      connection.create_table("`#{distributed_table_name}`", options, &block)
+    end
+    unless connection.table_exists?(ActiveRecord::InternalMetadata.table_name)
+      connection.create_table(
+        ActiveRecord::InternalMetadata.table_name,
+        id: false,
+        options: "Distributed(#{cluster},#{database},`#{distributed_table_name}`,sipHash64(created_at))",
+        &block
+      )
+    end
+  end
+
   task load_config: :environment do
     ENV['SCHEMA'] = "db/clickhouse_schema.rb"
     ActiveRecord::Migrator.migrations_paths = ["db/migrate_clickhouse"]
@@ -61,7 +125,7 @@ namespace :clickhouse do
   end
 
   desc 'Migrate the clickhouse database'
-  task migrate: :load_config do
+  task migrate: [:load_config, :prepare_schema_migration_table, :prepare_internal_metadata_table] do
     Rake::Task['db:migrate'].execute
   end
 end
