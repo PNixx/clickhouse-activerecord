@@ -166,9 +166,10 @@ module ActiveRecord
 
       # Create a new ClickHouse database.
       def create_database(name)
-        sql = "CREATE DATABASE #{quote_table_name(name)}"
+        sql = "CREATE DATABASE ON CLUSTER reports #{quote_table_name(name)}"
+
         log_with_debug(sql, adapter_name) do
-          res = @connection.post("/?#{@config.except(:database).to_param}", "CREATE DATABASE #{quote_table_name(name)}")
+          res = @connection.post("/?#{@config.except(:database).to_param}", "CREATE DATABASE ON CLUSTER reports #{quote_table_name(name)}")
           process_response(res)
         end
       end
