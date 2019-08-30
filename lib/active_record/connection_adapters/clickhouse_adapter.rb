@@ -145,7 +145,7 @@ module ActiveRecord
       end
 
       def column_name_for_operation(operation, node) # :nodoc:
-        column_name_from_arel_node(node)
+        visitor.compile(node)
       end
 
       # Executes insert +sql+ statement in the context of this connection using
