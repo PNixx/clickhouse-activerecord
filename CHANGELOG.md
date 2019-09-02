@@ -1,3 +1,8 @@
+### Version 0.3.6 (Sep 2, 2019)
+
+ * Support Rails 6.0
+ * Fix relation `last` method
+
 ### Version 0.3.4 (Jun 28, 2019)
 
  * Fix DateTime sql format without microseconds for Rails 5.2 

@@ -2,7 +2,6 @@
 
 require 'clickhouse-activerecord/arel/visitors/to_sql'
 require 'clickhouse-activerecord/arel/table'
-require 'active_record/connection_adapters/abstract_adapter'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
 require 'active_record/connection_adapters/clickhouse/oid/big_integer'
@@ -28,6 +27,21 @@ module ActiveRecord
 
         ConnectionAdapters::ClickhouseAdapter.new(nil, logger, [host, port], { user: config[:username], password: config[:password], database: database }.compact, config[:debug])
       end
+    end
+  end
+
+  module QueryMethods
+
+    # Replace for only ClickhouseAdapter
+    def reverse_order!
+      orders = order_values.uniq
+      orders.reject!(&:blank?)
+      if self.connection.is_a?(ConnectionAdapters::ClickhouseAdapter) && orders.empty?
+        self.order_values = %w(date created_at).select {|c| column_names.include?(c) }.map{|c| arel_attribute(c).desc }
+      else
+        self.order_values = reverse_sql_order(orders)
+      end
+      self
     end
   end
 
@@ -84,7 +98,11 @@ module ActiveRecord
         @config = config
         @debug = debug
 
-        @prepared_statements = false
+        if ActiveRecord::version >= Gem::Version.new('6')
+          @prepared_statement_status = Concurrent::ThreadLocalVar.new(false)
+        else
+          @prepared_statements = false
+        end
 
         connect
       end
@@ -145,7 +163,11 @@ module ActiveRecord
       end
 
       def column_name_for_operation(operation, node) # :nodoc:
-        column_name_from_arel_node(node)
+        if ActiveRecord::version >= Gem::Version.new('6')
+          visitor.compile(node)
+        else
+          column_name_from_arel_node(node)
+        end
       end
 
       # Executes insert +sql+ statement in the context of this connection using
