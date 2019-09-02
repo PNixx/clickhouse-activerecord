@@ -70,7 +70,7 @@ NOTE: Creating tables in developing.
 
 Donations to this project are going directly to [PNixx](https://github.com/PNixx), the original author of this project:
 
-* BTC address: `1Lx2gaJtzfF2dxGFxB65YtY5kNY9xUi6ia`
+* BTC address: `1H3rhpf7WEF5JmMZ3PVFMQc7Hm29THgUfN`
 * ETH address: `0x6F094365A70fe7836A633d2eE80A1FA9758234d5`
 * XMR address: `42gP71qLB5M43RuDnrQ3vSJFFxis9Kw9VMURhpx9NLQRRwNvaZRjm2TFojAMC8Fk1BQhZNKyWhoyJSn5Ak9kppgZPjE17Zh`
 
