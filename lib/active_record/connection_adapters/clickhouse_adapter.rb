@@ -18,6 +18,7 @@ module ActiveRecord
         config = config.symbolize_keys
         host = config[:host] || 'localhost'
         port = config[:port] || 8123
+        ca_file = config[:ca_file]
 
         if config.key?(:database)
           database = config[:database]
@@ -25,7 +26,7 @@ module ActiveRecord
           raise ArgumentError, 'No database specified. Missing argument: database.'
         end
 
-        ConnectionAdapters::ClickhouseAdapter.new(nil, logger, [host, port], { user: config[:username], password: config[:password], database: database }.compact, config[:debug])
+        ConnectionAdapters::ClickhouseAdapter.new(nil, logger, [host, port, ca_file], { user: config[:username], password: config[:password], database: database }.compact, config[:debug])
       end
     end
   end
@@ -218,7 +219,8 @@ module ActiveRecord
 
       def connect
         # for ssl port need use ssl
-        @connection = Net::HTTP.start(@connection_parameters[0], @connection_parameters[1], use_ssl: @connection_parameters[1] == 443)
+        opts = @connection_parameters[2].present? ? { use_ssl: true, ca_file: @connection_parameters[2] } : { use_ssl: @connection_parameters[1] == 443 }
+        @connection = Net::HTTP.start(@connection_parameters[0], @connection_parameters[1], opts)
       end
     end
   end

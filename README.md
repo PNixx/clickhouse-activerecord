@@ -30,6 +30,7 @@ development_clickhouse:
   username: username
   password: password
   debug: true # use for showing in to log technical information
+  ca_file: '/ca-certificates/clickhouse.crt' #optionally
 ```
 
 Add to your model:
@@ -57,6 +58,7 @@ development:
   host: localhost
   username: username
   password: password
+  ca_file: '/ca-certificates/clickhouse.crt' #optionally
 ```
 
 ### Rake tasks
