@@ -27,8 +27,10 @@ development_clickhouse:
   adapter: clickhouse
   database: database
   host: localhost
+  port: 8123
   username: username
   password: password
+  ssl: true # optional for using ssl connection
   debug: true # use for showing in to log technical information
 ```
 
