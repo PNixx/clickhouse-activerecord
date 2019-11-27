@@ -8,6 +8,10 @@ module ActiveRecord
           do_execute(sql, name)
         end
 
+        def execute_with_settings(sql, name = nil, settings: {})
+          do_execute(sql, name, settings: settings)
+        end
+
         def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil)
           new_sql = sql.dup.sub(/ (DEFAULT )?VALUES/, " VALUES")
           do_execute(new_sql, name, format: nil)
@@ -92,10 +96,11 @@ module ActiveRecord
           format ? "#{sql} FORMAT #{format}" : sql
         end
 
-        def do_execute(sql, name = nil, format: 'JSONCompact')
+        def do_execute(sql, name = nil, format: 'JSONCompact', settings: {})
           log(sql, "#{adapter_name} #{name}") do
             formatted_sql = apply_format(sql, format)
-            res = @connection.post("/?#{@config.to_param}", formatted_sql)
+            request_params = @config || {}
+            res = @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql)
 
             process_response(res)
           end
