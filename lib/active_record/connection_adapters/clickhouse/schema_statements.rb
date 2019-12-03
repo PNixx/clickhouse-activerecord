@@ -8,10 +8,6 @@ module ActiveRecord
           do_execute(sql, name)
         end
 
-        def execute_with_settings(sql, name = nil, settings: {})
-          do_execute(sql, name, settings: settings)
-        end
-
         def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil)
           new_sql = sql.dup.sub(/ (DEFAULT )?VALUES/, " VALUES")
           do_execute(new_sql, name, format: nil)
@@ -90,12 +86,6 @@ module ActiveRecord
           end
         end
 
-        private
-
-        def apply_format(sql, format)
-          format ? "#{sql} FORMAT #{format}" : sql
-        end
-
         def do_execute(sql, name = nil, format: 'JSONCompact', settings: {})
           log(sql, "#{adapter_name} #{name}") do
             formatted_sql = apply_format(sql, format)
@@ -104,6 +94,12 @@ module ActiveRecord
 
             process_response(res)
           end
+        end
+
+        private
+
+        def apply_format(sql, format)
+          format ? "#{sql} FORMAT #{format}" : sql
         end
 
         def process_response(res)
