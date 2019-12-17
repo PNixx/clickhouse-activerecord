@@ -26,7 +26,7 @@ module ActiveRecord
           raise ArgumentError, 'No database specified. Missing argument: database.'
         end
 
-        ConnectionAdapters::ClickhouseAdapter.new(logger, [host, port, ssl], { user: config[:username], password: config[:password], database: database }.compact, config[:debug])
+        ConnectionAdapters::ClickhouseAdapter.new(logger, [host, port, ssl], { user: config[:username], password: config[:password], database: database }.compact, config)
       end
     end
   end
@@ -93,19 +93,32 @@ module ActiveRecord
       include Clickhouse::SchemaStatements
 
       # Initializes and connects a Clickhouse adapter.
-      def initialize(logger, connection_parameters, config, debug = false)
+      def initialize(logger, connection_parameters, config, full_config)
         super(nil, logger)
         @connection_parameters = connection_parameters
         @config = config
-        @debug = debug
+        @debug = full_config[:debug] || false
+        @full_config = full_config
 
-        if ActiveRecord::version >= Gem::Version.new('6')
+        @prepared_statements = false
+        if ActiveRecord::version == Gem::Version.new('6.0.0')
           @prepared_statement_status = Concurrent::ThreadLocalVar.new(false)
-        else
-          @prepared_statements = false
         end
 
         connect
+      end
+
+      # Support SchemaMigration from v5.2.2 to v6+
+      def schema_migration # :nodoc:
+        if ActiveRecord::version >= Gem::Version.new('6')
+          super
+        else
+          ActiveRecord::SchemaMigration
+        end
+      end
+
+      def migrations_paths
+        @full_config[:migrations_paths] || 'db/migrate_clickhouse'
       end
 
       def arel_visitor # :nodoc:

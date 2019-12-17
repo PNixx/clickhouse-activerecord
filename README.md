@@ -1,6 +1,7 @@
 # Clickhouse::Activerecord
 
 A Ruby database ActiveRecord driver for ClickHouse. Support Rails >= 5.2.
+Tested on ClickHouse version 18.14.
 
 ## Installation
 
@@ -17,13 +18,10 @@ And then execute:
 Or install it yourself as:
 
     $ gem install clickhouse-activerecord
-
-## Usage
-
-Add your `database.yml` connection information with postfix `_clickhouse` for you environment:
-
+    
+## Available database connection parameters
 ```yml
-development_clickhouse:
+default: &default
   adapter: clickhouse
   database: database
   host: localhost
@@ -32,6 +30,17 @@ development_clickhouse:
   password: password
   ssl: true # optional for using ssl connection
   debug: true # use for showing in to log technical information
+  migrations_paths: db/clickhouse # optional, default: db/migrate_clickhouse
+```
+
+## Usage in Rails 5
+
+Add your `database.yml` connection information with postfix `_clickhouse` for you environment:
+
+```yml
+development_clickhouse:
+  adapter: clickhouse
+  database: database
 ```
 
 Add to your model:
@@ -56,12 +65,33 @@ Or global connection:
 development:
   adapter: clickhouse
   database: database
-  host: localhost
-  username: username
-  password: password
+```
+
+## Usage in Rails 6 with second database
+
+Add your `database.yml` connection information for you environment:
+
+```yml
+development:
+  primary:
+    ...
+    
+  clickhouse:
+    adapter: clickhouse
+    database: database
+```
+
+Connection [Multiple Databases with Active Record](https://guides.rubyonrails.org/active_record_multiple_databases.html) or short example:
+
+```ruby
+class Action < ActiveRecord::Base
+  connects_to database: { writing: :clickhouse, reading: :clickhouse }
+end
 ```
 
 ### Rake tasks
+
+**Note!** For Rails 6 you can use default rake tasks if you configure `migrations_paths` in your `database.yml`, for example: `rake db:migrate`
 
 Create / drop / purge / reset database:
  

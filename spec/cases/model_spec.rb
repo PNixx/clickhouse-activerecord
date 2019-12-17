@@ -9,7 +9,7 @@ RSpec.describe 'Model', :migrations do
 
   before do
     migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_sample_data')
-    quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
+    quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
   end
 
   let(:date) { Date.today }
