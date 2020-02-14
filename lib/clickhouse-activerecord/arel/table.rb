@@ -4,6 +4,10 @@ module ClickhouseActiverecord
       def is_view
         type_caster.is_view
       end
+
+      def from
+        ClickhouseActiverecord::Arel::SelectManager.new(self)
+      end
     end
   end
 end

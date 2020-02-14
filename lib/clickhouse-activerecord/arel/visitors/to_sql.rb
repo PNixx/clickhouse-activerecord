@@ -14,6 +14,12 @@ module ClickhouseActiverecord
           end
         end
 
+        def visit_ClichouseActiverecord_Arel_Nodes_Using o, collector
+          collector << " USING "
+          visit o.expr, collector
+          collector
+        end
+
       end
     end
   end
