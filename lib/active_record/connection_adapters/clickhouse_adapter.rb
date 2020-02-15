@@ -2,8 +2,10 @@
 
 require 'clickhouse-activerecord/arel/visitors/to_sql'
 require 'clickhouse-activerecord/arel/table'
-require 'clickhouse-activerecord/arel/select_manager'
 require 'clickhouse-activerecord/arel/nodes/using'
+require 'clickhouse-activerecord/arel/nodes/conditional_functions'
+require 'clickhouse-activerecord/arel/extensions/conditional_functions'
+require 'clickhouse-activerecord/arel/select_manager'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
 require 'active_record/connection_adapters/clickhouse/oid/big_integer'

@@ -14,10 +14,34 @@ module ClickhouseActiverecord
           end
         end
 
-        def visit_ClichouseActiverecord_Arel_Nodes_Using o, collector
+        def visit_ClickhouseActiverecord_Arel_Nodes_Using o, collector
           collector << " USING "
           visit o.expr, collector
           collector
+        end
+
+        def visit_ClickhouseActiverecord_Arel_Nodes_CountIf o, collector
+          collector << "countIf("
+          visit o.condition, collector
+          collector << ")"
+          if o.alias
+            collector << " AS "
+            visit o.alias, collector
+          else
+            collector
+          end
+        end
+
+        def visit_ClickhouseActiverecord_Arel_Nodes_SumIf o, collector
+          collector << "sumIf("
+          visit o.condition, collector
+          collector << ")"
+          if o.alias
+            collector << " AS "
+            visit o.alias, collector
+          else
+            collector
+          end
         end
 
       end

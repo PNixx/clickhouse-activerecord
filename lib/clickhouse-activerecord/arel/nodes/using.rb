@@ -1,4 +1,4 @@
-module ClichouseActiverecord
+module ClickhouseActiverecord
   module Arel
     module Nodes
       class Using < ::Arel::Nodes::Unary
