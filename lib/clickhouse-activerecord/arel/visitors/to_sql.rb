@@ -34,6 +34,7 @@ module ClickhouseActiverecord
 
         def visit_ClickhouseActiverecord_Arel_Nodes_SumIf o, collector
           collector << "sumIf("
+          collector = inject_join(o.expressions, collector, ", ")  << ","
           visit o.condition, collector
           collector << ")"
           if o.alias
