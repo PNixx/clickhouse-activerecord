@@ -44,6 +44,20 @@ module ClickhouseActiverecord
           end
         end
 
+        def visit_Arel_Nodes_Count o, collector
+          if o.expressions==[::Arel.star]
+            collector << "count()"
+            if o.alias
+              collector << " AS "
+              visit o.alias, collector
+            else
+              collector
+            end
+          else
+            super o, collector
+          end
+        end
+
       end
     end
   end
