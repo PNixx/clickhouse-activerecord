@@ -20,17 +20,28 @@ module ActiveRecord
       # Establishes a connection to the database that's used by all Active Record objects
       def clickhouse_connection(config)
         config = config.symbolize_keys
-        host = config[:host] || 'localhost'
-        port = config[:port] || 8123
-        ssl = config[:ssl].present? ? config[:ssl] : port == 443
 
-        if config.key?(:database)
-          database = config[:database]
+        raise ArgumentError, 'No database specified. Missing argument: database.' unless config.key?(:database)
+
+
+        connection_params = if config[:urls]
+          {
+              urls: config[:urls],
+              session: !!config[:session]
+          }
         else
-          raise ArgumentError, 'No database specified. Missing argument: database.'
+          {
+              host: config[:host] || 'localhost',
+              port: config[:port] || 8123,
+              ssl: config[:ssl].present? ? config[:ssl] : config[:port] == 443
+          }
         end
 
-        ConnectionAdapters::ClickhouseAdapter.new(logger, [host, port, ssl], { user: config[:username], password: config[:password], database: database }.compact, config)
+        auth_params = { user: config[:username], password: config[:password], database: config[:database] }
+        ConnectionAdapters::ClickhouseAdapter.new(logger,
+                                                  connection_params.compact,
+                                                  auth_params.compact,
+                                                  config)
       end
     end
   end
@@ -99,17 +110,22 @@ module ActiveRecord
       # Initializes and connects a Clickhouse adapter.
       def initialize(logger, connection_parameters, config, full_config)
         super(nil, logger)
-        @connection_parameters = connection_parameters
+
         @config = config
-        @debug = full_config[:debug] || false
+        @debug = !!full_config[:debug]
+        @use_session = !!full_config[:use_session]
         @full_config = full_config
+
+        if @use_session
+          config[:session_id] = generate_session_id
+        end
 
         @prepared_statements = false
         if ActiveRecord::version == Gem::Version.new('6.0.0')
           @prepared_statement_status = Concurrent::ThreadLocalVar.new(false)
         end
 
-        connect
+        connect connection_parameters
       end
 
       # Support SchemaMigration from v5.2.2 to v6+
@@ -234,9 +250,18 @@ module ActiveRecord
 
       private
 
-      def connect
-        @connection = Net::HTTP.start(@connection_parameters[0], @connection_parameters[1], use_ssl: @connection_parameters[2], verify_mode: OpenSSL::SSL::VERIFY_NONE)
+      def connect params
+        @connection = Net::HTTP.start(params[:host], params[:port],
+                                      use_ssl: params[:use_ssl],
+                                      verify_mode: OpenSSL::SSL::VERIFY_NONE)
       end
+
+      SESSIONID_LETTERS = (48..57).collect{|c| c.chr} + (65..90).collect{|c| c.chr} + (97..122).collect{|c| c.chr}
+
+      def generate_session_id
+        Array.new(30) { SESSIONID_LETTERS[rand(SESSIONID_LETTERS.size)] }.join
+      end
+
     end
   end
 end
