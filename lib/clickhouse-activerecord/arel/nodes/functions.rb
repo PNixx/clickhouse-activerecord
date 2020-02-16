@@ -2,19 +2,34 @@ module ClickhouseActiverecord
   module Arel
     module Nodes
 
-      class Function < ::Arel::Nodes::Function
-        attr_reader :condition, :funcname
-        def initialize(expr, funcname, condition, aliaz = nil)
+      class FunctionZero < ::Arel::Nodes::Function
+        attr_reader :funcname
+        def initialize(expr, funcname, aliaz = nil)
           super(expr, aliaz)
-          @condition = condition
           @funcname = funcname
         end
       end
 
-      class FunctionZero < Function
+      class FunctionOne < ::Arel::Nodes::Function
+        attr_reader :argument, :funcname
+        def initialize(expr, funcname, argument, aliaz = nil)
+          super(expr, aliaz)
+          @argument = argument
+          @funcname = funcname
+        end
       end
 
-      class FunctionOne < Function
+      class FunctionTwo < ::Arel::Nodes::Function
+        attr_reader :argument1, :argument2, :funcname
+        def initialize(expr, funcname, argument1, argument2, aliaz = nil)
+          super(expr, aliaz)
+          @argument1 = argument1
+          @argument2 = argument2
+          @funcname = funcname
+        end
+      end
+
+      class FunctionCountIf < FunctionOne
       end
 
     end

@@ -22,7 +22,7 @@ module ClickhouseActiverecord
 
         def visit_ClickhouseActiverecord_Arel_Nodes_FunctionZero o, collector
           collector << "#{o.funcname}("
-          visit o.condition, collector
+          collector = inject_join(o.expressions, collector, ", ")
           collector << ")"
           if o.alias
             collector << " AS "
@@ -35,7 +35,7 @@ module ClickhouseActiverecord
         def visit_ClickhouseActiverecord_Arel_Nodes_FunctionOne o, collector
             collector << "#{o.funcname}("
             collector = inject_join(o.expressions, collector, ", ")  << ","
-            visit o.condition, collector
+            visit o.argument, collector
             collector << ")"
             if o.alias
               collector << " AS "
@@ -43,6 +43,21 @@ module ClickhouseActiverecord
             else
               collector
             end
+        end
+
+        def visit_ClickhouseActiverecord_Arel_Nodes_FunctionTwo o, collector
+          collector << "#{o.funcname}("
+          collector = inject_join(o.expressions, collector, ", ")  << ","
+          visit o.argument1, collector
+          collector << ','
+          visit o.argument2, collector
+          collector << ")"
+          if o.alias
+            collector << " AS "
+            visit o.alias, collector
+          else
+            collector
+          end
         end
 
         def visit_Arel_Nodes_Count o, collector
@@ -59,7 +74,20 @@ module ClickhouseActiverecord
           end
         end
 
-
+        def visit_ClickhouseActiverecord_Arel_Nodes_FunctionCountIf o, collector
+          collector << "countIf("
+          unless o.expressions==[::Arel.star]
+            collector = inject_join(o.expressions, collector, ", ") << ","
+          end
+          visit o.argument, collector
+          collector << ")"
+          if o.alias
+            collector << " AS "
+            visit o.alias, collector
+          else
+            collector
+          end
+        end
 
       end
     end
