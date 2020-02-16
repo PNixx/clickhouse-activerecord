@@ -91,6 +91,45 @@ module ActiveRecord
 
     end
 
+    class Cluster
+
+      attr_reader :use_session, :urls
+      def initialize params, use_session
+        @use_session = use_session
+        @urls = params[:urls].shuffle
+        @index = -1
+      end
+
+      def post url, data, header = nil
+        connection.post url, data, header
+      end
+
+      private
+
+      def connection
+        if @connection && use_session
+          return @connection
+        else
+          return (@connection = connect!)
+        end
+      end
+
+      def connect!
+        (1..urls.count).each do |i|
+          @index = (@index + i) % urls.count
+          url = URI urls[@index]
+          begin
+            return Net::HTTP.start(url.host, url.port,
+                            use_ssl: (url.scheme=='https' || url.port==443),
+                            verify_mode: OpenSSL::SSL::VERIFY_NONE)
+          rescue Exception => ex
+            raise ex if i==urls.count-1
+          end
+        end
+      end
+
+    end
+
     class ClickhouseAdapter < AbstractAdapter
       ADAPTER_NAME = 'Clickhouse'.freeze
 
@@ -251,7 +290,9 @@ module ActiveRecord
       private
 
       def connect params
-        @connection = Net::HTTP.start(params[:host], params[:port],
+        @connection = params[:urls] ?
+                          Cluster.new(params, @use_session) :
+                          Net::HTTP.start(params[:host], params[:port],
                                       use_ssl: params[:use_ssl],
                                       verify_mode: OpenSSL::SSL::VERIFY_NONE)
       end
