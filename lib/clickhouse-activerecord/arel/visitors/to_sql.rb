@@ -20,8 +20,8 @@ module ClickhouseActiverecord
           collector
         end
 
-        def visit_ClickhouseActiverecord_Arel_Nodes_CountIf o, collector
-          collector << "countIf("
+        def visit_ClickhouseActiverecord_Arel_Nodes_FunctionZero o, collector
+          collector << "#{o.funcname}("
           visit o.condition, collector
           collector << ")"
           if o.alias
@@ -32,17 +32,17 @@ module ClickhouseActiverecord
           end
         end
 
-        def visit_ClickhouseActiverecord_Arel_Nodes_SumIf o, collector
-          collector << "sumIf("
-          collector = inject_join(o.expressions, collector, ", ")  << ","
-          visit o.condition, collector
-          collector << ")"
-          if o.alias
-            collector << " AS "
-            visit o.alias, collector
-          else
-            collector
-          end
+        def visit_ClickhouseActiverecord_Arel_Nodes_FunctionOne o, collector
+            collector << "#{o.funcname}("
+            collector = inject_join(o.expressions, collector, ", ")  << ","
+            visit o.condition, collector
+            collector << ")"
+            if o.alias
+              collector << " AS "
+              visit o.alias, collector
+            else
+              collector
+            end
         end
 
         def visit_Arel_Nodes_Count o, collector
@@ -58,6 +58,8 @@ module ClickhouseActiverecord
             super o, collector
           end
         end
+
+
 
       end
     end

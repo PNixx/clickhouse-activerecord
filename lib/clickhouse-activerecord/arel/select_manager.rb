@@ -8,15 +8,15 @@ module ClickhouseActiverecord::Arel
       end
 
       ::Arel::Nodes::SqlLiteral.class_eval do
-        include ::ClickhouseActiverecord::Arel::Extensions::ConditionalFunctions
+        include ::ClickhouseActiverecord::Arel::Extensions::Functions
       end
 
       ::Arel::Nodes::InfixOperation.class_eval do
-        include ::ClickhouseActiverecord::Arel::Extensions::ConditionalFunctions
+        include ::ClickhouseActiverecord::Arel::Extensions::Functions
       end
 
       ::Arel::Attributes::Attribute.class_eval do
-        include ::ClickhouseActiverecord::Arel::Extensions::ConditionalFunctions
+        include ::ClickhouseActiverecord::Arel::Extensions::Functions
       end
 
     end
