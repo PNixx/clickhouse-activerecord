@@ -30,7 +30,7 @@ end
 ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(
   default: {
     adapter: 'clickhouse',
-    host: 'localhost',
+    host: 'clickhouse',
     port: 8123,
     database: 'test',
     username: nil,
