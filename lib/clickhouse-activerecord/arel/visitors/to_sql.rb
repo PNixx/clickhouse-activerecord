@@ -89,6 +89,13 @@ module ClickhouseActiverecord
           end
         end
 
+        def visit_ClickhouseActiverecord_Arel_Nodes_To o, collector
+          collector << "to#{o.type}("
+          visit o.expressions, collector
+          collector << ')'
+          collector
+        end
+
       end
     end
   end

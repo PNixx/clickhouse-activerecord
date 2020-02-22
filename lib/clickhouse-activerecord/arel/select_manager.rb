@@ -41,6 +41,10 @@ module ClickhouseActiverecord::Arel
         include ::ClickhouseActiverecord::Arel::Extensions::Functions
       end
 
+      ::Arel::Nodes::Node.class_eval do
+        include ::ClickhouseActiverecord::Arel::Extensions::NodeExpressions
+      end
+
     end
 
 end
