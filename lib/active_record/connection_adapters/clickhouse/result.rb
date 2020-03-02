@@ -77,7 +77,7 @@ module ActiveRecord
           if '0000-00-00 00:00:00'==value
             nil
           else
-            Time.parse(value)
+            Time.find_zone("UTC").parse(value)
           end
         end
 
