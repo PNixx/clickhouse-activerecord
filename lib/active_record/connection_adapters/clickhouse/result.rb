@@ -29,7 +29,7 @@ module ActiveRecord
               parse_float_value value
             when /^Decimal/
               parse_decimal_value value
-            when "String", "Enum8", "Enum16", "LowCardinality(String)"
+            when "String", "Enum8", "Enum16", "LowCardinality(String)", "Nullable(String)"
               parse_string_value value
             when /FixedString\(\d+\)/
               parse_fixed_string_value value
@@ -58,7 +58,7 @@ module ActiveRecord
         end
 
         def parse_string_value(value)
-          value.force_encoding("UTF-8")
+          value && value.force_encoding("UTF-8")
         end
 
         def parse_fixed_string_value(value)
