@@ -37,7 +37,6 @@ module ClickhouseActiverecord
       verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] != "false" : true
       scope = ENV["SCOPE"]
       verbose_was, ActiveRecord::Migration.verbose = ActiveRecord::Migration.verbose, verbose
-      binding.pry
       connection.migration_context.migrate(target_version) do |migration|
         scope.blank? || scope == migration.scope
       end
