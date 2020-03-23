@@ -84,7 +84,12 @@ module ClickhouseActiverecord
           collector << "to#{o.type}("
           visit o.expressions, collector
           collector << ')'
-          collector
+          if o.alias
+            collector << " AS "
+            visit o.alias, collector
+          else
+            collector
+          end
         end
 
       end
