@@ -1,4 +1,4 @@
-# frozen_string_literal: true
+require 'active_record/connection_adapters/clickhouse/result'
 
 module ActiveRecord
   module ConnectionAdapters
@@ -16,7 +16,7 @@ module ActiveRecord
 
         def exec_query(sql, name = nil, binds = [], prepare: false)
           result = do_execute(sql, name)
-          ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'])
+          Result.new(result['meta'], result['data'], result['statistics'])
         end
 
         def exec_update(_sql, _name = nil, _binds = [])

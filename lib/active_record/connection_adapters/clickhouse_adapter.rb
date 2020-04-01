@@ -2,6 +2,12 @@
 
 require 'clickhouse-activerecord/arel/visitors/to_sql'
 require 'clickhouse-activerecord/arel/table'
+require 'clickhouse-activerecord/arel/nodes/using'
+require 'clickhouse-activerecord/arel/nodes/functions'
+require 'clickhouse-activerecord/arel/nodes/to'
+require 'clickhouse-activerecord/arel/extensions/functions'
+require 'clickhouse-activerecord/arel/extensions/node_expressions'
+require 'clickhouse-activerecord/arel/select_manager'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
 require 'active_record/connection_adapters/clickhouse/oid/big_integer'
@@ -16,17 +22,28 @@ module ActiveRecord
       # Establishes a connection to the database that's used by all Active Record objects
       def clickhouse_connection(config)
         config = config.symbolize_keys
-        host = config[:host] || 'localhost'
-        port = config[:port] || 8123
-        ssl = config[:ssl].present? ? config[:ssl] : port == 443
 
-        if config.key?(:database)
-          database = config[:database]
+        raise ArgumentError, 'No database specified. Missing argument: database.' unless config.key?(:database)
+
+
+        connection_params = if config[:urls]
+          {
+              urls: config[:urls],
+              session: !!config[:session]
+          }
         else
-          raise ArgumentError, 'No database specified. Missing argument: database.'
+          {
+              host: config[:host] || 'localhost',
+              port: config[:port] || 8123,
+              ssl: config[:ssl].present? ? config[:ssl] : config[:port] == 443
+          }
         end
 
-        ConnectionAdapters::ClickhouseAdapter.new(logger, [host, port, ssl], { user: config[:username], password: config[:password], database: database }.compact, config)
+        auth_params = { user: config[:username], password: config[:password], database: config[:database] }
+        ConnectionAdapters::ClickhouseAdapter.new(logger,
+                                                  connection_params.compact,
+                                                  auth_params.compact,
+                                                  config)
       end
     end
   end
@@ -76,6 +93,45 @@ module ActiveRecord
 
     end
 
+    class Cluster
+
+      attr_reader :use_session, :urls
+      def initialize params, use_session
+        @use_session = use_session
+        @urls = params[:urls].shuffle
+        @index = -1
+      end
+
+      def post url, data, header = nil
+        connection.post url, data, header
+      end
+
+      private
+
+      def connection
+        if @connection && use_session
+          return @connection
+        else
+          return (@connection = connect!)
+        end
+      end
+
+      def connect!
+        (1..urls.count).each do |i|
+          @index = (@index + i) % urls.count
+          url = URI urls[@index]
+          begin
+            return Net::HTTP.start(url.host, url.port,
+                            use_ssl: (url.scheme=='https' || url.port==443),
+                            verify_mode: OpenSSL::SSL::VERIFY_NONE)
+          rescue Exception => ex
+            raise ex if i==urls.count-1
+          end
+        end
+      end
+
+    end
+
     class ClickhouseAdapter < AbstractAdapter
       ADAPTER_NAME = 'Clickhouse'.freeze
 
@@ -95,17 +151,22 @@ module ActiveRecord
       # Initializes and connects a Clickhouse adapter.
       def initialize(logger, connection_parameters, config, full_config)
         super(nil, logger)
-        @connection_parameters = connection_parameters
+
         @config = config
-        @debug = full_config[:debug] || false
+        @debug = !!full_config[:debug]
+        @use_session = !!full_config[:use_session]
         @full_config = full_config
+
+        if @use_session
+          config[:session_id] = generate_session_id
+        end
 
         @prepared_statements = false
         if ActiveRecord::version == Gem::Version.new('6.0.0')
           @prepared_statement_status = Concurrent::ThreadLocalVar.new(false)
         end
 
-        connect
+        connect connection_parameters
       end
 
       # Support SchemaMigration from v5.2.2 to v6+
@@ -230,9 +291,20 @@ module ActiveRecord
 
       private
 
-      def connect
-        @connection = Net::HTTP.start(@connection_parameters[0], @connection_parameters[1], use_ssl: @connection_parameters[2], verify_mode: OpenSSL::SSL::VERIFY_NONE)
+      def connect params
+        @connection = params[:urls] ?
+                          Cluster.new(params, @use_session) :
+                          Net::HTTP.start(params[:host], params[:port],
+                                      use_ssl: params[:use_ssl],
+                                      verify_mode: OpenSSL::SSL::VERIFY_NONE)
       end
+
+      SESSIONID_LETTERS = (48..57).collect{|c| c.chr} + (65..90).collect{|c| c.chr} + (97..122).collect{|c| c.chr}
+
+      def generate_session_id
+        Array.new(30) { SESSIONID_LETTERS[rand(SESSIONID_LETTERS.size)] }.join
+      end
+
     end
   end
 end
