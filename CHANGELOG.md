@@ -1,6 +1,6 @@
 ### Version 0.3.10 (Dec 20, 2019)
 
- * Support structure dump/load
+ * Support structure dump/load [@StoneGod](https://github.com/StoneGod)
 
 ### Version 0.3.6 (Sep 2, 2019)
 

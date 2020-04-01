@@ -27,6 +27,18 @@ namespace :clickhouse do
 
   end
 
+  namespace :structure do
+    desc 'Load database structure'
+    task load: [:load_config, 'db:check_protected_environments'] do
+      ClickhouseActiverecord::Tasks.new(ActiveRecord::Base.configurations["#{Rails.env}_clickhouse"]).structure_load("#{Rails.root}/db/clickhouse_structure.sql")
+    end
+
+    desc 'Dump database structure'
+    task dump: [:load_config, 'db:check_protected_environments'] do
+      ClickhouseActiverecord::Tasks.new(ActiveRecord::Base.configurations["#{Rails.env}_clickhouse"]).structure_dump("#{Rails.root}/db/clickhouse_structure.sql")
+    end
+  end
+
   desc 'Creates the database from DATABASE_URL or config/database.yml'
   task create: [:load_config] do
     ActiveRecord::Tasks::DatabaseTasks.create(ActiveRecord::Base.configurations["#{Rails.env}_clickhouse"])

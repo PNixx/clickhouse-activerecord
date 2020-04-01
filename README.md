@@ -107,6 +107,10 @@ Migration:
     
 Rollback migration not supported!
 
+### Dump / Load for multiple using databases
+
+If you using multiple databases, for example: PostgreSQL, Clickhouse.
+
 Schema dump to `db/clickhouse_schema.rb` file:
 
     $ rake clickhouse:schema:dump
@@ -114,8 +118,23 @@ Schema dump to `db/clickhouse_schema.rb` file:
 Schema load from `db/clickhouse_schema.rb` file:
 
     $ rake clickhouse:schema:load
-    
+
 We use schema for emulate development or tests environment on PostgreSQL adapter.
+    
+Structure dump to `db/clickhouse_structure.sql` file:
+
+    $ rake clickhouse:structure:dump
+    
+Structure load from `db/clickhouse_structure.sql` file:
+
+    $ rake clickhouse:structure:load
+
+### Dump / Load for only Clickhouse database using
+
+    $ rake db:schema:dump  
+    $ rake db:schema:load  
+    $ rake db:structure:dump  
+    $ rake db:structure:load  
     
 ### Insert and select data
 
