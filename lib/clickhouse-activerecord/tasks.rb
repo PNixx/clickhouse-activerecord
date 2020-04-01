@@ -31,6 +31,21 @@ module ClickhouseActiverecord
       create
     end
 
+    def structure_dump(*args)
+      tables = connection.execute("SHOW TABLES FROM #{@configuration['database']}")['data'].flatten
+
+      File.open(args.first, 'w:utf-8') do |file|
+        tables.each do |table|
+          file.puts connection.execute("SHOW CREATE TABLE #{table}")['data'].try(:first).try(:first).gsub("#{@configuration['database']}.", '')
+          file.puts '--- SEPARATOR'
+        end
+      end
+    end
+
+    def structure_load(*args)
+      File.read(args.first).split("\n--- SEPARATOR\n").each { |sql| connection.execute(sql) }
+    end
+
     def migrate
       check_target_version
 
