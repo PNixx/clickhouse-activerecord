@@ -291,6 +291,11 @@ module ActiveRecord
         @config[:database] ? "`#{database_name}`.`#{table_name}`" : table_name
       end
 
+      def new_session!
+        @config[:session_id] = generate_session_id
+        self
+      end
+
       protected
 
       def last_inserted_id(result)
