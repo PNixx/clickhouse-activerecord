@@ -283,6 +283,14 @@ module ActiveRecord
         do_execute "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
       end
 
+      def database_name
+        @config[:database] || 'default'
+      end
+
+      def full_table_name table_name
+        @config[:database] ? "`#{database_name}`.`#{table_name}`" : table_name
+      end
+
       protected
 
       def last_inserted_id(result)
