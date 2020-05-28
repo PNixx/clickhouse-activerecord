@@ -212,6 +212,7 @@ module ActiveRecord
       def initialize_type_map(m) # :nodoc:
         super
         register_class_with_limit m, %r(String), Type::String
+        register_class_with_limit m, %r(Enum), Type::String
         register_class_with_limit m, 'Date',  Clickhouse::OID::Date
         register_class_with_limit m, 'DateTime',  Clickhouse::OID::DateTime
         register_class_with_limit m, %r(Uint8), Type::UnsignedInteger
