@@ -17,6 +17,8 @@ module ActiveRecord
         def exec_query(sql, name = nil, binds = [], prepare: false)
           result = do_execute(sql, name)
           ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'])
+        rescue StandartError => _e
+          raise ActiveRecord::ActiveRecordError, "Response: #{result}"
         end
 
         def exec_update(_sql, _name = nil, _binds = [])
@@ -79,6 +81,8 @@ module ActiveRecord
             raise ActiveRecord::ActiveRecordError,
               "Response code: #{res.code}:\n#{res.body}"
           end
+        rescue JSON::ParserError
+          res.body
         end
 
         def log_with_debug(sql, name = nil)
