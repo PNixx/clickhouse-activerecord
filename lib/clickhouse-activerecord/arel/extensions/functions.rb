@@ -6,7 +6,7 @@ module ClickhouseActiverecord::Arel::Extensions
                      'groupBitAnd','groupBitOr','groupBitXor', 'groupBitmap',
                      'groupBitmapAnd','groupBitmapOr','groupBitmapXor',
                      'skewPop','skewSamp','kurtPop','kurtSamp',
-                     'unique','uniqueExact','median','varSamp','varPop',
+                     'unique','uniqueExact','median','medianExact','varSamp','varPop',
                      'stddevSamp','stddevPop'
                     ]
 
