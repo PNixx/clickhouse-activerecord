@@ -17,7 +17,7 @@ module ActiveRecord
         def exec_query(sql, name = nil, binds = [], prepare: false)
           result = do_execute(sql, name)
           ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'])
-        rescue StandartError => _e
+        rescue StandardError => _e
           raise ActiveRecord::ActiveRecordError, "Response: #{result}"
         end
 
