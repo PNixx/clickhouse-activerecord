@@ -31,6 +31,8 @@ default: &default
   ssl: true # optional for using ssl connection
   debug: true # use for showing in to log technical information
   migrations_paths: db/clickhouse # optional, default: db/migrate_clickhouse
+  cluster: 'cluster_name' # optional for creating tables in cluster 
+  replica: '{shard}' # optional for creating system tables for shards
 ```
 
 ## Usage in Rails 5
@@ -99,6 +101,11 @@ Create / drop / purge / reset database:
     $ rake clickhouse:drop
     $ rake clickhouse:purge
     $ rake clickhouse:reset
+
+Prepare system tables for rails:
+
+    $ rake clickhouse:prepare_schema_migration_table
+    $ rake clickhouse:prepare_internal_metadata_table
     
 Migration:
 
