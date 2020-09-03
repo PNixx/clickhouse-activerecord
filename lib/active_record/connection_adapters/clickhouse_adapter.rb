@@ -202,7 +202,7 @@ module ActiveRecord
 
       # Create a new ClickHouse database.
       def create_database(name)
-        sql = "CREATE DATABASE #{quote_table_name(name)}"
+        sql = apply_cluster "CREATE DATABASE #{quote_table_name(name)}"
         log_with_debug(sql, adapter_name) do
           res = @connection.post("/?#{@config.except(:database).to_param}", "CREATE DATABASE #{quote_table_name(name)}")
           process_response(res)
@@ -210,21 +210,16 @@ module ActiveRecord
       end
 
       def create_table(table_name, comment: nil, **options)
-        cluster = pool.spec.config[:cluster]
-        if cluster.nil?
-          super
-        else
-          super(
-            "#{table_name} ON CLUSTER #{cluster}",
-            comment: comment,
-            **options
-          )
-        end
+        super(
+          apply_cluster(table_name),
+          comment: comment,
+          **options
+        )
       end
 
       # Drops a ClickHouse database.
       def drop_database(name) #:nodoc:
-        sql = "DROP DATABASE IF EXISTS #{quote_table_name(name)}"
+        sql = apply_cluster "DROP DATABASE IF EXISTS #{quote_table_name(name)}"
         log_with_debug(sql, adapter_name) do
           res = @connection.post("/?#{@config.except(:database).to_param}", sql)
           process_response(res)
@@ -232,7 +227,7 @@ module ActiveRecord
       end
 
       def drop_table(table_name, options = {}) # :nodoc:
-        do_execute "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
+        do_execute apply_cluster "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
       end
 
       protected
@@ -245,6 +240,14 @@ module ActiveRecord
 
       def connect
         @connection = Net::HTTP.start(@connection_parameters[0], @connection_parameters[1], use_ssl: @connection_parameters[2], verify_mode: OpenSSL::SSL::VERIFY_NONE)
+      end
+
+      def cluster
+        @full_config[:cluster]
+      end
+
+      def apply_cluster(sql)
+        cluster ? "#{sql} ON CLUSTER #{cluster}" : sql
       end
     end
   end
