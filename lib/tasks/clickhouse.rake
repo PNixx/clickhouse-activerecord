@@ -3,7 +3,7 @@
 namespace :clickhouse do
 
   task prepare_schema_migration_table: :environment do
-    cluster, database, replica = ActiveRecord::Base.connection_config.values_at(:cluster, :database, :replica)
+    cluster, database, replica = ActiveRecord::Base.connection_config.values_at(:cluster, :database, :clickhouse_replica)
     return if cluster.nil?
 
     connection = ActiveRecord::Base.connection
@@ -34,7 +34,7 @@ namespace :clickhouse do
   end
 
   task prepare_internal_metadata_table: :environment do
-    cluster, database, replica = ActiveRecord::Base.connection_config.values_at(:cluster, :database, :replica)
+    cluster, database, replica = ActiveRecord::Base.connection_config.values_at(:cluster, :database, :clickhouse_replica)
     return if cluster.nil?
 
     connection = ActiveRecord::Base.connection

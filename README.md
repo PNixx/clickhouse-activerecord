@@ -32,7 +32,7 @@ default: &default
   debug: true # use for showing in to log technical information
   migrations_paths: db/clickhouse # optional, default: db/migrate_clickhouse
   cluster: 'cluster_name' # optional for creating tables in cluster 
-  replica: '{shard}' # optional for creating system tables for shards
+  clickhouse_replica: '{shard}' # optional for creating system tables for shards
 ```
 
 ## Usage in Rails 5
