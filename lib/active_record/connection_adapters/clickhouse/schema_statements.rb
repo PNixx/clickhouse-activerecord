@@ -67,6 +67,26 @@ module ActiveRecord
           end
         end
 
+        def assume_migrated_upto_version(version, migrations_paths = nil)
+          version = version.to_i
+          sm_table = quote_table_name(schema_migration.table_name)
+
+          migrated = migration_context.get_all_versions
+          versions = migration_context.migrations.map(&:version)
+
+          unless migrated.include?(version)
+            exec_insert "INSERT INTO #{sm_table} (version) VALUES (#{quote(version.to_s)})", nil, nil
+          end
+
+          inserting = (versions - migrated).select { |v| v < version }
+          if inserting.any?
+            if (duplicate = inserting.detect { |v| inserting.count(v) > 1 })
+              raise "Duplicate migration #{duplicate}. Please renumber your migrations to resolve the conflict."
+            end
+            execute insert_versions_sql(inserting)
+          end
+        end
+
         private
 
         def apply_format(sql, format)
@@ -95,11 +115,7 @@ module ActiveRecord
         end
 
         def create_table_definition(*args)
-          if ActiveRecord::version >= Gem::Version.new('6')
-            Clickhouse::TableDefinition.new(self, *args)
-          else
-            Clickhouse::TableDefinition.new(*args)
-          end
+          Clickhouse::TableDefinition.new(self, *args)
         end
 
         def new_column_from_field(table_name, field)

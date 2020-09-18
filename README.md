@@ -1,7 +1,7 @@
 # Clickhouse::Activerecord
 
 A Ruby database ActiveRecord driver for ClickHouse. Support Rails >= 5.2.
-Tested on ClickHouse version 18.14.
+Support ClickHouse version from 19.14 LTS.
 
 ## Installation
 
@@ -31,8 +31,8 @@ default: &default
   ssl: true # optional for using ssl connection
   debug: true # use for showing in to log technical information
   migrations_paths: db/clickhouse # optional, default: db/migrate_clickhouse
-  cluster: 'cluster_name' # optional for creating tables in cluster 
-  replica: '{shard}' # optional for creating system tables for shards
+  cluster_name: 'cluster_name' # optional for creating tables in cluster 
+  replica_name: '{replica}' # replica macros name, optional for creating replicated tables
 ```
 
 ## Usage in Rails 5
@@ -111,8 +111,7 @@ Migration:
 
     $ rails g clickhouse_migration MIGRATION_NAME COLUMNS
     $ rake clickhouse:migrate
-    
-Rollback migration not supported!
+    $ rake clickhouse:rollback
 
 ### Dump / Load for multiple using databases
 
@@ -158,6 +157,19 @@ ActionView.maximum(:date)
 # Clickhouse (10.3ms)  SELECT maxMerge(actions.date) FROM actions
 #=> 'Wed, 29 Nov 2017'
 ```
+
+### Using replica and cluster params in connection parameters
+
+```yml
+default: &default
+  ***
+  cluster_name: 'cluster_name'
+  replica_name: '{replica}'
+```
+
+`ON CLUSTER cluster_name` will be attach to all queries create / drop.
+
+Engines `MergeTree` and all support replication engines will be replaced to `Replicated***('/clickhouse/tables/cluster_name/database.table', '{replica}')`
 
 ## Donations
 

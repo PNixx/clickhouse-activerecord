@@ -2,6 +2,7 @@
 
 require 'clickhouse-activerecord/arel/visitors/to_sql'
 require 'clickhouse-activerecord/arel/table'
+require 'clickhouse-activerecord/migration'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
 require 'active_record/connection_adapters/clickhouse/oid/big_integer'
@@ -110,15 +111,15 @@ module ActiveRecord
 
       # Support SchemaMigration from v5.2.2 to v6+
       def schema_migration # :nodoc:
-        if ActiveRecord::version >= Gem::Version.new('6')
-          super
-        else
-          ActiveRecord::SchemaMigration
-        end
+        ClickhouseActiverecord::SchemaMigration
       end
 
       def migrations_paths
         @full_config[:migrations_paths] || 'db/migrate_clickhouse'
+      end
+
+      def migration_context # :nodoc:
+        ClickhouseActiverecord::MigrationContext.new(migrations_paths, schema_migration)
       end
 
       def arel_visitor # :nodoc:
@@ -209,12 +210,29 @@ module ActiveRecord
         end
       end
 
-      def create_table(table_name, comment: nil, **options)
-        super(
-          apply_cluster(table_name),
-          comment: comment,
-          **options
-        )
+      def create_view(table_name, **options)
+        options.merge!(view: true)
+        options = apply_replica(table_name, options)
+        td = create_table_definition(table_name, options)
+        yield td if block_given?
+
+        if options[:force]
+          drop_table(table_name, options.merge(if_exists: true))
+        end
+
+        execute schema_creation.accept td
+      end
+
+      def create_table(table_name, **options)
+        options = apply_replica(table_name, options)
+        td = create_table_definition(table_name, options)
+        yield td if block_given?
+
+        if options[:force]
+          drop_table(table_name, options.merge(if_exists: true))
+        end
+
+        execute schema_creation.accept td
       end
 
       # Drops a ClickHouse database.
@@ -230,6 +248,22 @@ module ActiveRecord
         do_execute apply_cluster "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
       end
 
+      def cluster
+        @full_config[:cluster_name]
+      end
+
+      def replica
+        @full_config[:replica_name]
+      end
+
+      def replica_path(table)
+        "/clickhouse/tables/#{cluster}/#{@config[:database]}.#{table}"
+      end
+
+      def apply_cluster(sql)
+        cluster ? "#{sql} ON CLUSTER #{cluster}" : sql
+      end
+
       protected
 
       def last_inserted_id(result)
@@ -242,12 +276,14 @@ module ActiveRecord
         @connection = Net::HTTP.start(@connection_parameters[0], @connection_parameters[1], use_ssl: @connection_parameters[2], verify_mode: OpenSSL::SSL::VERIFY_NONE)
       end
 
-      def cluster
-        @full_config[:cluster]
-      end
-
-      def apply_cluster(sql)
-        cluster ? "#{sql} ON CLUSTER #{cluster}" : sql
+      def apply_replica(table, options)
+        if replica && cluster
+          match = options[:options].match(/^(.*?MergeTree)\(([^\)]*)\)(.*?)$/)
+          if match
+            options[:options] = "Replicated#{match[1]}(#{([replica_path(table), replica].map{|v| "'#{v}'"} + [match[2].presence]).compact.join(', ')})#{match[3]}"
+          end
+        end
+        options
       end
     end
   end

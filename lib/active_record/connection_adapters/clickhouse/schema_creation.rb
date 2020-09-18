@@ -27,6 +27,26 @@ module ActiveRecord
 
           create_sql
         end
+
+        def visit_TableDefinition(o)
+          create_sql = +"CREATE#{table_modifier_in_create(o)} #{o.view ? "VIEW" : "TABLE"} "
+          create_sql << "IF NOT EXISTS " if o.if_not_exists
+          create_sql << "#{quote_table_name(o.name)} "
+
+          statements = o.columns.map { |c| accept c }
+          statements << accept(o.primary_keys) if o.primary_keys
+
+          create_sql << "(#{statements.join(', ')})" if statements.present?
+          add_table_options!(create_sql, table_options(o))
+          create_sql << " AS #{to_sql(o.as)}" if o.as
+          create_sql
+        end
+
+        # Returns any SQL string to go between CREATE and TABLE. May be nil.
+        def table_modifier_in_create(o)
+          " TEMPORARY" if o.temporary
+          " MATERIALIZED" if o.materialized
+        end
       end
     end
   end

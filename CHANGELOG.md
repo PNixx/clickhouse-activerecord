@@ -1,3 +1,9 @@
+### Version 0.4.0 (Sep 18, 2020)
+
+ * Full support migration and rollback database
+ * Support cluster and replica. Auto inject to SQL queries.
+ * Fix schema dump/load
+
 ### Version 0.3.10 (Dec 20, 2019)
 
  * Support structure dump/load [@StoneGod](https://github.com/StoneGod)
