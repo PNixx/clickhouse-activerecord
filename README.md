@@ -125,7 +125,11 @@ Schema load from `db/clickhouse_schema.rb` file:
 
     $ rake clickhouse:schema:load
 
-We use schema for emulate development or tests environment on PostgreSQL adapter.
+For export schema to PostgreSQL, you need use:
+
+    $ rake clickhouse:schema:dump -- --simple
+
+Schema will be dump to `db/clickhouse_schema_simple.rb`. If default file exists, it will be auto update after migration.
     
 Structure dump to `db/clickhouse_structure.sql` file:
 

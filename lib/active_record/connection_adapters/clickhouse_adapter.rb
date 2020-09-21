@@ -244,6 +244,10 @@ module ActiveRecord
         end
       end
 
+      def rename_table(table_name, new_name)
+        do_execute apply_cluster "RENAME TABLE #{quote_table_name(table_name)} TO #{quote_table_name(new_name)}"
+      end
+
       def drop_table(table_name, options = {}) # :nodoc:
         do_execute apply_cluster "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
       end
@@ -277,7 +281,7 @@ module ActiveRecord
       end
 
       def apply_replica(table, options)
-        if replica && cluster
+        if replica && cluster && options[:options]
           match = options[:options].match(/^(.*?MergeTree)\(([^\)]*)\)(.*?)$/)
           if match
             options[:options] = "Replicated#{match[1]}(#{([replica_path(table), replica].map{|v| "'#{v}'"} + [match[2].presence]).compact.join(', ')})#{match[3]}"

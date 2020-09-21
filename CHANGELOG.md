@@ -3,6 +3,7 @@
  * Full support migration and rollback database
  * Support cluster and replica. Auto inject to SQL queries.
  * Fix schema dump/load
+ * Can dump schema for using PostgreSQL
 
 ### Version 0.3.10 (Dec 20, 2019)
 

@@ -1,6 +1,19 @@
 module ClickhouseActiverecord
   class SchemaDumper < ::ActiveRecord::ConnectionAdapters::SchemaDumper
 
+    attr_accessor :simple
+
+    class << self
+      def dump(connection = ActiveRecord::Base.connection, stream = STDOUT, config = ActiveRecord::Base, default = false)
+        dumper = connection.create_schema_dumper(generate_options(config))
+        dumper.simple = default
+        dumper.dump(stream)
+        stream
+      end
+    end
+
+    private
+
     def header(stream)
       stream.puts <<HEADER
 # This file is auto-generated from the current state of the database. Instead
@@ -8,27 +21,29 @@ module ClickhouseActiverecord
 # incrementally modify your database, and then regenerate this schema definition.
 #
 # This file is the source Rails uses to define your schema when running `rails
-# clickhouse:schema:load`. When creating a new database, `rails clickhouse:schema:load` tends to
+# #{simple ? 'db' : 'clickhouse'}:schema:load`. When creating a new database, `rails #{simple ? 'db' : 'clickhouse'}:schema:load` tends to
 # be faster and is potentially less error prone than running all of your
 # migrations from scratch. Old migrations may fail to apply correctly if those
 # migrations use external dependencies or application code.
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ClickhouseActiverecord::Schema.define(#{define_params}) do
+#{simple ? 'ActiveRecord' : 'ClickhouseActiverecord'}::Schema.define(#{define_params}) do
 
 HEADER
     end
 
     def table(table, stream)
       if table.match(/^\.inner\./).nil?
-        stream.puts "  # TABLE: #{table}"
-        sql = @connection.do_system_execute("SHOW CREATE TABLE `#{table.gsub(/^\.inner\./, '')}`")['data'].try(:first).try(:first)
-        stream.puts "  # SQL: #{sql.gsub(/ENGINE = Replicated(.*?)\('[^']+',\s*'[^']+',?\s?([^\)]*)?\)/, "ENGINE = \\1(\\2)")}" if sql
-        # super(table.gsub(/^\.inner\./, ''), stream)
+        unless simple
+          stream.puts "  # TABLE: #{table}"
+          sql = @connection.do_system_execute("SHOW CREATE TABLE `#{table.gsub(/^\.inner\./, '')}`")['data'].try(:first).try(:first)
+          stream.puts "  # SQL: #{sql.gsub(/ENGINE = Replicated(.*?)\('[^']+',\s*'[^']+',?\s?([^\)]*)?\)/, "ENGINE = \\1(\\2)")}" if sql
+          # super(table.gsub(/^\.inner\./, ''), stream)
 
-        # detect view table
-        match = sql.match(/^CREATE\s+(MATERIALIZED)\s+VIEW/)
+          # detect view table
+          match = sql.match(/^CREATE\s+(MATERIALIZED)\s+VIEW/)
+        end
 
         # Copy from original dumper
         columns = @connection.columns(table)
@@ -40,9 +55,11 @@ HEADER
 
           tbl.print "  create_table #{remove_prefix_and_suffix(table).inspect}"
 
-          # Add materialize flag
-          tbl.print ', view: true' if match
-          tbl.print ', materialized: true' if match && match[1].presence
+          unless simple
+            # Add materialize flag
+            tbl.print ', view: true' if match
+            tbl.print ', materialized: true' if match && match[1].presence
+          end
 
           case pk
           when String
@@ -58,9 +75,11 @@ HEADER
             tbl.print ", id: false"
           end
 
-          table_options = @connection.table_options(table)
-          if table_options.present?
-            tbl.print ", #{format_options(table_options)}"
+          unless simple
+            table_options = @connection.table_options(table)
+            if table_options.present?
+              tbl.print ", #{format_options(table_options)}"
+            end
           end
 
           tbl.puts ", force: :cascade do |t|"
@@ -95,6 +114,14 @@ HEADER
         options[:options] = options[:options].gsub(/^Replicated(.*?)\('[^']+',\s*'[^']+',?\s?([^\)]*)?\)/, "\\1(\\2)")
       end
       super
+    end
+
+    def format_colspec(colspec)
+      if simple
+        super.gsub(/CAST\(([^,]+),.*?\)/, "\\1")
+      else
+        super
+      end
     end
   end
 end
