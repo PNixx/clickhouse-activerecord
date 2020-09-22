@@ -73,7 +73,7 @@ namespace :clickhouse do
   desc 'Migrate the clickhouse database'
   task migrate: [:load_config, :prepare_schema_migration_table, :prepare_internal_metadata_table] do
     Rake::Task['db:migrate'].execute
-    if File.exists? "#{Rails.root}/db/clickhouse_schema_default.rb"
+    if File.exists? "#{Rails.root}/db/clickhouse_schema_simple.rb"
       Rake::Task['clickhouse:schema:dump'].execute(simple: true)
     end
   end
