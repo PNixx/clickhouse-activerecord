@@ -118,7 +118,7 @@ HEADER
 
     def format_colspec(colspec)
       if simple
-        super.gsub(/CAST\(([^,]+),.*?\)/, "\\1")
+        super.gsub(/CAST\('?([^,']*)'?,\s?'.*?'\)/, "\\1")
       else
         super
       end

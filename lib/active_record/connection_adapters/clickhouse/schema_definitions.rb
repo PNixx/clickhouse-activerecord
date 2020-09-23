@@ -28,7 +28,7 @@ module ActiveRecord
           @if_not_exists = if_not_exists
           @options = options
           @as = as
-          @name = @conn.apply_cluster(name)
+          @name = name
           @comment = comment
           @view = view || materialized
           @materialized = materialized

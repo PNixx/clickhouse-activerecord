@@ -6,15 +6,17 @@ module ActiveRecord
       class SchemaCreation < AbstractAdapter::SchemaCreation# :nodoc:
 
         def visit_AddColumnDefinition(o)
-          +"ADD COLUMN #{accept(o.column)}"
+          sql = +"ADD COLUMN #{accept(o.column)}"
+          sql << " AFTER " + quote_column_name(o.column.options[:after]) if o.column.options.key?(:after)
+          sql
         end
 
         def add_column_options!(sql, options)
-          sql << " DEFAULT #{quote_default_expression(options[:default], options[:column])}" if options_include_default?(options)
           if options[:null] || options[:null].nil?
             sql.gsub!(/\s+(.*)/, ' Nullable(\1)')
           end
           sql.gsub!(/(\sString)\(\d+\)/, '\1')
+          sql << " DEFAULT #{quote_default_expression(options[:default], options[:column])}" if options_include_default?(options)
           sql
         end
 
@@ -47,6 +49,25 @@ module ActiveRecord
           " TEMPORARY" if o.temporary
           " MATERIALIZED" if o.materialized
         end
+
+        def visit_ChangeColumnDefinition(o)
+          column = o.column
+          column.sql_type = type_to_sql(column.type, column.options)
+          options = column_options(column)
+
+          quoted_column_name = quote_column_name(o.name)
+          type = column.sql_type
+          type = "Nullable(#{type})" if options[:null]
+          change_column_sql = +"MODIFY COLUMN #{quoted_column_name} #{type}"
+
+          if options.key?(:default)
+            quoted_default = quote_default_expression(options[:default], column)
+            change_column_sql << " DEFAULT #{quoted_default}"
+          end
+
+          change_column_sql
+        end
+
       end
     end
   end

@@ -1,4 +1,4 @@
-### Version 0.4.0 (Sep 18, 2020)
+### Version 0.4.4 (Sep 23, 2020)
 
  * Full support migration and rollback database
  * Support cluster and replica. Auto inject to SQL queries.

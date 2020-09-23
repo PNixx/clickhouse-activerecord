@@ -205,7 +205,7 @@ module ActiveRecord
       def create_database(name)
         sql = apply_cluster "CREATE DATABASE #{quote_table_name(name)}"
         log_with_debug(sql, adapter_name) do
-          res = @connection.post("/?#{@config.except(:database).to_param}", "CREATE DATABASE #{quote_table_name(name)}")
+          res = @connection.post("/?#{@config.except(:database).to_param}", sql)
           process_response(res)
         end
       end
@@ -213,7 +213,7 @@ module ActiveRecord
       def create_view(table_name, **options)
         options.merge!(view: true)
         options = apply_replica(table_name, options)
-        td = create_table_definition(table_name, options)
+        td = create_table_definition(apply_cluster(table_name), options)
         yield td if block_given?
 
         if options[:force]
@@ -225,7 +225,7 @@ module ActiveRecord
 
       def create_table(table_name, **options)
         options = apply_replica(table_name, options)
-        td = create_table_definition(table_name, options)
+        td = create_table_definition(apply_cluster(table_name), options)
         yield td if block_given?
 
         if options[:force]
@@ -252,6 +252,21 @@ module ActiveRecord
         do_execute apply_cluster "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
       end
 
+      def change_column(table_name, column_name, type, options = {})
+        result = do_execute "ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, options)}"
+        raise "Error parse json response: #{result}" if result.presence && !result.is_a?(Hash)
+      end
+
+      def change_column_null(table_name, column_name, null, default = nil)
+        structure = table_structure(table_name).select{|v| v[0] == column_name.to_s}.first
+        raise "Column #{column_name} not found in table #{table_name}" if structure.nil?
+        change_column table_name, column_name, structure[1].gsub(/(Nullable\()?(.*?)\)?/, '\2'), {null: null, default: default}.compact
+      end
+
+      def change_column_default(table_name, column_name, default)
+        change_column table_name, column_name, nil, {default: default}.compact
+      end
+
       def cluster
         @full_config[:cluster_name]
       end
@@ -272,6 +287,12 @@ module ActiveRecord
 
       def last_inserted_id(result)
         result
+      end
+
+      def change_column_for_alter(table_name, column_name, type, options = {})
+        td = create_table_definition(table_name)
+        cd = td.new_column_definition(column_name, type, options)
+        schema_creation.accept(ChangeColumnDefinition.new(cd, column_name))
       end
 
       private
