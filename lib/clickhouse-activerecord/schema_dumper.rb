@@ -85,13 +85,15 @@ HEADER
           tbl.puts ", force: :cascade do |t|"
 
           # then dump all non-primary key columns
-          columns.each do |column|
-            raise StandardError, "Unknown type '#{column.sql_type}' for column '#{column.name}'" unless @connection.valid_type?(column.type)
-            next if column.name == pk
-            type, colspec = column_spec(column)
-            tbl.print "    t.#{type} #{column.name.inspect}"
-            tbl.print ", #{format_colspec(colspec)}" if colspec.present?
-            tbl.puts
+          if simple || !match
+            columns.each do |column|
+              raise StandardError, "Unknown type '#{column.sql_type}' for column '#{column.name}'" unless @connection.valid_type?(column.type)
+              next if column.name == pk
+              type, colspec = column_spec(column)
+              tbl.print "    t.#{type} #{column.name.inspect}"
+              tbl.print ", #{format_colspec(colspec)}" if colspec.present?
+              tbl.puts
+            end
           end
 
           indexes_in_create(table, tbl)

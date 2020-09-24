@@ -156,6 +156,8 @@ module ActiveRecord
           when "true".freeze, "false".freeze
             default
             # Object identifier types
+          when "''"
+            ''
           when /\A-?\d+\z/
             $1
           else
