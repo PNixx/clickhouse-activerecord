@@ -283,6 +283,19 @@ module ActiveRecord
         cluster ? "#{sql} ON CLUSTER #{cluster}" : sql
       end
 
+      def supports_insert_on_duplicate_skip?
+        true
+      end
+
+      def supports_insert_on_duplicate_update?
+        true
+      end
+
+      def build_insert_sql(insert) # :nodoc:
+        sql = +"INSERT #{insert.into} #{insert.values_list}"
+        sql
+      end
+
       protected
 
       def last_inserted_id(result)
