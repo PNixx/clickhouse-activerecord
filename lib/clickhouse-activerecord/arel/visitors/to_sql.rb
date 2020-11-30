@@ -92,6 +92,18 @@ module ClickhouseActiverecord
           end
         end
 
+        def visit_Arel_Nodes_SelectOptions(o, collector)
+          collector = maybe_visit o.limit_by, collector
+          collector = maybe_visit o.limit, collector
+          collector = maybe_visit o.offset, collector
+          maybe_visit o.lock, collector
+        end
+
+        def visit_ClickhouseActiverecord_Arel_Nodes_LimitBy o, collector
+          collector << "LIMIT #{o.offset},#{o.limit} BY "
+          visit o.expr, collector
+        end
+
       end
     end
   end

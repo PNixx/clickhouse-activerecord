@@ -3,8 +3,15 @@ module ClickhouseActiverecord::Arel
     class SelectManager < ::Arel::SelectManager
 
       def initialize(table = nil)
-        super
+        @ast   =  SelectStatement.new
+        @ctx    = @ast.cores.last
+        from table
         @columns_grouped = []
+      end
+
+      def limit_by by, limit, offset
+        @ast.limit_by = Nodes::LimitBy.new(::Arel.sql(by), limit, offset)
+        self
       end
 
       def using(*exprs)
