@@ -97,11 +97,14 @@ module ActiveRecord
 
     class Cluster
 
+      @@index = -1
+
+
       attr_reader :use_session, :urls
+      attr_accessor :seed
       def initialize params, use_session
         @use_session = use_session
-        @urls = params[:urls].shuffle
-        @index = -1
+        @urls = params[:urls]
       end
 
       def post url, data, header = nil
@@ -119,17 +122,31 @@ module ActiveRecord
       end
 
       def connect!
-        (1..urls.count).each do |i|
-          @index = (@index + i) % urls.count
-          url = URI urls[@index]
+
+        if seed
           begin
-            return Net::HTTP.start(url.host, url.port,
-                            use_ssl: (url.scheme=='https' || url.port==443),
-                            verify_mode: OpenSSL::SSL::VERIFY_NONE)
+            return try_to_connect (seed % urls.count)
+          rescue Exception => ex
+            raise ex if urls.count==1
+          end
+        end
+
+        (1..urls.count).each do |i|
+          @@index = (@@index + i) % urls.count
+          begin
+            return try_to_connect(@@index)
           rescue Exception => ex
             raise ex if i==urls.count-1
           end
         end
+
+      end
+
+      def try_to_connect(connection_index)
+        url = URI urls[connection_index]
+        return Net::HTTP.start(url.host, url.port,
+                               use_ssl: (url.scheme == 'https' || url.port == 443),
+                               verify_mode: OpenSSL::SSL::VERIFY_NONE)
       end
 
     end
@@ -297,6 +314,12 @@ module ActiveRecord
       def new_session!
         @config[:session_id] = generate_session_id
         self
+      end
+
+      def seed= seed
+        if @connection.kind_of? Cluster
+          @connection.seed = seed
+        end
       end
 
       protected
