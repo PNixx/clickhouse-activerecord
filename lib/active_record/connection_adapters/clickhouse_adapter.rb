@@ -201,6 +201,12 @@ module ActiveRecord
         ClickhouseActiverecord::SchemaDumper.create(self, options)
       end
 
+      # @param [String] table
+      # @return [String]
+      def show_create_table(table)
+        do_system_execute("SHOW CREATE TABLE `#{table}`")['data'].try(:first).try(:first).gsub(/[\n\s]+/m, ' ')
+      end
+
       # Create a new ClickHouse database.
       def create_database(name)
         sql = apply_cluster "CREATE DATABASE #{quote_table_name(name)}"

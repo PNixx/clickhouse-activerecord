@@ -36,7 +36,7 @@ module ActiveRecord
         end
 
         def table_options(table)
-          sql = do_system_execute("SHOW CREATE TABLE `#{table}`")['data'].try(:first).try(:first)
+          sql = show_create_table(table)
           { options: sql.gsub(/^(?:.*?)ENGINE = (.*?)$/, '\\1') }
         end
 
