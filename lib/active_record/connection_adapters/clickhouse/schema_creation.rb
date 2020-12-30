@@ -1,9 +1,16 @@
 # frozen_string_literal: true
+begin
+  require "active_record/connection_adapters/deduplicable"
+rescue LoadError => e
+  # Rails < 6.1 does not have this file in this location, ignore
+end
+
+require "active_record/connection_adapters/abstract/schema_creation"
 
 module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
-      class SchemaCreation < AbstractAdapter::SchemaCreation# :nodoc:
+      class SchemaCreation < ConnectionAdapters::SchemaCreation# :nodoc:
 
         def visit_AddColumnDefinition(o)
           sql = +"ADD COLUMN #{accept(o.column)}"

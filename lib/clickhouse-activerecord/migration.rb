@@ -1,3 +1,5 @@
+require 'active_record/migration'
+
 module ClickhouseActiverecord
 
   class SchemaMigration < ::ActiveRecord::SchemaMigration
