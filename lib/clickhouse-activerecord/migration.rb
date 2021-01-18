@@ -1,3 +1,4 @@
+require 'active_record/migration'
 module ClickhouseActiverecord
 
   class SchemaMigration < ::ActiveRecord::SchemaMigration
@@ -16,7 +17,7 @@ module ClickhouseActiverecord
       end
 
       def all_versions
-        from("#{table_name} FINAL").where(active: 1).order(:version).pluck(:version)
+        from("#{table_name}").where(active: 1).order(:version).pluck(:version)
       end
     end
   end

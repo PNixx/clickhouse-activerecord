@@ -59,7 +59,7 @@ module ActiveRecord
 
         def do_execute(sql, name = nil, format: 'JSONCompact', settings: {})
           log(sql, "#{adapter_name} #{name}") do
-            formatted_sql = apply_format(sql, format)
+            formatted_sql = apply_format(sql, format)#.sub("FINAL", "")
             request_params = @config || {}
             res = @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql)
 
