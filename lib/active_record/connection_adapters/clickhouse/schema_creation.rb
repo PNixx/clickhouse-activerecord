@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
+require 'active_record/connection_adapters/abstract_adapter'
 module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
-      class SchemaCreation < AbstractAdapter::SchemaCreation# :nodoc:
+      class SchemaCreation < ConnectionAdapters::SchemaCreation
 
         def visit_AddColumnDefinition(o)
           sql = +"ADD COLUMN #{accept(o.column)}"
@@ -39,7 +40,7 @@ module ActiveRecord
           statements << accept(o.primary_keys) if o.primary_keys
 
           create_sql << "(#{statements.join(', ')})" if statements.present?
-          add_table_options!(create_sql, table_options(o))
+          add_table_options!(create_sql, o)
           create_sql << " AS #{to_sql(o.as)}" if o.as
           create_sql
         end
