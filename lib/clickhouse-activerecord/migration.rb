@@ -17,7 +17,9 @@ module ClickhouseActiverecord
       end
 
       def all_versions
-        from("#{table_name}").where(active: 1).order(:version).pluck(:version)
+        active = from("#{table_name}").where(active: 1).order(:version).pluck(:version)
+        rollbacked = from("#{table_name}").order(:version).group_by(&:version).filter { _2.last.active.zero? }.keys.map(&:to_s)
+        active.reject { _1.in?(rollbacked) }
       end
     end
   end
