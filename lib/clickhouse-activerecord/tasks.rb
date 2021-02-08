@@ -6,7 +6,7 @@ module ClickhouseActiverecord
     delegate :connection, :establish_connection, :clear_active_connections!, to: ActiveRecord::Base
 
     def initialize(configuration)
-      @configuration = configuration
+      @configuration = configuration.with_indifferent_access
     end
 
     def create
