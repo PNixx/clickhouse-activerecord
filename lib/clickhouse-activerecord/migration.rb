@@ -10,7 +10,7 @@ module ClickhouseActiverecord
           version_options = connection.internal_string_options_for_primary_key
 
           connection.create_table(table_name, id: false, options: 'ReplacingMergeTree(ver) PARTITION BY version ORDER BY (version)', if_not_exists: true) do |t|
-            t.string :version, version_options
+            t.string :version, **version_options
             t.column :active, 'Int8', null: false, default: '1'
             t.datetime :ver, null: false, default: -> { 'now()' }
           end
