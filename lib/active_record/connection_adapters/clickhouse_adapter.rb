@@ -117,7 +117,9 @@ module ActiveRecord
         if @connection && use_session
           return @connection
         else
-          return (@connection = connect!)
+          c = connect!
+          puts c.address
+          return (@connection = c)
         end
       end
 
