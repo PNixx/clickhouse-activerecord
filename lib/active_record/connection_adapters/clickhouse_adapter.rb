@@ -118,7 +118,6 @@ module ActiveRecord
           return @connection
         else
           c = connect!
-          puts c.address
           return (@connection = c)
         end
       end
