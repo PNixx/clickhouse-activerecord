@@ -1,7 +1,7 @@
 # Clickhouse::Activerecord
 
 A Ruby database ActiveRecord driver for ClickHouse. Support Rails >= 5.2.
-Support ClickHouse version from 19.14 LTS.
+Support ClickHouse version from 20.9 LTS.
 
 ## Installation
 
@@ -170,10 +170,10 @@ false`. The default integer is `UInt32`
 
 | Type (bit size)    | Range | :limit (byte size) |
 | :---        |    :----:   |          ---: |
-| Int8 | -128 to 127 | limit: 1 | 
+| Int8 | -128 to 127 | 1 | 
 | Int16 | -32768 to 32767 | 2 |
-| Int32 | -2147483648 to 2,147,483,647 | 3, 4 |
-| Int64 | -9223372036854775808 to 9223372036854775807] |  5,6,7, 8 |
+| Int32 | -2147483648 to 2,147,483,647 | 3,4 |
+| Int64 | -9223372036854775808 to 9223372036854775807] |  5,6,7,8 |
 | Int128 | ... | 9 - 15 |
 | Int256 | ... | 16+ |
 | UInt8 | 0 to 255 | 1 |

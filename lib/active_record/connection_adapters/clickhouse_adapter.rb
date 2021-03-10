@@ -88,7 +88,7 @@ module ActiveRecord
         datetime: { name: 'DateTime' },
         date: { name: 'Date' },
         boolean: { name: 'UInt8' },
-                               
+
         int8:  { name: 'Int8' },
         int16: { name: 'Int16' },
         int32: { name: 'Int32' },
@@ -152,10 +152,12 @@ module ActiveRecord
           when /(Nullable)?\(?String\)?/
             super('String')
           when /(Nullable)?\(?U?Int8\)?/
-            super('int2')
-          when /(Nullable)?\(?U?Int(16|32)\)?/
-            super('int4')
-          when /(Nullable)?\(?U?Int(64)\)?/
+            1
+          when /(Nullable)?\(?U?Int16\)?/
+            2
+          when /(Nullable)?\(?U?Int32\)?/
+            nil
+          when /(Nullable)?\(?U?Int64\)?/
             8
           else
             super
@@ -167,25 +169,20 @@ module ActiveRecord
         register_class_with_limit m, %r(String), Type::String
         register_class_with_limit m, 'Date',  Clickhouse::OID::Date
         register_class_with_limit m, 'DateTime',  Clickhouse::OID::DateTime
-        
+
         register_class_with_limit m, %r(Int8), Type::Integer
         register_class_with_limit m, %r(Int16), Type::Integer
         register_class_with_limit m, %r(Int32), Type::Integer
         register_class_with_limit m, %r(Int64), Type::Integer
         register_class_with_limit m, %r(Int128), Type::Integer
         register_class_with_limit m, %r(Int256), Type::Integer
-        
+
         register_class_with_limit m, %r(Uint8), Type::UnsignedInteger
         register_class_with_limit m, %r(UInt16), Type::UnsignedInteger
         register_class_with_limit m, %r(UInt32), Type::UnsignedInteger
         register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
         #register_class_with_limit m, %r(UInt128), Type::UnsignedInteger #not implemnted in clickhouse
         register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
-
-        m.alias_type 'Int16', 'Int8'
-        m.alias_type 'Int32', 'Int8'
-        m.alias_type 'UInt16', 'UInt8'
-        m.alias_type 'UInt32', 'UInt8'
       end
 
       # Quoting time without microseconds

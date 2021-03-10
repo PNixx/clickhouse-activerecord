@@ -39,7 +39,9 @@ module ActiveRecord
           statements << accept(o.primary_keys) if o.primary_keys
 
           create_sql << "(#{statements.join(', ')})" if statements.present?
-          add_table_options!(create_sql, table_options(o))
+          # Attach options for only table or materialized view
+          add_table_options!(create_sql, table_options(o)) if !o.view || o.view && o.materialized
+
           create_sql << " AS #{to_sql(o.as)}" if o.as
           create_sql
         end
