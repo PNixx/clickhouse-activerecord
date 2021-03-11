@@ -1,7 +1,7 @@
 # Clickhouse::Activerecord
 
 A Ruby database ActiveRecord driver for ClickHouse. Support Rails >= 5.2.
-Support ClickHouse version from 19.14 LTS.
+Support ClickHouse version from 20.9 LTS.
 
 ## Installation
 
@@ -161,6 +161,44 @@ ActionView.maximum(:date)
 # Clickhouse (10.3ms)  SELECT maxMerge(actions.date) FROM actions
 #=> 'Wed, 29 Nov 2017'
 ```
+
+
+### Migration Data Types
+
+Integer types are unsigned by default. Specify signed values with `:unsigned =>
+false`. The default integer is `UInt32`
+
+| Type (bit size)    | Range | :limit (byte size) |
+| :---        |    :----:   |          ---: |
+| Int8 | -128 to 127 | 1 | 
+| Int16 | -32768 to 32767 | 2 |
+| Int32 | -2147483648 to 2,147,483,647 | 3,4 |
+| Int64 | -9223372036854775808 to 9223372036854775807] |  5,6,7,8 |
+| Int128 | ... | 9 - 15 |
+| Int256 | ... | 16+ |
+| UInt8 | 0 to 255 | 1 |
+| UInt16 | 0 to 65,535 | 2 |
+| UInt32 | 0 to 4,294,967,295 | 3,4 |
+| UInt64 | 0 to 18446744073709551615 | 5,6,7,8 |
+| UInt256 | 0 to ... | 8+ |
+
+Example:
+
+``` ruby
+class CreateDataItems < ActiveRecord::Migration
+  def change
+    create_table "data_items", id: false, options: "VersionedCollapsingMergeTree(sign, version) PARTITION BY toYYYYMM(day) ORDER BY category", force: :cascade do |t|
+      t.date "day", null: false
+      t.string "category", null: false
+      t.integer "value_in", null: false
+      t.integer "sign", limit: 1, unsigned: false, default: -> { "CAST(1, 'Int8')" }, null: false
+      t.integer "version", limit: 8, default: -> { "CAST(toUnixTimestamp(now()), 'UInt64')" }, null: false
+    end
+  end
+end
+      
+```
+
 
 ### Using replica and cluster params in connection parameters
 

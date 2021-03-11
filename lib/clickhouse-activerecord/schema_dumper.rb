@@ -33,16 +33,24 @@ module ClickhouseActiverecord
 HEADER
     end
 
+    def tables(stream)
+      sorted_tables = @connection.tables.sort {|a,b| @connection.show_create_table(a).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) ? 1 : a <=> b }
+
+      sorted_tables.each do |table_name|
+        table(table_name, stream) unless ignored?(table_name)
+      end
+    end
+
     def table(table, stream)
-      if table.match(/^\.inner\./).nil?
+      if table.match(/^\.inner/).nil?
         unless simple
           stream.puts "  # TABLE: #{table}"
-          sql = @connection.do_system_execute("SHOW CREATE TABLE `#{table.gsub(/^\.inner\./, '')}`")['data'].try(:first).try(:first)
+          sql = @connection.show_create_table(table)
           stream.puts "  # SQL: #{sql.gsub(/ENGINE = Replicated(.*?)\('[^']+',\s*'[^']+',?\s?([^\)]*)?\)/, "ENGINE = \\1(\\2)")}" if sql
           # super(table.gsub(/^\.inner\./, ''), stream)
 
           # detect view table
-          match = sql.match(/^CREATE\s+(MATERIALIZED)\s+VIEW/)
+          match = sql.match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/)
         end
 
         # Copy from original dumper
@@ -124,6 +132,22 @@ HEADER
       else
         super
       end
+    end
+
+    def schema_limit(column)
+      return nil if column.type == :float
+      super
+    end
+
+    def schema_unsigned(column)
+      return nil unless column.type == :integer && !simple
+      (column.sql_type =~ /(Nullable)?\(?UInt\d+\)?/).nil? ? false : nil
+    end
+
+    def prepare_column_options(column)
+      spec = {}
+      spec[:unsigned] = schema_unsigned(column)
+      spec.merge(super).compact
     end
   end
 end

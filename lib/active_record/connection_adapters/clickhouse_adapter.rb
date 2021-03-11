@@ -80,7 +80,6 @@ module ActiveRecord
 
     class ClickhouseAdapter < AbstractAdapter
       ADAPTER_NAME = 'Clickhouse'.freeze
-
       NATIVE_DATABASE_TYPES = {
         string: { name: 'String' },
         integer: { name: 'UInt32' },
@@ -89,7 +88,21 @@ module ActiveRecord
         decimal: { name: 'Decimal' },
         datetime: { name: 'DateTime' },
         date: { name: 'Date' },
-        boolean: { name: 'UInt8' }
+        boolean: { name: 'UInt8' },
+
+        int8:  { name: 'Int8' },
+        int16: { name: 'Int16' },
+        int32: { name: 'Int32' },
+        int64:  { name: 'Int64' },
+        int128: { name: 'Int128' },
+        int256: { name: 'Int256' },
+
+        uint8: { name: 'UInt8' },
+        uint16: { name: 'UInt16' },
+        uint32: { name: 'UInt32' },
+        uint64: { name: 'UInt64' },
+        # uint128: { name: 'UInt128' }, not yet implemented in clickhouse
+        uint256: { name: 'UInt256' },
       }.freeze
 
       include Clickhouse::SchemaStatements
@@ -140,10 +153,12 @@ module ActiveRecord
           when /(Nullable)?\(?String\)?/
             super('String')
           when /(Nullable)?\(?U?Int8\)?/
-            super('int2')
-          when /(Nullable)?\(?U?Int(16|32)\)?/
-            super('int4')
-          when /(Nullable)?\(?U?Int(64)\)?/
+            1
+          when /(Nullable)?\(?U?Int16\)?/
+            2
+          when /(Nullable)?\(?U?Int32\)?/
+            nil
+          when /(Nullable)?\(?U?Int64\)?/
             8
           else
             super
@@ -155,14 +170,20 @@ module ActiveRecord
         register_class_with_limit m, %r(String), Type::String
         register_class_with_limit m, 'Date',  Clickhouse::OID::Date
         register_class_with_limit m, 'DateTime',  Clickhouse::OID::DateTime
-        register_class_with_limit m, %r(Uint8), Type::UnsignedInteger
-        m.alias_type 'UInt16', 'UInt8'
-        m.alias_type 'UInt32', 'UInt8'
-        register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
+
         register_class_with_limit m, %r(Int8), Type::Integer
-        m.alias_type 'Int16', 'Int8'
-        m.alias_type 'Int32', 'Int8'
+        register_class_with_limit m, %r(Int16), Type::Integer
+        register_class_with_limit m, %r(Int32), Type::Integer
         register_class_with_limit m, %r(Int64), Type::Integer
+        register_class_with_limit m, %r(Int128), Type::Integer
+        register_class_with_limit m, %r(Int256), Type::Integer
+
+        register_class_with_limit m, %r(Uint8), Type::UnsignedInteger
+        register_class_with_limit m, %r(UInt16), Type::UnsignedInteger
+        register_class_with_limit m, %r(UInt32), Type::UnsignedInteger
+        register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
+        #register_class_with_limit m, %r(UInt128), Type::UnsignedInteger #not implemnted in clickhouse
+        register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
       end
 
       # Quoting time without microseconds
@@ -200,6 +221,12 @@ module ActiveRecord
 
       def create_schema_dumper(options) # :nodoc:
         ClickhouseActiverecord::SchemaDumper.create(self, options)
+      end
+
+      # @param [String] table
+      # @return [String]
+      def show_create_table(table)
+        do_system_execute("SHOW CREATE TABLE `#{table}`")['data'].try(:first).try(:first).gsub(/[\n\s]+/m, ' ')
       end
 
       # Create a new ClickHouse database.

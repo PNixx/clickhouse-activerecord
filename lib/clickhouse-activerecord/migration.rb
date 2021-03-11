@@ -7,7 +7,7 @@ module ClickhouseActiverecord
         unless table_exists?
           version_options = connection.internal_string_options_for_primary_key
 
-          connection.create_table(table_name, id: false, options: 'ReplacingMergeTree(ver) PARTITION BY version ORDER BY (version)') do |t|
+          connection.create_table(table_name, id: false, options: 'ReplacingMergeTree(ver) PARTITION BY version ORDER BY (version)', if_not_exists: true) do |t|
             t.string :version, version_options
             t.column :active, 'Int8', null: false, default: '1'
             t.datetime :ver, null: false, default: -> { 'now()' }
@@ -27,7 +27,7 @@ module ClickhouseActiverecord
         unless table_exists?
           key_options = connection.internal_string_options_for_primary_key
 
-          connection.create_table(table_name, id: false, options: 'MergeTree() PARTITION BY toDate(created_at) ORDER BY (created_at)') do |t|
+          connection.create_table(table_name, id: false, options: 'MergeTree() PARTITION BY toDate(created_at) ORDER BY (created_at)', if_not_exists: true) do |t|
             t.string :key, key_options
             t.string :value
             t.timestamps

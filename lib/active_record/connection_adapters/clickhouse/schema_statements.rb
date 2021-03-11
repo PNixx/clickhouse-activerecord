@@ -41,8 +41,8 @@ module ActiveRecord
         end
 
         def table_options(table)
-          sql = do_system_execute("SHOW CREATE TABLE `#{table}`")['data'].try(:first).try(:first)
-          { options: sql.gsub(/^(?:.*?)ENGINE = (.*?)$/, '\\1') }
+          sql = show_create_table(table)
+          { options: sql.gsub(/^(?:.*?)(?:ENGINE = (.*?))?( AS SELECT .*?)?$/, '\\1').presence, as: sql.match(/^CREATE (?:.*?) AS (SELECT .*?)$/).try(:[], 1) }.compact
         end
 
         # Not indexes on clickhouse
