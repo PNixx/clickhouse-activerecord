@@ -30,9 +30,9 @@ module ActiveRecord
           sql
         end
 
-        def add_table_options!(create_sql, options)
+        def add_table_options!(create_sql, options, view, materialized)
           opts = options[:options]
-          if options.respond_to?(:options)
+          if options.respond_to?(:options) && view.present? && materialized.blank?
             # rails 6.1
             opts ||= options.options
           end
@@ -54,8 +54,7 @@ module ActiveRecord
           statements = o.columns.map { |c| accept c }
           statements << accept(o.primary_keys) if o.primary_keys
           create_sql << "(#{statements.join(', ')})" if statements.present?
-          # Attach options for only table or materialized view
-          add_table_options!(create_sql, o)  if !o.view || o.view && o.materialized
+          add_table_options!(create_sql, table_options(o), o.view, o.materialized)
           create_sql << " AS #{to_sql(o.as)}" if o.as
           create_sql
         end
