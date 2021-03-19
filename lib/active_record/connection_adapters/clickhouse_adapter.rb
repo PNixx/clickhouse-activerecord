@@ -17,9 +17,18 @@ module ActiveRecord
       # Establishes a connection to the database that's used by all Active Record objects
       def clickhouse_connection(config)
         config = config.symbolize_keys
-        host = config[:host] || 'localhost'
-        port = config[:port] || 8123
-        ssl = config[:ssl].present? ? config[:ssl] : port == 443
+        if config[:connection]
+          connection = {
+            connection: config[:connection]
+          }
+        else
+          port = config[:port] || 8123
+          connection = {
+            host: config[:host] || 'localhost',
+            port: port,
+            ssl: config[:ssl].present? ? config[:ssl] : port == 443,
+          }
+        end
 
         if config.key?(:database)
           database = config[:database]
@@ -27,7 +36,7 @@ module ActiveRecord
           raise ArgumentError, 'No database specified. Missing argument: database.'
         end
 
-        ConnectionAdapters::ClickhouseAdapter.new(logger, [host, port, ssl], { user: config[:username], password: config[:password], database: database }.compact, config)
+        ConnectionAdapters::ClickhouseAdapter.new(logger, connection, { user: config[:username], password: config[:password], database: database }.compact, config)
       end
     end
   end
@@ -325,7 +334,7 @@ module ActiveRecord
       private
 
       def connect
-        @connection = Net::HTTP.start(@connection_parameters[0], @connection_parameters[1], use_ssl: @connection_parameters[2], verify_mode: OpenSSL::SSL::VERIFY_NONE)
+        @connection = @connection_parameters[:connection] || Net::HTTP.start(@connection_parameters[:host], @connection_parameters[:port], use_ssl: @connection_parameters[:ssl], verify_mode: OpenSSL::SSL::VERIFY_NONE)
       end
 
       def apply_replica(table, options)
