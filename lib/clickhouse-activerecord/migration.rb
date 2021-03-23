@@ -27,7 +27,7 @@ module ClickhouseActiverecord
         unless table_exists?
           key_options = connection.internal_string_options_for_primary_key
 
-          connection.create_table(table_name, id: false, options: 'MergeTree() PARTITION BY toDate(created_at) ORDER BY (created_at)', if_not_exists: true) do |t|
+          connection.create_table(table_name, id: false, options: connection.adapter_name.downcase == 'clickhouse' ? 'MergeTree() PARTITION BY toDate(created_at) ORDER BY (created_at)' : '', if_not_exists: true) do |t|
             t.string :key, key_options
             t.string :value
             t.timestamps
