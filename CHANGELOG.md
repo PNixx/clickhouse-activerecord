@@ -1,3 +1,9 @@
+### Version 0.4.10 (Mar 10, 2021)
+
+ * Support ClickHouse 20.9+
+ * Fix schema create / dump
+ * Support all integer types through :limit and :unsigned [@bdevel](https://github.com/bdevel)
+
 ### Version 0.4.4 (Sep 23, 2020)
 
  * Full support migration and rollback database

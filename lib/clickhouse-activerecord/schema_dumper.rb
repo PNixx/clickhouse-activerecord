@@ -34,7 +34,7 @@ HEADER
     end
 
     def tables(stream)
-      sorted_tables = @connection.tables.sort {|a,b| @connection.show_create_table(a).match(/^CREATE\s+(MATERIALIZED)\s+VIEW/) ? 1 : a <=> b }
+      sorted_tables = @connection.tables.sort {|a,b| @connection.show_create_table(a).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) ? 1 : a <=> b }
 
       sorted_tables.each do |table_name|
         table(table_name, stream) unless ignored?(table_name)
@@ -50,7 +50,7 @@ HEADER
           # super(table.gsub(/^\.inner\./, ''), stream)
 
           # detect view table
-          match = sql.match(/^CREATE\s+(MATERIALIZED)\s+VIEW/)
+          match = sql.match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/)
         end
 
         # Copy from original dumper
@@ -132,6 +132,22 @@ HEADER
       else
         super
       end
+    end
+
+    def schema_limit(column)
+      return nil if column.type == :float
+      super
+    end
+
+    def schema_unsigned(column)
+      return nil unless column.type == :integer && !simple
+      (column.sql_type =~ /(Nullable)?\(?UInt\d+\)?/).nil? ? false : nil
+    end
+
+    def prepare_column_options(column)
+      spec = {}
+      spec[:unsigned] = schema_unsigned(column)
+      spec.merge(super).compact
     end
   end
 end
