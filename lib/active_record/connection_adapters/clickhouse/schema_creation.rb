@@ -30,17 +30,21 @@ module ActiveRecord
           sql
         end
 
-        def add_table_options!(create_sql, options, view, materialized)
+        def add_table_options!(create_sql, options, view)
           opts = options[:options]
-          if options.respond_to?(:options) && view.present? && materialized.blank?
+          if options.respond_to?(:options)
             # rails 6.1
             opts ||= options.options
           end
 
-          if opts.present?
+          if opts.present? && view.present? && !opts.match(/(^|\s)MATERIALIZED\s/)
+            create_sql << opts
+          elsif opts.present? && view.present? && opts.match(/(^|\s)TO\s/)
+            create_sql << "TO #{opts.gsub(/^(?:.*?) TO (.*?)$/, '\\1')}"
+          elsif opts.present?
             create_sql << " ENGINE = #{opts}"
           else
-            create_sql << " ENGINE = Log()"
+            create_sql << ' ENGINE = Log()'
           end
 
           create_sql
@@ -54,7 +58,7 @@ module ActiveRecord
           statements = o.columns.map { |c| accept c }
           statements << accept(o.primary_keys) if o.primary_keys
           create_sql << "(#{statements.join(', ')})" if statements.present?
-          add_table_options!(create_sql, table_options(o), o.view, o.materialized)
+          add_table_options!(create_sql, table_options(o), o.view)
           create_sql << " AS #{to_sql(o.as)}" if o.as
           create_sql
         end
