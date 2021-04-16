@@ -184,6 +184,7 @@ module ActiveRecord
         register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
         #register_class_with_limit m, %r(UInt128), Type::UnsignedInteger #not implemnted in clickhouse
         register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
+        register_class_with_limit m, %r(Array), Type::String
       end
 
       # Quoting time without microseconds
