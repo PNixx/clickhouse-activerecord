@@ -118,7 +118,7 @@ module ActiveRecord
         uint16: { name: 'UInt16' },
         uint32: { name: 'UInt32' },
         uint64: { name: 'UInt64' },
-        # uint128: { name: 'UInt128' }, not yet implemented in clickhouse
+        # UInt128 is not supported yet
         uint256: { name: 'UInt256' },
       }.freeze
 

@@ -35,10 +35,10 @@ HEADER
 
     def tables(stream)
       sorted_tables = @connection.tables.sort do |a,b|
-        if @connection.show_create_table(a).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/)
-          @connection.show_create_table(b).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) ? a <=> b : 1
+        if @connection.show_create_table(a).match(/^CREATE\s+((MATERIALIZED|LIVE)\s+)?VIEW/)
+          @connection.show_create_table(b).match(/^CREATE\s+((MATERIALIZED|LIVE)\s+)?VIEW/) ? a <=> b : 1
         else
-          @connection.show_create_table(b).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) ? -1 : a <=> b
+          @connection.show_create_table(b).match(/^CREATE\s+((MATERIALIZED|LIVE)\s+)?VIEW/) ? -1 : a <=> b
         end
       end
       sorted_tables.each do |table_name|
@@ -55,7 +55,7 @@ HEADER
           # super(table.gsub(/^\.inner\./, ''), stream)
 
           # detect view table
-          match = sql.match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/)
+          match = sql.match(/^CREATE\s+((MATERIALIZED|LIVE)\s+)?VIEW/)
         end
 
         # Copy from original dumper
@@ -71,7 +71,8 @@ HEADER
           unless simple
             # Add materialize flag
             tbl.print ', view: true' if match
-            tbl.print ', materialized: true' if match && match[1].presence
+            tbl.print ', materialized: true' if match && match&.[](1).try(:strip) == 'MATERIALIZED'
+            tbl.print ', live: true' if match && match&.[](1).try(:strip) == 'LIVE'
           end
 
           case pk
