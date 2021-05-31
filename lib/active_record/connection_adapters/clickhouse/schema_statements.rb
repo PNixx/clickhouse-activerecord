@@ -29,6 +29,18 @@ module ActiveRecord
           raise ActiveRecord::ActiveRecordError, 'Clickhouse delete is not supported'
         end
 
+        def truncate_table(name, if_exists: false, cluster: nil)
+          sql = 'TRUNCATE TABLE %<exists>s %<name>s %<cluster>s'
+
+          pattern = {
+            name: name,
+            exists: Util::Statement.ensure(if_exists, 'IF EXISTS'),
+            cluster: Util::Statement.ensure(cluster, "ON CLUSTER #{cluster}")
+          }
+
+          execute(format(sql, pattern)).success?
+        end
+
         def tables(name = nil)
           result = do_system_execute('SHOW TABLES', name)
           return [] if result.nil?
