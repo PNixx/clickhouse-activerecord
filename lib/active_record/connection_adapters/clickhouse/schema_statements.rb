@@ -38,7 +38,7 @@ module ActiveRecord
             cluster: Util::Statement.ensure(cluster, "ON CLUSTER #{cluster}")
           }
 
-          execute(format(sql, pattern)).success?
+          execute(format(sql, pattern))
         end
 
         def tables(name = nil)
