@@ -34,8 +34,8 @@ module ActiveRecord
 
           pattern = {
             name: name,
-            exists: Util::Statement.ensure(if_exists, 'IF EXISTS'),
-            cluster: Util::Statement.ensure(cluster, "ON CLUSTER #{cluster}")
+            exists: ::Util::Statement.ensure(if_exists, 'IF EXISTS'),
+            cluster: ::Util::Statement.ensure(cluster, "ON CLUSTER #{cluster}")
           }
 
           execute(format(sql, pattern)).success?
