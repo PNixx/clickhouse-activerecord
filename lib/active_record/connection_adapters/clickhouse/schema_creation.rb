@@ -1,9 +1,16 @@
 # frozen_string_literal: true
+begin
+  require "active_record/connection_adapters/deduplicable"
+rescue LoadError => e
+  # Rails < 6.1 does not have this file in this location, ignore
+end
+
+require "active_record/connection_adapters/abstract/schema_creation"
 
 module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
-      class SchemaCreation < AbstractAdapter::SchemaCreation# :nodoc:
+      class SchemaCreation < ConnectionAdapters::SchemaCreation# :nodoc:
 
         def visit_AddColumnDefinition(o)
           sql = +"ADD COLUMN #{accept(o.column)}"
@@ -21,8 +28,14 @@ module ActiveRecord
         end
 
         def add_table_options!(create_sql, options)
-          if options[:options].present?
-            create_sql << " ENGINE = #{options[:options]}"
+          opts = options[:options]
+          if options.respond_to?(:options)
+            # rails 6.1
+            opts ||= options.options
+          end
+          
+          if opts.present?
+            create_sql << " ENGINE = #{opts}"
           else
             create_sql << " ENGINE = Log()"
           end
@@ -37,11 +50,9 @@ module ActiveRecord
 
           statements = o.columns.map { |c| accept c }
           statements << accept(o.primary_keys) if o.primary_keys
-
           create_sql << "(#{statements.join(', ')})" if statements.present?
           # Attach options for only table or materialized view
-          add_table_options!(create_sql, table_options(o)) if !o.view || o.view && o.materialized
-
+          add_table_options!(create_sql, o)  if !o.view || o.view && o.materialized
           create_sql << " AS #{to_sql(o.as)}" if o.as
           create_sql
         end
