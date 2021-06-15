@@ -346,6 +346,7 @@ module ActiveRecord
         @connection.ca_file = @connection_parameters[3] if @connection_parameters[3]
         @connection.read_timeout = @connection_parameters[4] if @connection_parameters[4]
         @connection.write_timeout = @connection_parameters[5] if @connection_parameters[5]
+        @connection
       end
 
       def apply_replica(table, options)
