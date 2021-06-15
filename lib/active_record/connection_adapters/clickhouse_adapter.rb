@@ -21,6 +21,8 @@ module ActiveRecord
         port = config[:port] || 8123
         ssl = config[:ssl].present? ? config[:ssl] : port == 443
         sslca = config[:sslca]
+        read_timeout = config[:read_timeout]
+        write_timeout = config[:write_timeout]
 
         if config.key?(:database)
           database = config[:database]
@@ -28,7 +30,7 @@ module ActiveRecord
           raise ArgumentError, 'No database specified. Missing argument: database.'
         end
 
-        ConnectionAdapters::ClickhouseAdapter.new(logger, [host, port, ssl, sslca], { user: config[:username], password: config[:password], database: database }.compact, config)
+        ConnectionAdapters::ClickhouseAdapter.new(logger, [host, port, ssl, sslca, read_timeout, write_timeout], { user: config[:username], password: config[:password], database: database }.compact, config)
       end
     end
   end
@@ -342,7 +344,8 @@ module ActiveRecord
       def connect
         @connection = Net::HTTP.start(@connection_parameters[0], @connection_parameters[1], use_ssl: @connection_parameters[2], verify_mode: OpenSSL::SSL::VERIFY_NONE)
         @connection.ca_file = @connection_parameters[3] if @connection_parameters[3]
-        @connection
+        @connection.read_timeout = @connection_parameters[4] if @connection_parameters[4]
+        @connection.write_timeout = @connection_parameters[5] if @connection_parameters[5]
       end
 
       def apply_replica(table, options)
