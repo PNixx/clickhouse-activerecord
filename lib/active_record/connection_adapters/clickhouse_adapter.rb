@@ -17,6 +17,7 @@ module ActiveRecord
       # Establishes a connection to the database that's used by all Active Record objects
       def clickhouse_connection(config)
         config = config.symbolize_keys
+
         if config[:connection]
           connection = {
             connection: config[:connection]
@@ -27,6 +28,9 @@ module ActiveRecord
             host: config[:host] || 'localhost',
             port: port,
             ssl: config[:ssl].present? ? config[:ssl] : port == 443,
+            sslca: config[:sslca],
+            read_timeout: config[:read_timeout],
+            write_timeout: config[:write_timeout],
           }
         end
 
@@ -196,6 +200,7 @@ module ActiveRecord
         register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
         #register_class_with_limit m, %r(UInt128), Type::UnsignedInteger #not implemnted in clickhouse
         register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
+        register_class_with_limit m, %r(Array), Type::String
       end
 
       # Quoting time without microseconds
@@ -323,6 +328,19 @@ module ActiveRecord
         cluster ? "#{sql} ON CLUSTER #{cluster}" : sql
       end
 
+      def supports_insert_on_duplicate_skip?
+        true
+      end
+
+      def supports_insert_on_duplicate_update?
+        true
+      end
+
+      def build_insert_sql(insert) # :nodoc:
+        sql = +"INSERT #{insert.into} #{insert.values_list}"
+        sql
+      end
+
       protected
 
       def last_inserted_id(result)
@@ -339,6 +357,12 @@ module ActiveRecord
 
       def connect
         @connection = @connection_parameters[:connection] || Net::HTTP.start(@connection_parameters[:host], @connection_parameters[:port], use_ssl: @connection_parameters[:ssl], verify_mode: OpenSSL::SSL::VERIFY_NONE)
+
+        @connection.ca_file = @connection_parameters[:ca_file] if @connection_parameters[:ca_file]
+        @connection.read_timeout = @connection_parameters[:read_timeout] if @connection_parameters[:read_timeout]
+        @connection.write_timeout = @connection_parameters[:write_timeout] if @connection_parameters[:write_timeout]
+
+        @connection
       end
 
       def apply_replica(table, options)

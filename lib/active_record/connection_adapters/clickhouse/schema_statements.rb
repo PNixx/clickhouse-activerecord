@@ -23,6 +23,11 @@ module ActiveRecord
           raise ActiveRecord::ActiveRecordError, "Response: #{e.message}"
         end
 
+        def exec_insert_all(sql, name)
+          do_execute(sql, name, format: nil)
+          true
+        end
+
         def exec_update(_sql, _name = nil, _binds = [])
           raise ActiveRecord::ActiveRecordError, 'Clickhouse update is not supported'
         end
