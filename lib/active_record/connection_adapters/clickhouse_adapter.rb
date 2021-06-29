@@ -17,12 +17,22 @@ module ActiveRecord
       # Establishes a connection to the database that's used by all Active Record objects
       def clickhouse_connection(config)
         config = config.symbolize_keys
-        host = config[:host] || 'localhost'
-        port = config[:port] || 8123
-        ssl = config[:ssl].present? ? config[:ssl] : port == 443
-        sslca = config[:sslca]
-        read_timeout = config[:read_timeout]
-        write_timeout = config[:write_timeout]
+
+        if config[:connection]
+          connection = {
+            connection: config[:connection]
+          }
+        else
+          port = config[:port] || 8123
+          connection = {
+            host: config[:host] || 'localhost',
+            port: port,
+            ssl: config[:ssl].present? ? config[:ssl] : port == 443,
+            sslca: config[:sslca],
+            read_timeout: config[:read_timeout],
+            write_timeout: config[:write_timeout],
+          }
+        end
 
         if config.key?(:database)
           database = config[:database]
@@ -30,7 +40,7 @@ module ActiveRecord
           raise ArgumentError, 'No database specified. Missing argument: database.'
         end
 
-        ConnectionAdapters::ClickhouseAdapter.new(logger, [host, port, ssl, sslca, read_timeout, write_timeout], { user: config[:username], password: config[:password], database: database }.compact, config)
+        ConnectionAdapters::ClickhouseAdapter.new(logger, connection, { user: config[:username], password: config[:password], database: database }.compact, config)
       end
     end
   end
@@ -53,7 +63,11 @@ module ActiveRecord
   module TypeCaster
     class Map
       def is_view
-        types.is_view
+        if @klass.respond_to?(:is_view)
+          @klass.is_view # rails 6.1
+        else
+          types.is_view # less than 6.1
+        end
       end
     end
   end
@@ -342,10 +356,12 @@ module ActiveRecord
       private
 
       def connect
-        @connection = Net::HTTP.start(@connection_parameters[0], @connection_parameters[1], use_ssl: @connection_parameters[2], verify_mode: OpenSSL::SSL::VERIFY_NONE)
-        @connection.ca_file = @connection_parameters[3] if @connection_parameters[3]
-        @connection.read_timeout = @connection_parameters[4] if @connection_parameters[4]
-        @connection.write_timeout = @connection_parameters[5] if @connection_parameters[5]
+        @connection = @connection_parameters[:connection] || Net::HTTP.start(@connection_parameters[:host], @connection_parameters[:port], use_ssl: @connection_parameters[:ssl], verify_mode: OpenSSL::SSL::VERIFY_NONE)
+
+        @connection.ca_file = @connection_parameters[:ca_file] if @connection_parameters[:ca_file]
+        @connection.read_timeout = @connection_parameters[:read_timeout] if @connection_parameters[:read_timeout]
+        @connection.write_timeout = @connection_parameters[:write_timeout] if @connection_parameters[:write_timeout]
+
         @connection
       end
 

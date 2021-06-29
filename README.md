@@ -35,6 +35,21 @@ default: &default
   replica_name: '{replica}' # replica macros name, optional for creating replicated tables
 ```
 
+Alternatively if you wish to pass a custom `Net::HTTP` transport (or any other
+object which supports a `.post()` function with the same parameters as
+`Net::HTTP`'s), you can do this directly instead of specifying
+`host`/`port`/`ssl`:
+
+```ruby
+class ActionView < ActiveRecord::Base
+  establish_connection(
+    adapter: 'clickhouse',
+    database: 'database',
+    connection: Net::HTTP.start('http://example.org', 8123)
+  )
+end
+```
+
 ## Usage in Rails 5
 
 Add your `database.yml` connection information with postfix `_clickhouse` for you environment:

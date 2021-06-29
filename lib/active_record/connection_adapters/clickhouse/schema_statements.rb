@@ -17,8 +17,10 @@ module ActiveRecord
         def exec_query(sql, name = nil, binds = [], prepare: false)
           result = do_execute(sql, name)
           ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'])
-        rescue StandardError => _e
-          raise ActiveRecord::ActiveRecordError, "Response: #{result}"
+        rescue ActiveRecord::ActiveRecordError => e
+          raise e
+        rescue StandardError => e
+          raise ActiveRecord::ActiveRecordError, "Response: #{e.message}"
         end
 
         def exec_insert_all(sql, name)
@@ -119,8 +121,8 @@ module ActiveRecord
           Clickhouse::SchemaCreation.new(self)
         end
 
-        def create_table_definition(*args)
-          Clickhouse::TableDefinition.new(self, *args)
+        def create_table_definition(table_name, options)
+          Clickhouse::TableDefinition.new(self, table_name, **options)
         end
 
         def new_column_from_field(table_name, field)
