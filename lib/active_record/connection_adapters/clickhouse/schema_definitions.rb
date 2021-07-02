@@ -58,7 +58,7 @@ module ActiveRecord
               kind = :int256     if options[:limit] > 16
             end
           end
-          args.each { |name| column(name, kind, options.except(:limit, :unsigned)) }
+          args.each { |name| column(name, kind, **options.except(:limit, :unsigned)) }
         end
       end
     end
