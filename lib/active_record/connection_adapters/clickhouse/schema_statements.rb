@@ -121,7 +121,7 @@ module ActiveRecord
           Clickhouse::SchemaCreation.new(self)
         end
 
-        def create_table_definition(table_name, options)
+        def create_table_definition(table_name, options = {})
           Clickhouse::TableDefinition.new(self, table_name, **options)
         end
 
