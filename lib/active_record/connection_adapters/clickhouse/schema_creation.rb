@@ -22,6 +22,9 @@ module ActiveRecord
           if options[:null] || options[:null].nil?
             sql.gsub!(/\s+(.*)/, ' Nullable(\1)')
           end
+          if options[:array]
+            sql.gsub!(/\s+(.*)/, ' Array(\1)')
+          end
           sql.gsub!(/(\sString)\(\d+\)/, '\1')
           sql << " DEFAULT #{quote_default_expression(options[:default], options[:column])}" if options_include_default?(options)
           sql
@@ -33,7 +36,7 @@ module ActiveRecord
             # rails 6.1
             opts ||= options.options
           end
-          
+
           if opts.present?
             create_sql << " ENGINE = #{opts}"
           else

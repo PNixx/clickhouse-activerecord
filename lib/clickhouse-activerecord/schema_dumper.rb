@@ -144,9 +144,14 @@ HEADER
       (column.sql_type =~ /(Nullable)?\(?UInt\d+\)?/).nil? ? false : nil
     end
 
+    def schema_array(column)
+      (column.sql_type =~ /Array?\(/).nil? ? nil : true
+    end
+
     def prepare_column_options(column)
       spec = {}
       spec[:unsigned] = schema_unsigned(column)
+      spec[:array] = schema_array(column)
       spec.merge(super).compact
     end
   end
