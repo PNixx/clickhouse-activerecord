@@ -69,13 +69,17 @@ module ActiveRecord
           end
         end
 
-        def do_execute(sql, name = nil, format: 'JSONCompact', settings: {})
+        def do_execute(sql, name = nil, format: 'JSONCompact', settings: {}, retries: 4)
           log(sql, "#{adapter_name} #{name}") do
             formatted_sql = apply_format(sql, format)#.sub("FINAL", "")
             request_params = @config || {}
             res = @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql)
 
             process_response(res)
+          rescue Net::ReadTimeout => e
+            if retries.positive?
+              do_execute(sql, name, format, settings, retries - 1)
+            end
           end
         end
 

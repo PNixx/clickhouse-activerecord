@@ -1,5 +1,5 @@
 # frozen_string_literal: true
-READ_TIMEOUT=120;
+READ_TIMEOUT=60;
 
 require 'clickhouse-activerecord/arel/visitors/to_sql'
 require 'clickhouse-activerecord/arel/table'
