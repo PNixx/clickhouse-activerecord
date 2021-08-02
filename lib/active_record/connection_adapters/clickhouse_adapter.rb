@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+READ_TIMEOUT=120;
 
 require 'clickhouse-activerecord/arel/visitors/to_sql'
 require 'clickhouse-activerecord/arel/table'
@@ -309,7 +310,7 @@ module ActiveRecord
       private
 
       def connect
-        @connection = Net::HTTP.start(@connection_parameters[0], @connection_parameters[1], use_ssl: @connection_parameters[2], verify_mode: OpenSSL::SSL::VERIFY_NONE)
+        @connection = Net::HTTP.start(@connection_parameters[0], @connection_parameters[1], read_timeout: READ_TIMEOUT, use_ssl: @connection_parameters[2], verify_mode: OpenSSL::SSL::VERIFY_NONE)
       end
 
       def apply_replica(table, options)
