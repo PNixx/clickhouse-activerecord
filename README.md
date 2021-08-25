@@ -196,6 +196,7 @@ false`. The default integer is `UInt32`
 | UInt32 | 0 to 4,294,967,295 | 3,4 |
 | UInt64 | 0 to 18446744073709551615 | 5,6,7,8 |
 | UInt256 | 0 to ... | 8+ |
+| Array | ... | ... |
 
 Example:
 
