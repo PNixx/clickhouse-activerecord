@@ -40,7 +40,7 @@ module ActiveRecord
           is_view = create_sql.match(/^CREATE\s+((MATERIALIZED|LIVE)\s+)?VIEW/)
           if opts.present? && is_view && create_sql.match(/^CREATE\s+LIVE\s+VIEW\s+/)
             create_sql.replace(opts)
-          if opts.present? && is_view && !create_sql.match(/^CREATE\s+MATERIALIZED\s+/)
+          elsif opts.present? && is_view && !create_sql.match(/^CREATE\s+MATERIALIZED\s+/)
             create_sql << opts
           elsif opts.present? && is_view && opts.match(/(^|\s)TO\s+/)
             create_sql << "TO #{opts.gsub(/^(?:.*?) TO (.*?)$/, '\\1')}"
