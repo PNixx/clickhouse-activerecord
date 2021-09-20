@@ -46,20 +46,18 @@ module ActiveRecord
     end
   end
 
-  class Relation
-
-    # Replace for only ClickhouseAdapter
+  module ClickhouseRelationReverseOrder
     def reverse_order!
-      orders = order_values.uniq
-      orders.reject!(&:blank?)
-      if self.connection.is_a?(ConnectionAdapters::ClickhouseAdapter) && orders.empty? && !primary_key
-        self.order_values = %w(date created_at).select {|c| column_names.include?(c) }.map{|c| arel_attribute(c).desc }
-      else
-        self.order_values = reverse_sql_order(orders)
-      end
+      return super unless connection.is_a?(ConnectionAdapters::ClickhouseAdapter)
+
+      orders = order_values.uniq.compact_blank
+      return super unless orders.empty? && !primary_key
+
+      self.order_values = %w(date created_at).select {|c| column_names.include?(c) }.map{|c| arel_attribute(c).desc }
       self
     end
   end
+  Relation.prepend(ClickhouseRelationReverseOrder)
 
   module TypeCaster
     class Map
