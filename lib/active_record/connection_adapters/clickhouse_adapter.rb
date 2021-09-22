@@ -371,7 +371,7 @@ module ActiveRecord
 
       def apply_replica(table, options)
         if replica && cluster && options[:options]
-          match = options[:options].match(/^(.*?MergeTree)\(([^\)]*)\)(.*?)$/)
+          match = options[:options].match(/^(.*?MergeTree)(?:\(([^\)]*)\))?(.*?)$/)
           if match
             options[:options] = "Replicated#{match[1]}(#{([replica_path(table), replica].map{|v| "'#{v}'"} + [match[2].presence]).compact.join(', ')})#{match[3]}"
           end

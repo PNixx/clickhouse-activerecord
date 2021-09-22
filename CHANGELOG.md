@@ -1,3 +1,10 @@
+### Version 0.5.3 (Sep 22, 2021)
+ 
+ * Fix replica cluster for a new syntax MergeTree
+ * Fix support rails 5.2 on alter table
+ * Support array type of column
+ * Support Rails 6.1.0 [@bdevel](https://github.com/bdevel)
+
 ### Version 0.4.10 (Mar 10, 2021)
 
  * Support ClickHouse 20.9+
