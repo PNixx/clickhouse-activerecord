@@ -43,7 +43,15 @@ module ClickhouseActiverecord
     end
 
     def structure_load(*args)
-      File.read(args.first).split(";\n\n").each { |sql| connection.execute(sql) }
+      File.read(args.first).split(";\n\n").each do |sql|
+        if sql.gsub(/[a-z]/i, '').blank?
+          next
+        elsif sql =~ /^INSERT INTO/
+          connection.do_execute(sql, nil, format: nil)
+        else
+          connection.execute(sql)
+        end
+      end
     end
 
     def migrate
