@@ -6,14 +6,23 @@ module ClickhouseActiverecord
     class << self
 
       def create_table
-        unless table_exists?
-          version_options = connection.internal_string_options_for_primary_key
+        return if table_exists?
 
-          connection.create_table(table_name, id: false, options: 'ReplacingMergeTree(ver) PARTITION BY version ORDER BY (version)', if_not_exists: true) do |t|
-            t.string :version, **version_options
-            t.column :active, 'Int8', null: false, default: '1'
-            t.datetime :ver, null: false, default: -> { 'now()' }
-          end
+        version_options = connection.internal_string_options_for_primary_key
+        table_options = {
+          id: false, options: 'ReplacingMergeTree(ver) PARTITION BY version ORDER BY (version)', if_not_exists: true
+        }
+        if connection.instance_variable_get(:@full_config)[:distributed_service_tables]
+          table_options.merge!(sharding_key: 'cityHash64(version)')
+          table_creation_method = 'create_table_with_distributed'
+        else
+          table_creation_method = 'create_table'
+        end
+
+        connection.public_send(table_creation_method, table_name, **table_options) do |t|
+          t.string :version, **version_options
+          t.column :active, 'Int8', null: false, default: '1'
+          t.datetime :ver, null: false, default: -> { 'now()' }
         end
       end
 
@@ -26,14 +35,25 @@ module ClickhouseActiverecord
   class InternalMetadata < ::ActiveRecord::InternalMetadata
     class << self
       def create_table
-        unless table_exists?
-          key_options = connection.internal_string_options_for_primary_key
+        return if table_exists?
 
-          connection.create_table(table_name, id: false, options: connection.adapter_name.downcase == 'clickhouse' ? 'MergeTree() PARTITION BY toDate(created_at) ORDER BY (created_at)' : '', if_not_exists: true) do |t|
-            t.string :key, key_options
-            t.string :value
-            t.timestamps
-          end
+        key_options = connection.internal_string_options_for_primary_key
+        table_options = {
+          id: false,
+          options: connection.adapter_name.downcase == 'clickhouse' ? 'MergeTree() PARTITION BY toDate(created_at) ORDER BY (created_at)' : '',
+          if_not_exists: true
+        }
+        if connection.instance_variable_get(:@full_config)[:distributed_service_tables]
+          table_options.merge!(sharding_key: 'cityHash64(created_at)')
+          table_creation_method = 'create_table_with_distributed'
+        else
+          table_creation_method = 'create_table'
+        end
+
+        connection.public_send(table_creation_method, table_name, **table_options) do |t|
+          t.string :key, **key_options
+          t.string :value
+          t.timestamps
         end
       end
     end
