@@ -262,7 +262,7 @@ module ActiveRecord
       def create_view(table_name, **options)
         options.merge!(view: true)
         options = apply_replica(table_name, options)
-        td = create_table_definition(apply_cluster(table_name), options)
+        td = create_table_definition(apply_cluster(table_name), **options)
         yield td if block_given?
 
         if options[:force]
@@ -272,16 +272,28 @@ module ActiveRecord
         execute schema_creation.accept td
       end
 
-      def create_table(table_name, **options)
+      def create_table(table_name, **options, &block)
         options = apply_replica(table_name, options)
-        td = create_table_definition(apply_cluster(table_name), options)
-        yield td if block_given?
+        td = create_table_definition(apply_cluster(table_name), **options)
+        block.call td if block_given?
 
         if options[:force]
           drop_table(table_name, options.merge(if_exists: true))
         end
 
         execute schema_creation.accept td
+      end
+
+      def create_table_with_distributed(table_name, **options, &block)
+        sharding_key = options.delete(:sharding_key) || raise('Parameter sharding_key must be set.')
+        create_table("#{table_name}_distributed", **options, &block)
+
+        distributed_options = "Distributed(#{cluster},#{@config[:database]},#{table_name}_distributed,#{sharding_key})"
+        create_table(table_name, **options.merge(options: distributed_options), &block)
+      end
+
+      def drop_table_with_distributed(table_name, **options)
+        ["#{table_name}_distributed", table_name].each { |name| drop_table(name, **options) }
       end
 
       # Drops a ClickHouse database.

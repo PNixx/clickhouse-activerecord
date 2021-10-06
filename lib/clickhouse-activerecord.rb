@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'active_record/connection_adapters/clickhouse_adapter'
+require_relative 'active_record/migration/command_recorder'
 
 if defined?(Rails::Railtie)
   require 'clickhouse-activerecord/railtie'
