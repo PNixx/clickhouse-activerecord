@@ -67,6 +67,16 @@ module ClickhouseActiverecord
       @schema_migration = schema_migration
     end
 
+    def up(target_version = nil)
+      selected_migrations = if block_given?
+        migrations.select { |m| yield m }
+      else
+        migrations
+      end
+
+      ClickhouseActiverecord::Migrator.new(:up, selected_migrations, schema_migration, target_version).migrate
+    end
+
     def down(target_version = nil)
       selected_migrations = if block_given?
         migrations.select { |m| yield m }
