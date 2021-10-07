@@ -285,7 +285,7 @@ module ActiveRecord
       end
 
       def create_table_with_distributed(table_name, **options, &block)
-        sharding_key = options.delete(:sharding_key) || raise('Parameter sharding_key must be set.')
+        sharding_key = options.delete(:sharding_key) || 'rand()'
         create_table("#{table_name}_distributed", **options, &block)
 
         distributed_options = "Distributed(#{cluster},#{@config[:database]},#{table_name}_distributed,#{sharding_key})"
