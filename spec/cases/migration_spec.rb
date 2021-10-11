@@ -71,6 +71,7 @@ RSpec.describe 'Migration', :migrations do
             end
           end
         end
+
         context 'with distributed' do
           let(:model_distributed) do
             Class.new(ActiveRecord::Base) do
@@ -117,6 +118,30 @@ RSpec.describe 'Migration', :migrations do
 
             expect(ActiveRecord::Base.connection.tables).not_to include('some')
             expect(ActiveRecord::Base.connection.tables).not_to include('some_distributed')
+          end
+        end
+
+        context 'view' do
+          it 'creates a view' do
+            migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_view_with_to_section')
+            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ClickhouseActiverecord::SchemaMigration).up }
+
+            expect(ActiveRecord::Base.connection.tables).to include('some_view')
+          end
+
+          it 'drops a view' do
+            migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_view_without_to_section')
+            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ClickhouseActiverecord::SchemaMigration).up }
+
+            expect(ActiveRecord::Base.connection.tables).to include('some_view')
+            expect(ActiveRecord::Base.connection.tables).to include('.inner.some_view')
+
+            quietly do
+              ClickhouseActiverecord::MigrationContext.new(migrations_dir, ClickhouseActiverecord::SchemaMigration).down
+            end
+
+            expect(ActiveRecord::Base.connection.tables).not_to include('some_view')
+            expect(ActiveRecord::Base.connection.tables).not_to include('.inner.some_view')
           end
         end
       end
