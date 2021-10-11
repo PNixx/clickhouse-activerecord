@@ -384,12 +384,22 @@ module ActiveRecord
 
       def apply_replica(table, options)
         if replica && cluster && options[:options]
-          match = options[:options].match(/^(.*?MergeTree)(?:\(([^\)]*)\))?(.*?)$/)
-          if match
-            options[:options] = "Replicated#{match[1]}(#{([replica_path(table), replica].map{|v| "'#{v}'"} + [match[2].presence]).compact.join(', ')})#{match[3]}"
+          if options[:options].match(/^Replicated/)
+            raise 'Do not try create Replicated table. It will be configured based on the *MergeTree engine.'
           end
+
+          options[:options] = configure_replica(table, options[:options])
         end
         options
+      end
+
+      def configure_replica(table, options)
+        match = options.match(/^(.*?MergeTree)(?:\(([^\)]*)\))?((?:.|\n)*)/)
+        return options unless match
+
+        "Replicated#{match[1]}" \
+        "(#{([replica_path(table), replica].map { |v| "'#{v}'" } + [match[2].presence]).compact.join(', ')})" \
+        "#{match[3]}"
       end
     end
   end
