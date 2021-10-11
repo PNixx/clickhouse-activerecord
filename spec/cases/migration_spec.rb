@@ -71,6 +71,54 @@ RSpec.describe 'Migration', :migrations do
             end
           end
         end
+        context 'with distributed' do
+          let(:model_distributed) do
+            Class.new(ActiveRecord::Base) do
+              self.table_name = 'some_distributed'
+            end
+          end
+          connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
+
+          before(:all) do
+            ActiveRecord::Base.establish_connection(connection_config.merge(cluster_name: CLUSTER_NAME))
+          end
+
+          after(:all) do
+            ActiveRecord::Base.establish_connection(connection_config)
+          end
+
+          it 'creates a table with distributed table' do
+            migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_table_with_distributed')
+            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ClickhouseActiverecord::SchemaMigration).up }
+
+            current_schema = schema(model)
+            current_schema_distributed = schema(model_distributed)
+
+            expect(current_schema.keys.count).to eq(1)
+            expect(current_schema_distributed.keys.count).to eq(1)
+
+            expect(current_schema).to have_key('date')
+            expect(current_schema_distributed).to have_key('date')
+
+            expect(current_schema['date'].sql_type).to eq('Date')
+            expect(current_schema_distributed['date'].sql_type).to eq('Date')
+          end
+
+          it 'drops a table with distributed table' do
+            migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_table_with_distributed')
+            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ClickhouseActiverecord::SchemaMigration).up }
+
+            expect(ActiveRecord::Base.connection.tables).to include('some')
+            expect(ActiveRecord::Base.connection.tables).to include('some_distributed')
+
+            quietly do
+              ClickhouseActiverecord::MigrationContext.new(migrations_dir, ClickhouseActiverecord::SchemaMigration).down
+            end
+
+            expect(ActiveRecord::Base.connection.tables).not_to include('some')
+            expect(ActiveRecord::Base.connection.tables).not_to include('some_distributed')
+          end
+        end
       end
     end
 
