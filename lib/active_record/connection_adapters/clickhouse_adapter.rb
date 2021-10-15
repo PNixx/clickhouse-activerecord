@@ -337,8 +337,22 @@ module ActiveRecord
         @full_config[:replica_name]
       end
 
+      def use_default_replicated_merge_tree_params?
+        database_engine_atomic? && @full_config[:use_default_replicated_merge_tree_params]
+      end
+
+      def use_replica?
+        (replica || use_default_replicated_merge_tree_params?) && cluster
+      end
+
       def replica_path(table)
         "/clickhouse/tables/#{cluster}/#{@config[:database]}.#{table}"
+      end
+
+      def database_engine_atomic?
+        current_database_engine = "select engine from system.databases where name = '#{@config[:database]}'"
+        res = ActiveRecord::Base.connection.select_one(current_database_engine)
+        res['engine'] == 'Atomic' if res
       end
 
       def apply_cluster(sql)
@@ -383,7 +397,7 @@ module ActiveRecord
       end
 
       def apply_replica(table, options)
-        if replica && cluster && options[:options]
+        if use_replica? && options[:options]
           if options[:options].match(/^Replicated/)
             raise 'Do not try create Replicated table. It will be configured based on the *MergeTree engine.'
           end
@@ -397,9 +411,11 @@ module ActiveRecord
         match = options.match(/^(.*?MergeTree)(?:\(([^\)]*)\))?((?:.|\n)*)/)
         return options unless match
 
-        "Replicated#{match[1]}" \
-        "(#{([replica_path(table), replica].map { |v| "'#{v}'" } + [match[2].presence]).compact.join(', ')})" \
-        "#{match[3]}"
+        if replica
+          engine_params = ([replica_path(table), replica].map { |v| "'#{v}'" } + [match[2].presence]).compact.join(', ')
+        end
+
+        "Replicated#{match[1]}(#{engine_params})#{match[3]}"
       end
     end
   end
