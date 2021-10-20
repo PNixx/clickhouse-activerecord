@@ -5,7 +5,7 @@ module ActiveRecord
     module Clickhouse
       class TableDefinition < ActiveRecord::ConnectionAdapters::TableDefinition
 
-        attr_reader :view, :materialized, :if_not_exists
+        attr_reader :view, :materialized, :if_not_exists, :to
 
         def initialize(
             conn,
@@ -17,6 +17,7 @@ module ActiveRecord
             comment: nil,
             view: false,
             materialized: false,
+            to: nil,
             **
           )
           @conn = conn
@@ -32,6 +33,7 @@ module ActiveRecord
           @comment = comment
           @view = view || materialized
           @materialized = materialized
+          @to = to
         end
 
         def integer(*args, **options)
@@ -58,7 +60,7 @@ module ActiveRecord
               kind = :int256     if options[:limit] > 16
             end
           end
-          args.each { |name| column(name, kind, options.except(:limit, :unsigned)) }
+          args.each { |name| column(name, kind, **options.except(:limit, :unsigned)) }
         end
       end
     end

@@ -262,7 +262,7 @@ module ActiveRecord
       def create_view(table_name, **options)
         options.merge!(view: true)
         options = apply_replica(table_name, options)
-        td = create_table_definition(apply_cluster(table_name), options)
+        td = create_table_definition(apply_cluster(table_name), **options)
         yield td if block_given?
 
         if options[:force]
@@ -272,16 +272,29 @@ module ActiveRecord
         execute schema_creation.accept td
       end
 
-      def create_table(table_name, **options)
+      def create_table(table_name, **options, &block)
         options = apply_replica(table_name, options)
-        td = create_table_definition(apply_cluster(table_name), options)
-        yield td if block_given?
+        td = create_table_definition(apply_cluster(table_name), **options)
+        block.call td if block_given?
 
         if options[:force]
           drop_table(table_name, options.merge(if_exists: true))
         end
 
         execute schema_creation.accept td
+      end
+
+      def create_table_with_distributed(table_name, **options, &block)
+        sharding_key = options.delete(:sharding_key) || 'rand()'
+        create_table("#{table_name}_distributed", **options, &block)
+        raise 'Set a cluster' unless cluster
+
+        distributed_options = "Distributed(#{cluster},#{@config[:database]},#{table_name}_distributed,#{sharding_key})"
+        create_table(table_name, **options.merge(options: distributed_options), &block)
+      end
+
+      def drop_table_with_distributed(table_name, **options)
+        ["#{table_name}_distributed", table_name].each { |name| drop_table(name, **options) }
       end
 
       # Drops a ClickHouse database.
@@ -324,8 +337,22 @@ module ActiveRecord
         @full_config[:replica_name]
       end
 
+      def use_default_replicated_merge_tree_params?
+        database_engine_atomic? && @full_config[:use_default_replicated_merge_tree_params]
+      end
+
+      def use_replica?
+        (replica || use_default_replicated_merge_tree_params?) && cluster
+      end
+
       def replica_path(table)
         "/clickhouse/tables/#{cluster}/#{@config[:database]}.#{table}"
+      end
+
+      def database_engine_atomic?
+        current_database_engine = "select engine from system.databases where name = '#{@config[:database]}'"
+        res = ActiveRecord::Base.connection.select_one(current_database_engine)
+        res['engine'] == 'Atomic' if res
       end
 
       def apply_cluster(sql)
@@ -370,13 +397,25 @@ module ActiveRecord
       end
 
       def apply_replica(table, options)
-        if replica && cluster && options[:options]
-          match = options[:options].match(/^(.*?MergeTree)(?:\(([^\)]*)\))?(.*?)$/)
-          if match
-            options[:options] = "Replicated#{match[1]}(#{([replica_path(table), replica].map{|v| "'#{v}'"} + [match[2].presence]).compact.join(', ')})#{match[3]}"
+        if use_replica? && options[:options]
+          if options[:options].match(/^Replicated/)
+            raise 'Do not try create Replicated table. It will be configured based on the *MergeTree engine.'
           end
+
+          options[:options] = configure_replica(table, options[:options])
         end
         options
+      end
+
+      def configure_replica(table, options)
+        match = options.match(/^(.*?MergeTree)(?:\(([^\)]*)\))?((?:.|\n)*)/)
+        return options unless match
+
+        if replica
+          engine_params = ([replica_path(table), replica].map { |v| "'#{v}'" } + [match[2].presence]).compact.join(', ')
+        end
+
+        "Replicated#{match[1]}(#{engine_params})#{match[3]}"
       end
     end
   end
