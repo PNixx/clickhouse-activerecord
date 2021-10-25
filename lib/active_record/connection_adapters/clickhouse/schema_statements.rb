@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'clickhouse-activerecord/version'
+
 module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
@@ -58,7 +60,7 @@ module ActiveRecord
 
         def do_system_execute(sql, name = nil)
           log_with_debug(sql, "#{adapter_name} #{name}") do
-            res = @connection.post("/?#{@config.to_param}", "#{sql} FORMAT JSONCompact")
+            res = @connection.post("/?#{@config.to_param}", "#{sql} FORMAT JSONCompact", 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
 
             process_response(res)
           end
@@ -68,7 +70,7 @@ module ActiveRecord
           log(sql, "#{adapter_name} #{name}") do
             formatted_sql = apply_format(sql, format)
             request_params = @config || {}
-            res = @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql)
+            res = @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql, 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
 
             process_response(res)
           end
