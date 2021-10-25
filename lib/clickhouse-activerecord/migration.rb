@@ -43,7 +43,7 @@ module ClickhouseActiverecord
           options: connection.adapter_name.downcase == 'clickhouse' ? 'MergeTree() PARTITION BY toDate(created_at) ORDER BY (created_at)' : '',
           if_not_exists: true
         }
-        if connection.instance_variable_get(:@full_config)[:distributed_service_tables]
+        if connection.instance_variable_get(:@full_config).try(:[], :distributed_service_tables)
           table_options.merge!(sharding_key: 'cityHash64(created_at)')
           table_creation_method = 'create_table_with_distributed'
         else
