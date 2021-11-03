@@ -282,19 +282,16 @@ module ActiveRecord
         end
 
         execute schema_creation.accept td
-      end
 
-      def create_table_with_distributed(table_name, **options, &block)
-        sharding_key = options.delete(:sharding_key) || 'rand()'
-        create_table("#{table_name}_distributed", **options, &block)
-        raise 'Set a cluster' unless cluster
+        if options[:with_distributed]
+          distributed_table_name = options.delete(:with_distributed)
+          sharding_key = options.delete(:sharding_key) || 'rand()'
+          raise 'Set a cluster' unless cluster
 
-        distributed_options = "Distributed(#{cluster},#{@config[:database]},#{table_name}_distributed,#{sharding_key})"
-        create_table(table_name, **options.merge(options: distributed_options), &block)
-      end
-
-      def drop_table_with_distributed(table_name, **options)
-        ["#{table_name}_distributed", table_name].each { |name| drop_table(name, **options) }
+          distributed_options =
+            "Distributed(#{cluster}, #{@config[:database]}, #{table_name}, #{sharding_key})"
+          create_table(distributed_table_name, **options.merge(options: distributed_options), &block)
+        end
       end
 
       # Drops a ClickHouse database.
@@ -312,6 +309,11 @@ module ActiveRecord
 
       def drop_table(table_name, options = {}) # :nodoc:
         do_execute apply_cluster "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
+
+        if options[:with_distributed]
+          distributed_table_name = options.delete(:with_distributed)
+          drop_table(distributed_table_name, **options)
+        end
       end
 
       def change_column(table_name, column_name, type, options = {})
