@@ -235,14 +235,17 @@ module ActiveRecord
         register_class_with_limit m, %r(Enum), Type::String
         register_class_with_limit m, 'Date',  Clickhouse::OID::Date
         register_class_with_limit m, 'DateTime',  Clickhouse::OID::DateTime
-        register_class_with_limit m, %r(Uint8), Type::UnsignedInteger
-        m.alias_type 'UInt16', 'UInt8'
-        m.alias_type 'UInt32', 'UInt8'
-        register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
+
         register_class_with_limit m, %r(Int8), Type::Integer
-        m.alias_type 'Int16', 'Int8'
-        m.alias_type 'Int32', 'Int8'
+        register_class_with_limit m, %r(Int16), Type::Integer
+        register_class_with_limit m, %r(Int32), Type::Integer
         register_class_with_limit m, %r(Int64), Type::Integer
+
+        register_class_with_limit m, %r(UInt8), Type::UnsignedInteger
+        register_class_with_limit m, %r(UInt16), Type::UnsignedInteger
+        register_class_with_limit m, %r(UInt32), Type::UnsignedInteger
+        register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
+
       end
 
       # Quoting time without microseconds
