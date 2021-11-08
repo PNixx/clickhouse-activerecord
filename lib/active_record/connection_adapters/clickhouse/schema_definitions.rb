@@ -62,6 +62,38 @@ module ActiveRecord
           end
           args.each { |name| column(name, kind, **options.except(:limit, :unsigned)) }
         end
+
+        def datetime(*args, **options)
+          kind = :datetime
+
+          if options[:precision]
+            kind = :datetime64
+            options[:value] = options[:precision]
+          end
+
+          args.each { |name| column(name, kind, **options.except(:precision)) }
+        end
+
+        def uuid(*args, **options)
+          args.each { |name| column(name, :uuid, **options) }
+        end
+
+        def enum(*args, **options)
+          kind = :enum8
+
+          unless options[:value].is_a? Hash
+            raise ArgumentError, "Column #{args.first}: option 'value' must be Hash, got: #{options[:value].class}"
+          end
+
+          options[:value] = options[:value].each_with_object([]) { |(k, v), arr| arr.push("'#{k}' = #{v}") }.join(', ')
+
+          if options[:limit]
+            kind = :enum8  if options[:limit] == 1
+            kind = :enum16 if options[:limit] == 2
+          end
+
+          args.each { |name| column(name, kind, **options.except(:limit)) }
+        end
       end
     end
   end

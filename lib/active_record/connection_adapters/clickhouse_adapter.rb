@@ -104,8 +104,13 @@ module ActiveRecord
         float: { name: 'Float32' },
         decimal: { name: 'Decimal' },
         datetime: { name: 'DateTime' },
+        datetime64: { name: 'DateTime64' },
         date: { name: 'Date' },
         boolean: { name: 'UInt8' },
+        uuid: { name: 'UUID' },
+
+        enum8: { name: 'Enum8' },
+        enum16: { name: 'Enum16' },
 
         int8:  { name: 'Int8' },
         int16: { name: 'Int16' },
