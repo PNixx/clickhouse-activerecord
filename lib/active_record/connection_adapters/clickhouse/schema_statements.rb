@@ -74,7 +74,7 @@ module ActiveRecord
         def process_response(res)
           case res.code.to_i
           when 200
-            res.body.presence && JSON.parse(res.body)
+            res.body.presence && JSON.parse(res.body, decimal_class: BigDecimal)
           else
             raise ActiveRecord::ActiveRecordError,
               "Response code: #{res.code}:\n#{res.body}"
