@@ -101,14 +101,16 @@ module ActiveRecord
 
 
       attr_reader :use_session, :urls
-      attr_accessor :seed
+      attr_accessor :seed, :headers
       def initialize params, use_session
         @use_session = use_session
         @urls = params[:urls]
+        @headers = {}
       end
 
       def post url, data, header = nil
-        connection.post url, data, header
+        headers = header ? self.headers.merge(header) : self.headers
+        connection.post url, data, headers
       end
 
       private
@@ -323,6 +325,12 @@ module ActiveRecord
       def seed= seed
         if @connection.kind_of? Cluster
           @connection.seed = seed
+        end
+      end
+
+      def headers= headers
+        if @connection.kind_of? Cluster
+          @connection.headers = headers
         end
       end
 
