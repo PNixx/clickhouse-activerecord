@@ -46,13 +46,23 @@ module ActiveRecord
             opts ||= options.options
           end
 
-          if opts.present?
-            create_sql << " ENGINE = #{opts}"
-          else
-            create_sql << " ENGINE = Log()"
+          return create_sql << " #{opts}" if options.dictionary
+
+          create_sql << add_engine!(opts)
+          create_sql
+        end
+
+        def add_engine!(opts)
+          return ' ENGINE = Log()' unless opts.present?
+
+          match = opts.match(/^Dictionary\((?<database>\w+(?=\.))?(?<table_name>[.\w]+)\)/)
+
+          if match
+            opts[match.begin(:table_name)...match.end(:table_name)] =
+              "#{current_database}.#{match[:table_name].sub('.', '')}"
           end
 
-          create_sql
+          " ENGINE = #{opts}"
         end
 
         def add_as_clause!(create_sql, options)
@@ -86,7 +96,7 @@ module ActiveRecord
         end
 
         def visit_TableDefinition(o)
-          create_sql = +"CREATE#{table_modifier_in_create(o)} #{o.view ? "VIEW" : "TABLE"} "
+          create_sql = +entity_type(o)
           create_sql << "IF NOT EXISTS " if o.if_not_exists
           create_sql << "#{quote_table_name(o.name)} "
           add_to_clause!(create_sql, o) if o.materialized
@@ -98,6 +108,14 @@ module ActiveRecord
           add_table_options!(create_sql, o) if !o.view || o.view && o.materialized && !o.to
           add_as_clause!(create_sql, o)
           create_sql
+        end
+
+        def entity_type(o)
+          type = 'TABLE'
+          type = 'VIEW' if o.view
+          type = 'DICTIONARY' if o.dictionary
+
+          "CREATE#{table_modifier_in_create(o)} #{type} "
         end
 
         # Returns any SQL string to go between CREATE and TABLE. May be nil.

@@ -55,12 +55,19 @@ end
 def clear_db
   current_cluster_name = ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
   pattern = if current_cluster_name
-              "DROP TABLE %s ON CLUSTER #{current_cluster_name}"
+              "DROP %s %s ON CLUSTER #{current_cluster_name}"
             else
-              'DROP TABLE %s'
+              'DROP %s %s'
             end
 
-  ActiveRecord::Base.connection.tables.each { |table| ActiveRecord::Base.connection.execute(pattern % table) }
+  ActiveRecord::Base.connection.tables.each do |table|
+    %w[TABLE DICTIONARY].each do |type|
+      ActiveRecord::Base.connection.execute(format(pattern, type, table))
+      break
+    rescue ActiveRecord::ActiveRecordError
+      next
+    end
+  end
 end
 
 def clear_consts

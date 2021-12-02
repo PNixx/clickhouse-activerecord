@@ -264,6 +264,24 @@ module ActiveRecord
         end
       end
 
+      def create_dictionary(dict_name, **options, &block)
+        options.merge!(dictionary: true)
+        td = create_table_definition(apply_cluster(dict_name), **options)
+        yield td if block_given?
+
+        if options[:force]
+          drop_dictionary(dict_name, options.merge(if_exists: true))
+        end
+
+        execute schema_creation.accept td
+
+        if options[:with_table]
+          table_name = options.delete(:with_table)
+          dictionary_options = "Dictionary(#{dict_name})"
+          create_table(table_name, **options.merge(options: dictionary_options).except(:dictionary), &block)
+        end
+      end
+
       def create_view(table_name, **options)
         options.merge!(view: true)
         options = apply_replica(table_name, options)
@@ -318,6 +336,15 @@ module ActiveRecord
         if options[:with_distributed]
           distributed_table_name = options.delete(:with_distributed)
           drop_table(distributed_table_name, **options)
+        end
+      end
+
+      def drop_dictionary(dict_name, options = {})
+        do_execute apply_cluster "DROP DICTIONARY#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(dict_name)}"
+
+        if options[:with_table]
+          table_name = options.delete(:with_table)
+          drop_table(table_name, **options)
         end
       end
 
