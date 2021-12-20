@@ -4,6 +4,7 @@ module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module SchemaStatements
+
         def execute(sql, name = nil)
           do_execute(sql, name)
         end
@@ -14,9 +15,9 @@ module ActiveRecord
           true
         end
 
-        def exec_query(sql, name = nil, binds = [], prepare: false)
-          result = do_execute(sql, name)
-          Result.new(result['meta'], result['data'], result['statistics'])
+        def exec_query(sql, name = nil, binds = [], prepare: false, settings: {})
+          result = do_execute(sql, name, settings: settings)
+          Result.new(result['meta'], result['data'], result['statistics']) unless result.nil?
         end
 
         def exec_update(_sql, _name = nil, _binds = [])
@@ -61,6 +62,8 @@ module ActiveRecord
             request_params = @config || {}
             res = @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql)
 
+            @response_headers = res.header.to_hash
+
             process_response(res)
           end
         end
@@ -77,7 +80,7 @@ module ActiveRecord
             res.body.presence && JSON.parse(res.body, decimal_class: BigDecimal)
           else
             raise ActiveRecord::ActiveRecordError,
-              "Response code: #{res.code}:\n#{res.body}"
+                  "Response code: #{res.code}:\n#{res.body}"
           end
         end
 
@@ -120,8 +123,9 @@ module ActiveRecord
           return data unless data.empty?
 
           raise ActiveRecord::StatementInvalid,
-            "Could not find table '#{table_name}'"
+                "Could not find table '#{table_name}'"
         end
+
         alias column_definitions table_structure
 
         private
@@ -145,11 +149,13 @@ module ActiveRecord
           end
         end
 
-        def extract_default_function(default_value, default) # :nodoc:
+        def extract_default_function(default_value, default)
+          # :nodoc:
           default if has_default_function?(default_value, default)
         end
 
-        def has_default_function?(default_value, default) # :nodoc:
+        def has_default_function?(default_value, default)
+          # :nodoc:
           !default_value && (%r{\w+\(.*\)} === default)
         end
       end

@@ -27,19 +27,18 @@ module ActiveRecord
 
         raise ArgumentError, 'No database specified. Missing argument: database.' unless config.key?(:database)
 
-
         connection_params = if config[:urls]
-          {
-              urls: config[:urls],
-              session: !!config[:session]
-          }
-        else
-          {
-              host: config[:host] || 'localhost',
-              port: config[:port] || 8123,
-              ssl: config[:ssl].present? ? config[:ssl] : config[:port] == 443
-          }
-        end
+                              {
+                                urls: config[:urls],
+                                session: !!config[:session]
+                              }
+                            else
+                              {
+                                host: config[:host] || 'localhost',
+                                port: config[:port] || 8123,
+                                ssl: config[:ssl].present? ? config[:ssl] : config[:port] == 443
+                              }
+                            end
 
         auth_params = { user: config[:username], password: config[:password], database: config[:database] }
         ConnectionAdapters::ClickhouseAdapter.new(logger,
@@ -57,7 +56,7 @@ module ActiveRecord
       orders = order_values.uniq
       orders.reject!(&:blank?)
       if self.connection.is_a?(ConnectionAdapters::ClickhouseAdapter) && orders.empty? && !primary_key
-        self.order_values = %w(date created_at).select {|c| column_names.include?(c) }.map{|c| arel_attribute(c).desc }
+        self.order_values = %w(date created_at).select { |c| column_names.include?(c) }.map { |c| arel_attribute(c).desc }
       else
         self.order_values = reverse_sql_order(orders)
       end
@@ -74,11 +73,12 @@ module ActiveRecord
   end
 
   module ModelSchema
-     module ClassMethods
+    module ClassMethods
       def is_view
         @is_view || false
       end
-       # @param [Boolean] value
+
+      # @param [Boolean] value
       def is_view=(value)
         @is_view = value
       end
@@ -88,7 +88,7 @@ module ActiveRecord
       end
 
     end
-   end
+  end
 
   module ConnectionAdapters
     class ClickhouseColumn < Column
@@ -99,9 +99,9 @@ module ActiveRecord
 
       @@index = -1
 
-
       attr_reader :use_session, :urls
       attr_accessor :seed, :headers
+
       def initialize params, use_session
         @use_session = use_session
         @urls = params[:urls]
@@ -130,7 +130,7 @@ module ActiveRecord
           begin
             return try_to_connect (seed % urls.count)
           rescue Exception => ex
-            raise ex if urls.count==1
+            raise ex if urls.count == 1
           end
         end
 
@@ -139,7 +139,7 @@ module ActiveRecord
           begin
             return try_to_connect(@@index)
           rescue Exception => ex
-            raise ex if i==urls.count-1
+            raise ex if i == urls.count - 1
           end
         end
 
@@ -169,6 +169,8 @@ module ActiveRecord
       }.freeze
 
       include Clickhouse::SchemaStatements
+
+      attr_reader :response_headers
 
       # Initializes and connects a Clickhouse adapter.
       def initialize(logger, connection_parameters, config, full_config)
@@ -216,27 +218,29 @@ module ActiveRecord
         !native_database_types[type].nil?
       end
 
-      def extract_limit(sql_type) # :nodoc:
+      def extract_limit(sql_type)
+        # :nodoc:
         case sql_type
-          when /(Nullable)?\(?String\)?/
-            super('String')
-          when /(Nullable)?\(?U?Int8\)?/
-            super('int2')
-          when /(Nullable)?\(?U?Int(16|32)\)?/
-            super('int4')
-          when /(Nullable)?\(?U?Int(64)\)?/
-            8
-          else
-            super
+        when /(Nullable)?\(?String\)?/
+          super('String')
+        when /(Nullable)?\(?U?Int8\)?/
+          super('int2')
+        when /(Nullable)?\(?U?Int(16|32)\)?/
+          super('int4')
+        when /(Nullable)?\(?U?Int(64)\)?/
+          8
+        else
+          super
         end
       end
 
-      def initialize_type_map(m) # :nodoc:
+      def initialize_type_map(m)
+        # :nodoc:
         super
         register_class_with_limit m, %r(String), Type::String
         register_class_with_limit m, %r(Enum), Type::String
-        register_class_with_limit m, 'Date',  Clickhouse::OID::Date
-        register_class_with_limit m, 'DateTime',  Clickhouse::OID::DateTime
+        register_class_with_limit m, 'Date', Clickhouse::OID::Date
+        register_class_with_limit m, 'DateTime', Clickhouse::OID::DateTime
 
         register_class_with_limit m, %r(Int8), Type::Integer
         register_class_with_limit m, %r(Int16), Type::Integer
@@ -263,7 +267,8 @@ module ActiveRecord
         value.to_s(:db)
       end
 
-      def column_name_for_operation(operation, node) # :nodoc:
+      def column_name_for_operation(operation, node)
+        # :nodoc:
         if ActiveRecord::version >= Gem::Version.new('6')
           visitor.compile(node)
         else
@@ -277,13 +282,15 @@ module ActiveRecord
 
       # SCHEMA STATEMENTS ========================================
 
-      def primary_key(table_name) #:nodoc:
+      def primary_key(table_name)
+        #:nodoc:
         pk = table_structure(table_name).first
         return 'id' if pk.present? && pk[0] == 'id'
         false
       end
 
-      def create_schema_dumper(options) # :nodoc:
+      def create_schema_dumper(options)
+        # :nodoc:
         ClickhouseActiverecord::SchemaDumper.create(self, options)
       end
 
@@ -297,7 +304,8 @@ module ActiveRecord
       end
 
       # Drops a ClickHouse database.
-      def drop_database(name) #:nodoc:
+      def drop_database(name)
+        #:nodoc:
         sql = "DROP DATABASE IF EXISTS #{quote_table_name(name)}"
         log_with_debug(sql, adapter_name) do
           res = @connection.post("/?#{@config.except(:database).to_param}", sql)
@@ -305,7 +313,8 @@ module ActiveRecord
         end
       end
 
-      def drop_table(table_name, options = {}) # :nodoc:
+      def drop_table(table_name, options = {})
+        # :nodoc:
         do_execute "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
       end
 
@@ -344,13 +353,13 @@ module ActiveRecord
 
       def connect params
         @connection = params[:urls] ?
-                          Cluster.new(params, @use_session) :
-                          Net::HTTP.start(params[:host], params[:port],
-                                      use_ssl: params[:use_ssl],
-                                      verify_mode: OpenSSL::SSL::VERIFY_NONE)
+                        Cluster.new(params, @use_session) :
+                        Net::HTTP.start(params[:host], params[:port],
+                                        use_ssl: params[:use_ssl],
+                                        verify_mode: OpenSSL::SSL::VERIFY_NONE)
       end
 
-      SESSIONID_LETTERS = (48..57).collect{|c| c.chr} + (65..90).collect{|c| c.chr} + (97..122).collect{|c| c.chr}
+      SESSIONID_LETTERS = (48..57).collect { |c| c.chr } + (65..90).collect { |c| c.chr } + (97..122).collect { |c| c.chr }
 
       def generate_session_id
         Array.new(30) { SESSIONID_LETTERS[rand(SESSIONID_LETTERS.size)] }.join
