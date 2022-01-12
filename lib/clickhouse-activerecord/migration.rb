@@ -12,14 +12,15 @@ module ClickhouseActiverecord
         table_options = {
           id: false, options: 'ReplacingMergeTree(ver) PARTITION BY version ORDER BY (version)', if_not_exists: true
         }
-        if connection.instance_variable_get(:@full_config)[:distributed_service_tables]
-          table_options.merge!(sharding_key: 'cityHash64(version)')
-          table_creation_method = 'create_table_with_distributed'
-        else
-          table_creation_method = 'create_table'
+        full_config = connection.instance_variable_get(:@full_config) || {}
+
+        if full_config[:distributed_service_tables]
+          table_options.merge!(with_distributed: table_name, sharding_key: 'cityHash64(version)')
+
+          distributed_suffix = "_#{full_config[:distributed_service_tables_suffix] || 'distributed'}"
         end
 
-        connection.public_send(table_creation_method, table_name, **table_options) do |t|
+        connection.create_table(table_name.concat(distributed_suffix.to_s), **table_options) do |t|
           t.string :version, **version_options
           t.column :active, 'Int8', null: false, default: '1'
           t.datetime :ver, null: false, default: -> { 'now()' }
@@ -43,14 +44,15 @@ module ClickhouseActiverecord
           options: connection.adapter_name.downcase == 'clickhouse' ? 'MergeTree() PARTITION BY toDate(created_at) ORDER BY (created_at)' : '',
           if_not_exists: true
         }
-        if connection.instance_variable_get(:@full_config).try(:[], :distributed_service_tables)
-          table_options.merge!(sharding_key: 'cityHash64(created_at)')
-          table_creation_method = 'create_table_with_distributed'
-        else
-          table_creation_method = 'create_table'
+        full_config = connection.instance_variable_get(:@full_config) || {}
+
+        if full_config[:distributed_service_tables]
+          table_options.merge!(with_distributed: table_name, sharding_key: 'cityHash64(created_at)')
+
+          distributed_suffix = "_#{full_config[:distributed_service_tables_suffix] || 'distributed'}"
         end
 
-        connection.public_send(table_creation_method, table_name, **table_options) do |t|
+        connection.create_table(table_name.concat(distributed_suffix.to_s), **table_options) do |t|
           t.string :key, **key_options
           t.string :value
           t.timestamps

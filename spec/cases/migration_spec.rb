@@ -70,6 +70,85 @@ RSpec.describe 'Migration', :migrations do
               expect(current_schema['balance'].sql_type).to eq('Decimal(32, 2)')
             end
           end
+
+          context 'uuid' do
+            it 'creates a table with uuid columns' do
+              migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_table_with_uuid_creation')
+              quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+
+              current_schema = schema(model)
+
+              expect(current_schema.keys.count).to eq(2)
+              expect(current_schema).to have_key('col1')
+              expect(current_schema).to have_key('col2')
+              expect(current_schema['col1'].sql_type).to eq('UUID')
+              expect(current_schema['col2'].sql_type).to eq('Nullable(UUID)')
+            end
+          end
+
+          context 'datetime' do
+            it 'creates a table with datetime columns' do
+              migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_table_with_datetime_creation')
+              quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+
+              current_schema = schema(model)
+
+              expect(current_schema.keys.count).to eq(2)
+              expect(current_schema).to have_key('datetime')
+              expect(current_schema).to have_key('datetime64')
+              expect(current_schema['datetime'].sql_type).to eq('DateTime')
+              expect(current_schema['datetime64'].sql_type).to eq('Nullable(DateTime64(3))')
+            end
+          end
+
+          context 'low_cardinality' do
+            it 'creates a table with low cardinality columns' do
+              migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_table_with_low_cardinality_creation')
+              quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+
+              current_schema = schema(model)
+
+              expect(current_schema.keys.count).to eq(3)
+              expect(current_schema).to have_key('col1')
+              expect(current_schema).to have_key('col2')
+              expect(current_schema).to have_key('col3')
+              expect(current_schema['col1'].sql_type).to eq('LowCardinality(String)')
+              expect(current_schema['col2'].sql_type).to eq('LowCardinality(Nullable(String))')
+              expect(current_schema['col3'].sql_type).to eq('Array(LowCardinality(Nullable(String)))')
+            end
+          end
+
+          context 'fixed_string' do
+            it 'creates a table with fixed string columns' do
+              migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_table_with_fixed_string_creation')
+              quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+
+              current_schema = schema(model)
+
+              expect(current_schema.keys.count).to eq(2)
+              expect(current_schema).to have_key('fixed_string1')
+              expect(current_schema).to have_key('fixed_string16_array')
+              expect(current_schema['fixed_string1'].sql_type).to eq('FixedString(1)')
+              expect(current_schema['fixed_string16_array'].sql_type).to eq('Array(Nullable(FixedString(16)))')
+            end
+          end
+
+          context 'enum' do
+            it 'creates a table with enum columns' do
+              migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_table_with_enum_creation')
+              quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+
+              current_schema = schema(model)
+
+              expect(current_schema.keys.count).to eq(3)
+              expect(current_schema).to have_key('enum8')
+              expect(current_schema).to have_key('enum16')
+              expect(current_schema).to have_key('enum_nullable')
+              expect(current_schema['enum8'].sql_type).to eq("Enum8('key1' = 1, 'key2' = 2)")
+              expect(current_schema['enum16'].sql_type).to eq("Enum16('key1' = 1, 'key2' = 2)")
+              expect(current_schema['enum_nullable'].sql_type).to eq("Nullable(Enum8('key1' = 1, 'key2' = 2))")
+            end
+          end
         end
 
         context 'with distributed' do

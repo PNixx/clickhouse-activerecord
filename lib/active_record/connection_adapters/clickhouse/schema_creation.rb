@@ -19,8 +19,17 @@ module ActiveRecord
         end
 
         def add_column_options!(sql, options)
+          if options[:value]
+            sql.gsub!(/\s+(.*)/, " \\1(#{options[:value]})")
+          end
+          if options[:fixed_string]
+            sql.gsub!(/\s+(.*)/, " FixedString(#{options[:fixed_string]})")
+          end
           if options[:null] || options[:null].nil?
             sql.gsub!(/\s+(.*)/, ' Nullable(\1)')
+          end
+          if options[:low_cardinality]
+            sql.gsub!(/\s+(.*)/, ' LowCardinality(\1)')
           end
           if options[:array]
             sql.gsub!(/\s+(.*)/, ' Array(\1)')
@@ -73,7 +82,7 @@ module ActiveRecord
           return unless match
           return if match[:database]
 
-          create_sql << "TO #{current_database}.#{options.to.sub('.', '')} "
+          create_sql << "TO #{current_database}.#{match[:table_name].sub('.', '')}"
         end
 
         def visit_TableDefinition(o)
