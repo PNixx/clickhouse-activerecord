@@ -9,9 +9,9 @@ module ActiveRecord
           do_execute(sql, name)
         end
 
-        def exec_insert(sql, name = nil, _binds = [], _pk = nil, _sequence_name = nil)
+        def exec_insert(sql, name = nil, _binds = [], _pk = nil, _sequence_name = nil, settings: {})
           new_sql = sql.dup.sub(/ (DEFAULT )?VALUES/, " VALUES")
-          do_execute(new_sql, name, format: nil)
+          do_execute(new_sql, name, format: nil, settings: settings)
           true
         end
 
@@ -62,7 +62,7 @@ module ActiveRecord
             request_params = @config || {}
             res = @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql)
 
-            @response_headers = res.header.to_hash
+             @response_headers = res.header.to_hash
 
             process_response(res)
           end
