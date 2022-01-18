@@ -14,7 +14,7 @@ module ClickhouseActiverecord
       connection.create_database @configuration["database"]
     rescue ActiveRecord::StatementInvalid => e
       if e.cause.to_s.include?('already exists')
-        raise ActiveRecord::Tasks::DatabaseAlreadyExists
+        raise ActiveRecord::DatabaseAlreadyExists
       else
         raise
       end
