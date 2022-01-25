@@ -4,6 +4,7 @@ require 'bundler/setup'
 require 'pry'
 require 'active_record'
 require 'clickhouse-activerecord'
+require 'active_support/notifications'
 require 'active_support/testing/stream'
 
 ClickhouseActiverecord.load
@@ -75,5 +76,23 @@ def clear_consts
 
     Object.send(:remove_const, const.to_s) if const
     $LOADED_FEATURES.delete(file)
+  end
+end
+
+class SqlCapture
+  def initialize(&block)
+    @block = block
+  end
+
+  def captured
+    trap = ->(_name, _started, _finished, _unique_id, payload) { store_captured(payload[:sql]) }
+    ActiveSupport::Notifications.subscribed(trap, 'sql.active_record') { @block.call }
+    @captured
+  end
+
+  private
+
+  def store_captured(sql)
+    @captured = sql
   end
 end
