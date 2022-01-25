@@ -39,7 +39,7 @@ module ActiveRecord
         end
 
         def tables(name = nil)
-          result = do_system_execute('SHOW TABLES', name)
+          result = do_system_execute("SHOW TABLES WHERE name NOT LIKE '.inner_id.%'", name)
           return [] if result.nil?
           result['data'].flatten
         end
