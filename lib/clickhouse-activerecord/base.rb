@@ -33,11 +33,15 @@ module ClickhouseActiverecord
       end
 
       def is_view
+        return false unless connection.is_a?(ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+
         @is_view || false
       end
 
       # @param [Boolean] value
       def is_view=(value)
+        raise NotImplementedError, "Only used by models backed by Clickhouse" unless connection.is_a?(ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+
         @is_view = value
       end
     end

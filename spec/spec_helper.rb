@@ -44,10 +44,16 @@ ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(
     database: 'test',
     username: nil,
     password: nil
+  },
+  in_mem: {
+    database: ':memory:',
+    adapter: 'sqlite3'
   }
 )
 
 ActiveRecord::Base.establish_connection(:default)
+
+require_relative 'models/in_mem_base'
 
 def schema(model)
   model.reset_column_information
