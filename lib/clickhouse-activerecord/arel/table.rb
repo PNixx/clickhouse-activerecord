@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 module ClickhouseActiverecord
   module Arel
-    class Table < ::Arel::Table
+    module Table
       def is_view
         type_caster.is_view
       end

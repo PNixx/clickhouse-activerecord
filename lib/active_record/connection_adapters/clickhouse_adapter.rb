@@ -1,106 +1,23 @@
 # frozen_string_literal: true
 
-require 'clickhouse-activerecord/arel/visitors/to_sql'
-require 'clickhouse-activerecord/arel/table'
-require 'clickhouse-activerecord/migration'
+require 'active_record/connection_adapters/clickhouse/schema_creation'
+require 'active_record/connection_adapters/clickhouse/schema_definitions'
+require 'active_record/connection_adapters/clickhouse/schema_dumper'
+require 'active_record/connection_adapters/clickhouse/schema_statements'
+
 require 'active_record/connection_adapters/clickhouse/oid/array'
+require 'active_record/connection_adapters/clickhouse/oid/big_integer'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
-require 'active_record/connection_adapters/clickhouse/oid/big_integer'
-require 'active_record/connection_adapters/clickhouse/schema_definitions'
-require 'active_record/connection_adapters/clickhouse/schema_creation'
-require 'active_record/connection_adapters/clickhouse/schema_statements'
+
+require 'arel/visitors/clickhouse'
+
 require 'net/http'
 
 module ActiveRecord
-  class Base
-    class << self
-      # Establishes a connection to the database that's used by all Active Record objects
-      def clickhouse_connection(config)
-        config = config.symbolize_keys
-
-        if config[:connection]
-          connection = {
-            connection: config[:connection]
-          }
-        else
-          port = config[:port] || 8123
-          connection = {
-            host: config[:host] || 'localhost',
-            port: port,
-            ssl: config[:ssl].present? ? config[:ssl] : port == 443,
-            sslca: config[:sslca],
-            read_timeout: config[:read_timeout],
-            write_timeout: config[:write_timeout],
-          }
-        end
-
-        if config.key?(:database)
-          database = config[:database]
-        else
-          raise ArgumentError, 'No database specified. Missing argument: database.'
-        end
-
-        ConnectionAdapters::ClickhouseAdapter.new(logger, connection, { user: config[:username], password: config[:password], database: database }.compact, config)
-      end
-    end
-  end
-
-  module ClickhouseRelationReverseOrder
-    def reverse_order!
-      return super unless connection.is_a?(ConnectionAdapters::ClickhouseAdapter)
-
-      orders = order_values.uniq.compact_blank
-      return super unless orders.empty? && !primary_key
-
-      self.order_values = %w(date created_at).select {|c| column_names.include?(c) }.map{|c| arel_attribute(c).desc }
-      self
-    end
-  end
-  Relation.prepend(ClickhouseRelationReverseOrder)
-
-  module TypeCaster
-    class Map
-      def is_view
-        if @klass.respond_to?(:is_view)
-          @klass.is_view # rails 6.1
-        else
-          types.is_view # less than 6.1
-        end
-      end
-    end
-  end
-
-  module ModelSchema
-     module ClassMethods
-      def is_view
-        @is_view || false
-      end
-       # @param [Boolean] value
-      def is_view=(value)
-        @is_view = value
-      end
-    end
-  end
-
-  ActiveRecord::Core::ClassMethods.module_eval do
-    def arel_table
-      @arel_table ||=
-        if self.connection.is_a?(ConnectionAdapters::ClickhouseAdapter)
-          ClickhouseActiverecord::Arel::Table.new(table_name, type_caster: type_caster)
-        else
-          Arel::Table.new(table_name, klass: self)
-        end
-    end
-  end
-
   module ConnectionAdapters
-    class ClickhouseColumn < Column
-
-    end
-
     class ClickhouseAdapter < AbstractAdapter
-      ADAPTER_NAME = 'Clickhouse'.freeze
+      ADAPTER_NAME = 'Clickhouse'
       NATIVE_DATABASE_TYPES = {
         string: { name: 'String' },
         integer: { name: 'UInt32' },
@@ -149,21 +66,12 @@ module ActiveRecord
         connect
       end
 
-      # Support SchemaMigration from v5.2.2 to v6+
-      def schema_migration # :nodoc:
-        ClickhouseActiverecord::SchemaMigration
-      end
-
       def migrations_paths
         @full_config[:migrations_paths] || 'db/migrate_clickhouse'
       end
 
-      def migration_context # :nodoc:
-        ClickhouseActiverecord::MigrationContext.new(migrations_paths, schema_migration)
-      end
-
       def arel_visitor # :nodoc:
-        ClickhouseActiverecord::Arel::Visitors::ToSql.new(self)
+        Arel::Visitors::Clickhouse.new(self)
       end
 
       def native_database_types #:nodoc:
@@ -281,26 +189,30 @@ module ActiveRecord
         execute schema_creation.accept td
       end
 
-      def create_table(table_name, **options, &block)
+      def create_table(table_name, id: :primary_key, primary_key: nil, force: nil, **options, &block)
         options = apply_replica(table_name, options)
-        td = create_table_definition(apply_cluster(table_name), **options)
-        block.call td if block_given?
 
-        if options[:force]
-          drop_table(table_name, options.merge(if_exists: true))
-        end
-
-        execute schema_creation.accept td
+        result = super
 
         if options[:with_distributed]
           distributed_table_name = options.delete(:with_distributed)
           sharding_key = options.delete(:sharding_key) || 'rand()'
           raise 'Set a cluster' unless cluster
 
-          distributed_options =
-            "Distributed(#{cluster}, #{@config[:database]}, #{table_name}, #{sharding_key})"
-          create_table(distributed_table_name, **options.merge(options: distributed_options), &block)
+          distributed_options = "Distributed(#{cluster}, #{@config[:database]}, #{table_name}, #{sharding_key})"
+          create_table(distributed_table_name,
+                       id:          id,
+                       primary_key: primary_key,
+                       force:       force,
+                       **options.merge(options: distributed_options),
+                       &block)
         end
+
+        result
+      end
+
+      def create_table_definition(table_name, **options)
+        Clickhouse::TableDefinition.new(self, apply_cluster(table_name), **options)
       end
 
       # Drops a ClickHouse database.

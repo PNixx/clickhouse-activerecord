@@ -10,7 +10,7 @@ require "active_record/connection_adapters/abstract/schema_creation"
 module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
-      class SchemaCreation < ConnectionAdapters::SchemaCreation# :nodoc:
+      class SchemaCreation < ConnectionAdapters::SchemaCreation # :nodoc:
 
         def visit_AddColumnDefinition(o)
           sql = +"ADD COLUMN #{accept(o.column)}"

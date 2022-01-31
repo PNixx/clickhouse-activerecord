@@ -3,11 +3,11 @@
 namespace :clickhouse do
 
   task prepare_schema_migration_table: :environment do
-    ClickhouseActiverecord::SchemaMigration.create_table unless ENV['simple'] || ARGV.map{|a| a.include?('--simple') ? true : nil}.compact.any?
+    ActiveRecord::SchemaMigration.create_table unless ENV['simple'] || ARGV.map{|a| a.include?('--simple') ? true : nil}.compact.any?
   end
 
   task prepare_internal_metadata_table: :environment do
-    ClickhouseActiverecord::InternalMetadata.create_table unless ENV['simple'] || ARGV.map{|a| a.include?('--simple') ? true : nil}.compact.any?
+    ActiveRecord::InternalMetadata.create_table unless ENV['simple'] || ARGV.map{|a| a.include?('--simple') ? true : nil}.compact.any?
   end
 
   task load_config: :environment do
@@ -22,7 +22,7 @@ namespace :clickhouse do
     desc 'Load database schema'
     task load: [:load_config, :prepare_internal_metadata_table] do |t, args|
       simple = ENV['simple'] || ARGV.map{|a| a.include?('--simple') ? true : nil}.compact.any? ? '_simple' : nil
-      ClickhouseActiverecord::SchemaMigration.drop_table
+      ActiveRecord::SchemaMigration.drop_table
       load("#{Rails.root}/db/clickhouse_schema#{simple}.rb")
     end
 

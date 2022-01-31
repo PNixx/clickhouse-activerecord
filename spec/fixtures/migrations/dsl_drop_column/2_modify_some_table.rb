@@ -5,4 +5,3 @@ class ModifySomeTable < ActiveRecord::Migration[5.0]
     remove_column :some, :id
   end
 end
-

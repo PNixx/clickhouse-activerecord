@@ -25,6 +25,7 @@ module ActiveRecord
           @indexes = []
           @foreign_keys = []
           @primary_keys = nil
+          @check_constraints = []
           @temporary = temporary
           @if_not_exists = if_not_exists
           @options = options

@@ -169,7 +169,7 @@ RSpec.describe 'Migration', :migrations do
 
           it 'creates a table with distributed table' do
             migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_table_with_distributed')
-            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ClickhouseActiverecord::SchemaMigration).up }
+            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ActiveRecord::SchemaMigration).up }
 
             current_schema = schema(model)
             current_schema_distributed = schema(model_distributed)
@@ -186,13 +186,13 @@ RSpec.describe 'Migration', :migrations do
 
           it 'drops a table with distributed table' do
             migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_table_with_distributed')
-            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ClickhouseActiverecord::SchemaMigration).up }
+            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ActiveRecord::SchemaMigration).up }
 
             expect(ActiveRecord::Base.connection.tables).to include('some')
             expect(ActiveRecord::Base.connection.tables).to include('some_distributed')
 
             quietly do
-              ClickhouseActiverecord::MigrationContext.new(migrations_dir, ClickhouseActiverecord::SchemaMigration).down
+              ActiveRecord::MigrationContext.new(migrations_dir, ActiveRecord::SchemaMigration).down
             end
 
             expect(ActiveRecord::Base.connection.tables).not_to include('some')
@@ -203,24 +203,20 @@ RSpec.describe 'Migration', :migrations do
         context 'view' do
           it 'creates a view' do
             migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_view_with_to_section')
-            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ClickhouseActiverecord::SchemaMigration).up }
+            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ActiveRecord::SchemaMigration).up }
 
             expect(ActiveRecord::Base.connection.tables).to include('some_view')
           end
 
           it 'drops a view' do
             migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_view_without_to_section')
-            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ClickhouseActiverecord::SchemaMigration).up }
+            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ActiveRecord::SchemaMigration).up }
 
             expect(ActiveRecord::Base.connection.tables).to include('some_view')
-            expect(ActiveRecord::Base.connection.tables).to include('.inner.some_view')
 
-            quietly do
-              ClickhouseActiverecord::MigrationContext.new(migrations_dir, ClickhouseActiverecord::SchemaMigration).down
-            end
+            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ActiveRecord::SchemaMigration).down }
 
             expect(ActiveRecord::Base.connection.tables).not_to include('some_view')
-            expect(ActiveRecord::Base.connection.tables).not_to include('.inner.some_view')
           end
         end
       end
