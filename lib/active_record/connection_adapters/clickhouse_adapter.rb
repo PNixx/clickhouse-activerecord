@@ -22,33 +22,29 @@ module ActiveRecord
   class Base
     class << self
 
-      @@clickhouse_connection_adapter_pool = {}
-
       # Establishes a connection to the database that's used by all Active Record objects
       def clickhouse_connection(config)
         config = config.symbolize_keys
 
-        @@clickhouse_connection_adapter_pool[config] ||= begin
-                                      raise ArgumentError, 'No database specified. Missing argument: database.' unless config.key?(:database)
+        raise "No database specified. Missing argument: database in config #{config.to_json}" unless config.key?(:database)
 
-                                      connection_params = if config[:urls]
-                                                            {
-                                                              urls: config[:urls]
-                                                            }
-                                                          else
-                                                            {
-                                                              host: config[:host] || 'localhost',
-                                                              port: config[:port] || 8123,
-                                                              ssl: config[:ssl].present? ? config[:ssl] : config[:port] == 443
-                                                            }
-                                                          end
+        connection_params = if config[:urls]
+                              {
+                                urls: config[:urls]
+                              }
+                            else
+                              {
+                                host: config[:host] || 'localhost',
+                                port: config[:port] || 8123,
+                                ssl: config[:ssl].present? ? config[:ssl] : config[:port] == 443
+                              }
+                            end
 
-                                      auth_params = { user: config[:username], password: config[:password], database: config[:database] }
-                                      ConnectionAdapters::ClickhouseAdapter.new(logger,
-                                                                                connection_params.compact,
-                                                                                auth_params.compact,
-                                                                                config)
-                                    end
+        auth_params = { user: config[:username], password: config[:password], database: config[:database] }
+        ConnectionAdapters::ClickhouseAdapter.new(logger,
+                                                  connection_params.compact,
+                                                  auth_params.compact,
+                                                  config)
 
 
       end
@@ -101,57 +97,45 @@ module ActiveRecord
 
     end
 
-    class Cluster
+    class ClusterConnections
+      attr_reader :urls, :connections
 
-      attr_reader :urls, :connections, :adapter
-
-      def initialize params, adapter
-        @urls =  params[:urls] || [build_url(params)]
+      def initialize params
         @connections = []
-        @adapter = adapter
+        @urls =  params[:urls] || [build_url(params)]
       end
 
-      def post url, data
+      def select_connection session_id
+        index = if session_id
+                  Digest::MD5.hexdigest(session_id).to_i(16) % urls.size
+                else
+                  Random.rand urls.size
+                end
+        (connections[index] ||= connect(index))
+      end
 
-        connection, index = select_connection
+      def close connection
 
-        if !connection
-          raise "No connection found for #{urls.join(',')}"
+        if (index = connections.index(connection))>=0
+          connections[index] = nil
         end
 
         begin
-          connection.post url, data
+          connection.finish
         rescue
-          connections[index]  = nil
-          close_connection connection
-          raise
         end
 
       end
+
 
       private
 
       def build_url(params)
         (params[:use_ssl] ?
-          URI::HTTPS.build(host: params[:host], port: params[:port]) :
-          URI::HTTP.build(host: params[:host], port: params[:port])).to_s
+           URI::HTTPS.build(host: params[:host], port: params[:port]) :
+           URI::HTTP.build(host: params[:host], port: params[:port])).to_s
       end
 
-      def close_connection connection
-        begin
-          connection.finish
-        rescue
-        end
-      end
-
-      def select_connection
-        index = if adapter.session_id
-                   Digest::MD5.hexdigest(adapter.session_id).to_i(16) % urls.size
-                 else
-                   Random.rand urls.size
-                end
-        [(connections[index] ||= connect(index)),index]
-      end
 
       def connect index
 
@@ -179,6 +163,46 @@ module ActiveRecord
                                verify_mode: OpenSSL::SSL::VERIFY_NONE)
       end
 
+
+    end
+
+    class ClusterConnectionPool
+      include Singleton
+
+      def initialize
+        @connections = {}
+      end
+
+      def get_connections_for params
+        @connections[params] ||= ClusterConnections.new(params)
+      end
+
+    end
+
+
+    class Cluster
+
+      def initialize params, adapter
+        @connections = ClusterConnectionPool.instance.get_connections_for params
+        @adapter = adapter
+      end
+
+      def post url, data
+
+        connection = @connections.select_connection @adapter.session_id
+
+        if !connection
+          raise "No connection found for #{url} session #{@adapter.session_id}"
+        end
+
+        begin
+          connection.post url, data
+        rescue
+          @connections.close connection
+          raise
+        end
+
+      end
 
     end
 
