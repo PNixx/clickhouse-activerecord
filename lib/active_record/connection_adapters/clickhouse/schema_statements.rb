@@ -6,17 +6,17 @@ module ActiveRecord
       module SchemaStatements
 
         def execute(sql, name = nil)
-          do_execute(sql, name)
+          do_execute(sql, name, format: nil, settings: settings)
         end
 
-        def exec_insert(sql, name = nil, _binds = [], _pk = nil, _sequence_name = nil, settings: {})
+        def exec_insert(sql, name = nil, _binds = [], _pk = nil, _sequence_name = nil)
           new_sql = sql.dup.sub(/ (DEFAULT )?VALUES/, " VALUES")
-          do_execute(new_sql, name, format: nil, settings: settings)
+          do_execute(new_sql, name, format: nil)
           true
         end
 
-        def exec_query(sql, name = nil, binds = [], prepare: false, settings: {})
-          result = do_execute(sql, name, settings: settings)
+        def exec_query(sql, name = nil, binds = [], prepare: false)
+          result = do_execute(sql, name)
           Result.new(result['meta'], result['data'], result['statistics']) unless result.nil?
         end
 
@@ -48,30 +48,28 @@ module ActiveRecord
           tables
         end
 
-        def do_system_execute(sql, name = nil)
-          log_with_debug(sql, "#{adapter_name} #{name}") do
-            res = @connection.post("/?#{@config.to_param}", "#{sql} FORMAT JSONCompact")
-
-            process_response(res)
-          end
-        end
-
-        def do_execute(sql, name = nil, format: 'JSONCompact', settings: {})
-          log(sql, "#{adapter_name} #{name}") do
-            formatted_sql = apply_format(sql, format)
-            request_params = @config || {}
-            res = @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql)
-
-             @response_headers = res.header.to_hash
-
-            process_response(res)
-          end
-        end
-
         private
 
-        def apply_format(sql, format)
-          format ? "#{sql} FORMAT #{format}" : sql
+        def do_system_execute sql, name = nil
+          log_with_debug(sql, "#{adapter_name} #{name}") do
+            process_response call_cluster sql
+          end
+        end
+
+        def do_execute sql, name = nil, format: 'JSONCompact'
+          log(sql, "#{adapter_name} #{name}") do
+            process_response call_cluster sql, format
+          end
+        end
+
+        def call_cluster sql, format  = 'JSONCompact'
+          formatted_sql  = format ? "#{sql} FORMAT #{format}" : sql
+          params = @config || {}
+          if stat && stat.respond_to?(:query_settings)
+            params = params.merge(stat.query_settings)
+            @session_id = params[:session_id]
+          end
+          @cluster.post("/?#{params.to_param}", formatted_sql)
         end
 
         def process_response(res)
