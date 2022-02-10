@@ -26,7 +26,7 @@ module ActiveRecord
       def clickhouse_connection(config)
         config = config.symbolize_keys
 
-        raise "No database specified. Missing argument: database in config #{config.to_json}" unless config.key?(:database)
+        raise "No database specified. Missing argument: database in config" unless config.key?(:database)
 
         connection_params = if config[:urls]
                               {
