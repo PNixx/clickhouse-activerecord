@@ -1,17 +1,16 @@
 # frozen_string_literal: true
 
-require_relative '../core_extensions/active_record/migration/command_recorder'
-
 require 'active_record/connection_adapters/clickhouse_adapter'
 
-require 'clickhouse-activerecord/base'
-require 'clickhouse-activerecord/internal_metadata'
-require 'clickhouse-activerecord/migrator'
-require 'clickhouse-activerecord/relation'
-require 'clickhouse-activerecord/schema_migration'
-require 'clickhouse-activerecord/type_caster/map'
+require 'core_extensions/active_record/base'
+require 'core_extensions/active_record/internal_metadata'
+require 'core_extensions/active_record/migration/command_recorder'
+require 'core_extensions/active_record/migrator'
+require 'core_extensions/active_record/relation'
+require 'core_extensions/active_record/schema_migration'
+require 'core_extensions/active_record/type_caster/map'
 
-require 'clickhouse-activerecord/arel/table'
+require 'core_extensions/arel/table'
 
 if defined?(Rails::Railtie)
   require 'clickhouse-activerecord/railtie'
@@ -22,15 +21,15 @@ end
 module ClickhouseActiverecord
 
   def self.load
-    ActiveRecord::Base.singleton_class.prepend(ClickhouseActiverecord::Base::ClassMethods)
-    ActiveRecord::InternalMetadata.singleton_class.prepend(ClickhouseActiverecord::InternalMetadata::ClassMethods)
-    ActiveRecord::Migration::CommandRecorder.include CoreExtensions::ActiveRecord::Migration::CommandRecorder
-    ActiveRecord::Migrator.prepend(ClickhouseActiverecord::Migrator)
-    ActiveRecord::Relation.prepend(ClickhouseActiverecord::Relation)
-    ActiveRecord::SchemaMigration.singleton_class.prepend(ClickhouseActiverecord::SchemaMigration::ClassMethods)
-    ActiveRecord::TypeCaster::Map.prepend(ClickhouseActiverecord::TypeCaster::Map)
+    ActiveRecord::Base.singleton_class.prepend(CoreExtensions::ActiveRecord::Base::ClassMethods)
+    ActiveRecord::InternalMetadata.singleton_class.prepend(CoreExtensions::ActiveRecord::InternalMetadata::ClassMethods)
+    ActiveRecord::Migration::CommandRecorder.include(CoreExtensions::ActiveRecord::Migration::CommandRecorder)
+    ActiveRecord::Migrator.prepend(CoreExtensions::ActiveRecord::Migrator)
+    ActiveRecord::Relation.prepend(CoreExtensions::ActiveRecord::Relation)
+    ActiveRecord::SchemaMigration.singleton_class.prepend(CoreExtensions::ActiveRecord::SchemaMigration::ClassMethods)
+    ActiveRecord::TypeCaster::Map.include(CoreExtensions::ActiveRecord::TypeCaster::Map)
 
-    ::Arel::Table.prepend(ClickhouseActiverecord::Arel::Table)
+    Arel::Table.prepend(CoreExtensions::Arel::Table)
   end
 
 end

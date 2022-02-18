@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'arel/visitors/clickhouse'
-
 module Arel # :nodoc: all
   module Visitors
     class Clickhouse < Arel::Visitors::ToSql

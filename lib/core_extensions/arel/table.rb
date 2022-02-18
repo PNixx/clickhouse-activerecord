@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module ClickhouseActiverecord
+module CoreExtensions
   module Arel
     module Table
       def is_view
