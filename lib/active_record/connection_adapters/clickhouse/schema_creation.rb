@@ -125,7 +125,11 @@ module ActiveRecord
         end
 
         def current_database
-          ActiveRecord::Base.connection_db_config.database
+          if ActiveRecord::VERSION::MAJOR < 6
+            ActiveRecord::Base.connection_config[:database]
+          else
+            ActiveRecord::Base.connection_db_config.database
+          end
         end
       end
     end

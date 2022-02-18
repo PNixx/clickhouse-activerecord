@@ -53,7 +53,7 @@ ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(
 
 ActiveRecord::Base.establish_connection(:default)
 
-require_relative 'models/in_mem_base'
+require_relative 'models/in_mem_base' if ActiveRecord::VERSION::MAJOR >= 6
 
 def schema(model)
   model.reset_column_information
@@ -63,7 +63,12 @@ def schema(model)
 end
 
 def clear_db
-  current_cluster_name = ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
+  current_cluster_name =
+    if ActiveRecord::VERSION::MAJOR < 6
+      ActiveRecord::Base.connection_config[:cluster_name]
+    else
+      ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
+    end
   pattern = if current_cluster_name
               "DROP TABLE %s ON CLUSTER #{current_cluster_name}"
             else

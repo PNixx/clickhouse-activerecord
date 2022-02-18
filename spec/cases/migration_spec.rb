@@ -162,7 +162,12 @@ RSpec.describe 'Migration', :migrations do
               self.table_name = 'some_distributed'
             end
           end
-          connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
+          connection_config =
+            if ActiveRecord::VERSION::MAJOR < 6
+              ActiveRecord::Base.connection_config
+            else
+              ActiveRecord::Base.connection_db_config.configuration_hash
+            end
 
           before(:all) do
             ActiveRecord::Base.establish_connection(connection_config.merge(cluster_name: CLUSTER_NAME))
