@@ -243,6 +243,13 @@ After checking out the repo, run `bin/setup` to install dependencies. You can al
 
 To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
 
+## Running Test Suite
+
+1. Install base dependencies by running `bundle install`
+2. Install multiple ActiveRecord environments by running `appraisal` (or `bundle exec appraisal`)
+3. Run tests for all supported ActiveRecord versions by running `appraisal rake spec`, or for a specific version by
+   running `appraisal activerecord-6 rake spec` for ActiveRecord 6, etc.
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at [https://github.com/pnixx/clickhouse-activerecord](https://github.com/pnixx/clickhouse-activerecord). This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Contributor Covenant](http://contributor-covenant.org) code of conduct.
