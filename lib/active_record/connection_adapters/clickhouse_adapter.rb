@@ -219,14 +219,22 @@ module ActiveRecord
       # Quoting time without microseconds
       def quoted_date(value)
         if value.acts_like?(:time)
-          zone_conversion_method = ActiveRecord::Base.default_timezone == :utc ? :getutc : :getlocal
+          if ActiveRecord::version >= Gem::Version.new('7')
+            zone_conversion_method = ActiveRecord.default_timezone == :utc ? :getutc : :getlocal
+          else
+            zone_conversion_method = ActiveRecord::Base.default_timezone == :utc ? :getutc : :getlocal
+          end
 
           if value.respond_to?(zone_conversion_method)
             value = value.send(zone_conversion_method)
           end
         end
 
-        value.to_s(:db)
+        if ActiveRecord::version >= Gem::Version.new('7')
+          value.to_fs(:db)
+        else
+          value.to_s(:db)
+        end
       end
 
       def column_name_for_operation(operation, node) # :nodoc:

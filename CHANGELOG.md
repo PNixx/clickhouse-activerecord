@@ -1,10 +1,14 @@
+### Version 0.5.8 (Oct 25, 2021)
+
+ * Added support rails 7
+
 ### Version 0.5.6 (Oct 25, 2021)
- 
+
  * Added auto creating service distributed tables and additional options for creating view [@ygreeek](https://github.com/ygreeek)
  * Added default user agent
 
 ### Version 0.5.3 (Sep 22, 2021)
- 
+
  * Fix replica cluster for a new syntax MergeTree
  * Fix support rails 5.2 on alter table
  * Support array type of column
