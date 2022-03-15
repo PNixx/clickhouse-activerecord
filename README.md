@@ -247,7 +247,8 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 1. Install base dependencies by running `bundle install`
 2. Install multiple ActiveRecord environments by running `appraisal` (or `bundle exec appraisal`)
-3. Run tests for all supported ActiveRecord versions by running `appraisal rake spec`, or for a specific version by
+3. Create a test database by running `clickhouse-client --query "CREATE DATABASE IF NOT EXISTS test"`
+4. Run tests for all supported ActiveRecord versions by running `appraisal rake spec`, or for a specific version by
    running `appraisal activerecord-6 rake spec` for ActiveRecord 6, etc.
 
 ## Contributing
