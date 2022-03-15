@@ -146,7 +146,7 @@ module ActiveRecord
           end
         end
 
-        value.to_s(:db)
+        value.to_fs(:db)
       end
 
       def column_name_for_operation(operation, node) # :nodoc:
