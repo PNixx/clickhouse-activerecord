@@ -2,7 +2,7 @@ PATH
   remote: ..
   specs:
     clickhouse-activerecord (0.5.7)
-      activerecord (>= 5.2)
+      activerecord (>= 6.0)
       bundler (>= 1.13.4)
 
 GEM
@@ -54,7 +54,7 @@ GEM
     zeitwerk (2.5.4)
 
 PLATFORMS
-  x86_64-darwin-19
+  ruby
 
 DEPENDENCIES
   activerecord (~> 6.1)
@@ -67,4 +67,4 @@ DEPENDENCIES
   sqlite3 (~> 1.4)
 
 BUNDLED WITH
-   2.2.2
+   2.3.9

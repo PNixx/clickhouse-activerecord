@@ -33,10 +33,10 @@ module ActiveRecord
         enum8: { name: 'Enum8' },
         enum16: { name: 'Enum16' },
 
-        int8:  { name: 'Int8' },
+        int8: { name: 'Int8' },
         int16: { name: 'Int16' },
         int32: { name: 'Int32' },
-        int64:  { name: 'Int64' },
+        int64: { name: 'Int64' },
         int128: { name: 'Int128' },
         int256: { name: 'Int256' },
 
@@ -49,6 +49,43 @@ module ActiveRecord
       }.freeze
 
       include Clickhouse::SchemaStatements
+
+      init_type_map_definition =
+        lambda { |m|
+          super(m)
+
+          register_class_with_limit m, %r(String), Type::String
+          register_class_with_limit m, 'Date', Clickhouse::OID::Date
+          register_class_with_limit m, 'DateTime', Clickhouse::OID::DateTime
+
+          register_class_with_limit m, %r(Int8), Type::Integer
+          register_class_with_limit m, %r(Int16), Type::Integer
+          register_class_with_limit m, %r(Int32), Type::Integer
+          register_class_with_limit m, %r(Int64), Type::Integer
+          register_class_with_limit m, %r(Int128), Type::Integer
+          register_class_with_limit m, %r(Int256), Type::Integer
+
+          register_class_with_limit m, %r(UInt8), Type::UnsignedInteger
+          register_class_with_limit m, %r(UInt16), Type::UnsignedInteger
+          register_class_with_limit m, %r(UInt32), Type::UnsignedInteger
+          register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
+          # register_class_with_limit m, %r(UInt128), Type::UnsignedInteger # not implemented in clickhouse
+          register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
+          # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
+          m.register_type(%r(Array)) do |sql_type|
+            Clickhouse::OID::Array.new(sql_type)
+          end
+        }
+
+      if ActiveRecord::version < Gem::Version.new('7.0.0')
+        define_method :initialize_type_map, &init_type_map_definition
+      else
+        define_singleton_method :initialize_type_map, &init_type_map_definition
+
+        def initialize_type_map(m)
+          self.class.initialize_type_map(m)
+        end
+      end
 
       # Initializes and connects a Clickhouse adapter.
       def initialize(logger, connection_parameters, config, full_config)
@@ -96,31 +133,6 @@ module ActiveRecord
             8
           else
             super
-        end
-      end
-
-      def initialize_type_map(m) # :nodoc:
-        super
-        register_class_with_limit m, %r(String), Type::String
-        register_class_with_limit m, 'Date',  Clickhouse::OID::Date
-        register_class_with_limit m, 'DateTime',  Clickhouse::OID::DateTime
-
-        register_class_with_limit m, %r(Int8), Type::Integer
-        register_class_with_limit m, %r(Int16), Type::Integer
-        register_class_with_limit m, %r(Int32), Type::Integer
-        register_class_with_limit m, %r(Int64), Type::Integer
-        register_class_with_limit m, %r(Int128), Type::Integer
-        register_class_with_limit m, %r(Int256), Type::Integer
-
-        register_class_with_limit m, %r(UInt8), Type::UnsignedInteger
-        register_class_with_limit m, %r(UInt16), Type::UnsignedInteger
-        register_class_with_limit m, %r(UInt32), Type::UnsignedInteger
-        register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
-        #register_class_with_limit m, %r(UInt128), Type::UnsignedInteger #not implemnted in clickhouse
-        register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
-        # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
-        m.register_type(%r(Array)) do |sql_type|
-          Clickhouse::OID::Array.new(sql_type)
         end
       end
 
@@ -201,9 +213,9 @@ module ActiveRecord
 
           distributed_options = "Distributed(#{cluster}, #{@config[:database]}, #{table_name}, #{sharding_key})"
           create_table(distributed_table_name,
-                       id:          id,
+                       id: id,
                        primary_key: primary_key,
-                       force:       force,
+                       force: force,
                        **options.merge(options: distributed_options),
                        &block)
         end
@@ -243,13 +255,13 @@ module ActiveRecord
       end
 
       def change_column_null(table_name, column_name, null, default = nil)
-        structure = table_structure(table_name).select{|v| v[0] == column_name.to_s}.first
+        structure = table_structure(table_name).select { |v| v[0] == column_name.to_s }.first
         raise "Column #{column_name} not found in table #{table_name}" if structure.nil?
-        change_column table_name, column_name, structure[1].gsub(/(Nullable\()?(.*?)\)?/, '\2'), {null: null, default: default}.compact
+        change_column table_name, column_name, structure[1].gsub(/(Nullable\()?(.*?)\)?/, '\2'), { null: null, default: default }.compact
       end
 
       def change_column_default(table_name, column_name, default)
-        change_column table_name, column_name, nil, {default: default}.compact
+        change_column table_name, column_name, nil, { default: default }.compact
       end
 
       def cluster
@@ -308,6 +320,11 @@ module ActiveRecord
       end
 
       private
+
+      def type_map
+        @type_map ||= Type::HashLookupTypeMap.new.tap(&method(:initialize_type_map))
+      end
+
 
       def connect
         @connection = @connection_parameters[:connection] || Net::HTTP.start(@connection_parameters[:host], @connection_parameters[:port], use_ssl: @connection_parameters[:ssl], verify_mode: OpenSSL::SSL::VERIFY_NONE)
