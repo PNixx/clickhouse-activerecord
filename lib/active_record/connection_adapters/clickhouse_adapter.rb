@@ -17,6 +17,7 @@ require 'net/http'
 module ActiveRecord
   module ConnectionAdapters
     class ClickhouseAdapter < AbstractAdapter
+
       ADAPTER_NAME = 'Clickhouse'
       NATIVE_DATABASE_TYPES = {
         string: { name: 'String' },
@@ -146,7 +147,11 @@ module ActiveRecord
           end
         end
 
+        return value.to_s(:db) if ActiveRecord::version < Gem::Version.new('7.0.0')
+
         value.to_fs(:db)
+
+
       end
 
       def column_name_for_operation(operation, node) # :nodoc:
