@@ -327,7 +327,7 @@ module ActiveRecord
       private
 
       def type_map
-        @type_map ||= Type::HashLookupTypeMap.new.tap(&method(:initialize_type_map))
+        @type_map ||= Type::TypeMap.new.tap(&method(:initialize_type_map))
       end
 
 
