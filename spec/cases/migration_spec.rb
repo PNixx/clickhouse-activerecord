@@ -156,7 +156,7 @@ RSpec.describe 'Migration', :migrations do
           end
         end
 
-        context 'with distributed' do
+        xcontext 'with distributed' do
           let(:model_distributed) do
             Class.new(ActiveRecord::Base) do
               self.table_name = 'some_distributed'
