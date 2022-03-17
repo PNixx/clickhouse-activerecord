@@ -78,10 +78,30 @@ module ActiveRecord
           end
         }
 
+      extract_limit_def =
+        lambda { |sql_type|
+          case sql_type
+            when /(Nullable)?\(?String\)?/
+              super('String')
+            when /(Nullable)?\(?U?Int8\)?/
+              1
+            when /(Nullable)?\(?U?Int16\)?/
+              2
+            when /(Nullable)?\(?U?Int32\)?/
+              nil
+            when /(Nullable)?\(?U?Int64\)?/
+              8
+            else
+              super(sql_type)
+          end
+        }
+
       if ActiveRecord::version < Gem::Version.new('7.0.0')
         define_method :initialize_type_map, &init_type_map_definition
+        define_method :extract_limit, &extract_limit_def
       else
         define_singleton_method :initialize_type_map, &init_type_map_definition
+        define_singleton_method :extract_limit, &extract_limit_def
 
         def initialize_type_map(m)
           self.class.initialize_type_map(m)
@@ -118,23 +138,6 @@ module ActiveRecord
 
       def valid_type?(type)
         !native_database_types[type].nil?
-      end
-
-      def extract_limit(sql_type) # :nodoc:
-        case sql_type
-          when /(Nullable)?\(?String\)?/
-            super('String')
-          when /(Nullable)?\(?U?Int8\)?/
-            1
-          when /(Nullable)?\(?U?Int16\)?/
-            2
-          when /(Nullable)?\(?U?Int32\)?/
-            nil
-          when /(Nullable)?\(?U?Int64\)?/
-            8
-          else
-            super
-        end
       end
 
       # Quoting time without microseconds

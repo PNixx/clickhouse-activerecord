@@ -22,6 +22,10 @@ RSpec.describe 'TypeMap', :migrations do
       expect(subject.lookup('Date')).to be_a ActiveRecord::ConnectionAdapters::Clickhouse::OID::Date
     end
 
+    it 'extracts limits' do
+      expect(subject.lookup('UInt64')).to have_attributes(limit: 8)
+    end
+
   end
 
   describe 'casting' do
