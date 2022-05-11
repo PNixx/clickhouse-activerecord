@@ -98,10 +98,9 @@ module ActiveRecord
     end
 
     class ClusterConnections
-      attr_reader :urls, :connections
+      attr_reader :urls
 
       def initialize params
-        @connections = []
         @urls =  params[:urls] || [build_url(params)]
       end
 
@@ -111,17 +110,13 @@ module ActiveRecord
                 else
                   Random.rand urls.size
                 end
-        (connections[index] ||= connect(index))
+        connect(index)
       end
 
       def close connection
 
-        if (index = connections.index(connection))>=0
-          connections[index] = nil
-        end
-
         begin
-          connection.finish
+          connection.finish if connection
         rescue
         end
 
@@ -166,24 +161,11 @@ module ActiveRecord
 
     end
 
-    class ClusterConnectionPool
-      include Singleton
-
-      def initialize
-        @connections = {}
-      end
-
-      def get_connections_for params
-        @connections[params] ||= ClusterConnections.new(params)
-      end
-
-    end
-
 
     class Cluster
 
       def initialize params, adapter
-        @connections = ClusterConnectionPool.instance.get_connections_for params
+        @connections = ClusterConnections.new(params)
         @adapter = adapter
       end
 
@@ -196,13 +178,13 @@ module ActiveRecord
         end
 
         begin
-          connection.post url, data
-        rescue
+          return connection.post url, data
+        ensure
           @connections.close connection
-          raise
         end
 
       end
+
 
     end
 
