@@ -191,6 +191,20 @@ module ActiveRecord
         end
       end
 
+      # `extract_scale` and `extract_precision` are the same as in the Rails abstract base class,
+      # except this permits a space after the comma
+
+      def extract_scale(sql_type)
+        case sql_type
+        when /\((\d+)\)/ then 0
+        when /\((\d+)(,\s?(\d+))\)/ then $3.to_i
+        end
+      end
+
+      def extract_precision(sql_type)
+        $1.to_i if sql_type =~ /\((\d+)(,\s?\d+)?\)/
+      end
+
       def initialize_type_map(m) # :nodoc:
         super
         register_class_with_limit m, %r(String), Type::String
