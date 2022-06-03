@@ -304,7 +304,7 @@ module ActiveRecord
           drop_table(table_name, options.merge(if_exists: true))
         end
 
-        execute schema_creation.accept td
+        do_execute(schema_creation.accept(td), format: nil)
 
         if options[:with_distributed]
           distributed_table_name = options.delete(:with_distributed)
