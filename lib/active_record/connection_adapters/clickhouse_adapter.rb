@@ -376,7 +376,7 @@ module ActiveRecord
 
       def database_engine_atomic?
         current_database_engine = "select engine from system.databases where name = '#{@config[:database]}'"
-        res = ActiveRecord::Base.connection.select_one(current_database_engine)
+        res = select_one(current_database_engine)
         res['engine'] == 'Atomic' if res
       end
 
