@@ -313,7 +313,7 @@ module ActiveRecord
           drop_table(table_name, options.merge(if_exists: true))
         end
 
-        execute schema_creation.accept td
+        do_execute(schema_creation.accept(td), format: nil)
 
         if options[:with_distributed]
           distributed_table_name = options.delete(:with_distributed)
@@ -385,7 +385,7 @@ module ActiveRecord
 
       def database_engine_atomic?
         current_database_engine = "select engine from system.databases where name = '#{@config[:database]}'"
-        res = ActiveRecord::Base.connection.select_one(current_database_engine)
+        res = select_one(current_database_engine)
         res['engine'] == 'Atomic' if res
       end
 
