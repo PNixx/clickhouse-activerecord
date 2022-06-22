@@ -1,6 +1,8 @@
-### Version 0.5.8 (Oct 25, 2021)
+### Version 0.5.10 (Jun 22, 2022)
 
- * Added support rails 7
+ * Fixes to create_table method (#70)
+ * Added support for rails 7 (#65)
+ * Use ClickHouse default KeepAlive timeout of 10 seconds (#67)
 
 ### Version 0.5.6 (Oct 25, 2021)
 

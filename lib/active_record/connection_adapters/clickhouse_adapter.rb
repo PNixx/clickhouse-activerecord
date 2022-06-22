@@ -81,17 +81,10 @@ module ActiveRecord
       def is_view=(value)
         @is_view = value
       end
-    end
-  end
 
-  ActiveRecord::Core::ClassMethods.module_eval do
-    def arel_table
-      @arel_table ||=
-        if self.connection.is_a?(ConnectionAdapters::ClickhouseAdapter)
-          ClickhouseActiverecord::Arel::Table.new(table_name, type_caster: type_caster)
-        else
-          Arel::Table.new(table_name, klass: self)
-        end
+      def arel_table # :nodoc:
+        @arel_table ||= ClickhouseActiverecord::Arel::Table.new(table_name, type_caster: type_caster)
+      end
     end
   end
 
