@@ -31,7 +31,7 @@ module ActiveRecord
             ssl: config[:ssl].present? ? config[:ssl] : port == 443,
             sslca: config[:sslca],
             read_timeout: config[:read_timeout],
-            write_timeout: config[:write_timeout], 
+            write_timeout: config[:write_timeout],
             keep_alive_timeout: config[:keep_alive_timeout]
           }
         end
@@ -301,7 +301,7 @@ module ActiveRecord
           drop_table(table_name, options.merge(if_exists: true))
         end
 
-        execute schema_creation.accept td
+        do_execute(schema_creation.accept(td), format: nil)
       end
 
       def create_table(table_name, **options, &block)
@@ -426,10 +426,10 @@ module ActiveRecord
         @connection.ca_file = @connection_parameters[:ca_file] if @connection_parameters[:ca_file]
         @connection.read_timeout = @connection_parameters[:read_timeout] if @connection_parameters[:read_timeout]
         @connection.write_timeout = @connection_parameters[:write_timeout] if @connection_parameters[:write_timeout]
-        
+
         # Use clickhouse default keep_alive_timeout value of 10, rather than Net::HTTP's default of 2
         @connection.keep_alive_timeout = @connection_parameters[:keep_alive_timeout] || 10
-        
+
         @connection
       end
 
