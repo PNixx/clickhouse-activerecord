@@ -96,12 +96,28 @@ module ActiveRecord
           end
         }
 
+      extract_scale_def =
+        lambda { |sql_type|
+          case sql_type
+            when /\((\d+)\)/
+              0
+            when /\((\d+)(,\s?(\d+))\)/
+              $3.to_i
+          end
+        }
+
+      extract_precision_def = ->(sql_type) { $1.to_i if sql_type =~ /\((\d+)(,\s?\d+)?\)/ }
+
       if ActiveRecord::version < Gem::Version.new('7.0.0')
         define_method :initialize_type_map, &init_type_map_definition
         define_method :extract_limit, &extract_limit_def
+        define_method :extract_scale, &extract_scale_def
+        define_method :extract_precision, &extract_precision_def
       else
         define_singleton_method :initialize_type_map, &init_type_map_definition
         define_singleton_method :extract_limit, &extract_limit_def
+        define_singleton_method :extract_scale, &extract_scale_def
+        define_singleton_method :extract_precision, &extract_precision_def
 
         def initialize_type_map(m)
           self.class.initialize_type_map(m)
@@ -143,7 +159,11 @@ module ActiveRecord
       # Quoting time without microseconds
       def quoted_date(value)
         if value.acts_like?(:time)
-          zone_conversion_method = ActiveRecord::Base.default_timezone == :utc ? :getutc : :getlocal
+          if ActiveRecord::version >= Gem::Version.new('7')
+            zone_conversion_method = ActiveRecord.default_timezone == :utc ? :getutc : :getlocal
+          else
+            zone_conversion_method = ActiveRecord::Base.default_timezone == :utc ? :getutc : :getlocal
+          end
 
           if value.respond_to?(zone_conversion_method)
             value = value.send(zone_conversion_method)
@@ -263,13 +283,13 @@ module ActiveRecord
       end
 
       def change_column_null(table_name, column_name, null, default = nil)
-        structure = table_structure(table_name).select { |v| v[0] == column_name.to_s }.first
+        structure = table_structure(table_name).select{|v| v[0] == column_name.to_s}.first
         raise "Column #{column_name} not found in table #{table_name}" if structure.nil?
-        change_column table_name, column_name, structure[1].gsub(/(Nullable\()?(.*?)\)?/, '\2'), { null: null, default: default }.compact
+        change_column table_name, column_name, structure[1].gsub(/(Nullable\()?(.*?)\)?/, '\2'), {null: null, default: default}.compact
       end
 
       def change_column_default(table_name, column_name, default)
-        change_column table_name, column_name, nil, { default: default }.compact
+        change_column table_name, column_name, nil, {default: default}.compact
       end
 
       def cluster
@@ -328,11 +348,6 @@ module ActiveRecord
       end
 
       private
-
-      def type_map
-        @type_map ||= Type::TypeMap.new.tap(&method(:initialize_type_map))
-      end
-
 
       def connect
         @connection = @connection_parameters[:connection] || Net::HTTP.start(@connection_parameters[:host], @connection_parameters[:port], use_ssl: @connection_parameters[:ssl], verify_mode: OpenSSL::SSL::VERIFY_NONE)
