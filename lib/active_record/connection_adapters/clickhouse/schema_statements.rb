@@ -76,7 +76,7 @@ module ActiveRecord
           end
         end
 
-        def assume_migrated_upto_version(version, migrations_paths = nil)
+        def assume_migrated_upto_version(version, _migrations_paths = nil)
           version = version.to_i
           sm_table = quote_table_name(schema_migration.table_name)
 
@@ -92,7 +92,8 @@ module ActiveRecord
             if (duplicate = inserting.detect { |v| inserting.count(v) > 1 })
               raise "Duplicate migration #{duplicate}. Please renumber your migrations to resolve the conflict."
             end
-            do_execute(insert_versions_sql(inserting), nil, settings: {max_partitions_per_insert_block: [100, inserting.size].max})
+            settings = { max_partitions_per_insert_block: [100, inserting.size].max }
+            do_execute insert_versions_sql(inserting), nil, settings: settings
           end
         end
 
