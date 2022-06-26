@@ -12,7 +12,7 @@ module CoreExtensions
 
           table_options = {
             id: false,
-            options: ('MergeTree() PARTITION BY toDate(created_at) ORDER BY (created_at)' if connection.adapter_name.downcase == 'clickhouse'),
+            options: ('MergeTree() PARTITION BY toDate(created_at) ORDER BY (created_at)' if connection.adapter_name == 'Clickhouse'),
             if_not_exists: true
           }
           full_config = connection.instance_variable_get(:@full_config) || {}
@@ -23,7 +23,7 @@ module CoreExtensions
           end
 
           connection.create_table("#{table_name}#{distributed_suffix}", **table_options) do |t|
-            t.string :key, key_options
+            t.string :key, **key_options
             t.string :value
             t.timestamps
           end

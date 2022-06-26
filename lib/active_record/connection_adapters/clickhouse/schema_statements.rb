@@ -99,13 +99,15 @@ module ActiveRecord
         private
 
         def apply_format(sql, format)
-          format ? "#{sql} FORMAT #{format}" : sql
+          return sql unless format
+
+          "#{sql} FORMAT #{format}"
         end
 
         def process_response(res)
           case res.code.to_i
           when 200
-            res.body.presence && JSON.parse(res.body)
+            res.body.present? && JSON.parse(res.body)
           else
             raise ActiveRecord::ActiveRecordError,
               "Response code: #{res.code}:\n#{res.body}"

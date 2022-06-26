@@ -159,25 +159,27 @@ module ActiveRecord
       # Quoting time without microseconds
       def quoted_date(value)
         if value.acts_like?(:time)
-          if ActiveRecord::version >= Gem::Version.new('7')
-            zone_conversion_method = ActiveRecord.default_timezone == :utc ? :getutc : :getlocal
-          else
-            zone_conversion_method = ActiveRecord::Base.default_timezone == :utc ? :getutc : :getlocal
-          end
+          default_timezone =
+            if ActiveRecord::version >= Gem::Version.new('7')
+              ActiveRecord.default_timezone
+            else
+              ActiveRecord::Base.default_timezone
+            end
+          zone_conversion_method = default_timezone == :utc ? :getutc : :getlocal
 
           if value.respond_to?(zone_conversion_method)
             value = value.send(zone_conversion_method)
           end
         end
 
-        return value.to_s(:db) if ActiveRecord::version < Gem::Version.new('7.0.0')
-
-        value.to_fs(:db)
-
-
+        if ActiveRecord::version < Gem::Version.new('7')
+          value.to_s(:db)
+        else
+          value.to_fs(:db)
+        end
       end
 
-      def column_name_for_operation(operation, node) # :nodoc:
+      def column_name_for_operation(_operation, node) # :nodoc:
         if ActiveRecord::version >= Gem::Version.new('6')
           visitor.compile(node)
         else
@@ -223,7 +225,7 @@ module ActiveRecord
         yield td if block_given?
 
         if options[:force]
-          drop_table(table_name, options.merge(if_exists: true))
+          drop_table(table_name, **options, if_exists: true)
         end
 
         execute schema_creation.accept td
@@ -268,7 +270,7 @@ module ActiveRecord
         do_execute apply_cluster "RENAME TABLE #{quote_table_name(table_name)} TO #{quote_table_name(new_name)}"
       end
 
-      def drop_table(table_name, options = {}) # :nodoc:
+      def drop_table(table_name, **options) # :nodoc:
         do_execute apply_cluster "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
 
         if options[:with_distributed]
@@ -277,19 +279,21 @@ module ActiveRecord
         end
       end
 
-      def change_column(table_name, column_name, type, options = {})
-        result = do_execute "ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, options)}"
+      def change_column(table_name, column_name, type, **options)
+        result = do_execute "ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, **options)}"
         raise "Error parse json response: #{result}" if result.presence && !result.is_a?(Hash)
       end
 
       def change_column_null(table_name, column_name, null, default = nil)
         structure = table_structure(table_name).select{|v| v[0] == column_name.to_s}.first
         raise "Column #{column_name} not found in table #{table_name}" if structure.nil?
-        change_column table_name, column_name, structure[1].gsub(/(Nullable\()?(.*?)\)?/, '\2'), {null: null, default: default}.compact
+        change_column_opts = { null: null, default: default }.compact
+        change_column table_name, column_name, structure[1].gsub(/(Nullable\()?(.*?)\)?/, '\2'), **change_column_opts
       end
 
       def change_column_default(table_name, column_name, default)
-        change_column table_name, column_name, nil, {default: default}.compact
+        change_default_opts = { default: default }.compact
+        change_column table_name, column_name, nil, **change_default_opts
       end
 
       def cluster
@@ -313,9 +317,12 @@ module ActiveRecord
       end
 
       def database_engine_atomic?
-        current_database_engine = "select engine from system.databases where name = '#{@config[:database]}'"
-        res = select_one(current_database_engine)
-        res['engine'] == 'Atomic' if res
+        @database_engine_atomic ||=
+          begin
+            current_database_engine = "select engine from system.databases where name = '#{@config[:database]}'"
+            res = select_one(current_database_engine)
+            res&.dig('engine') == 'Atomic'
+          end
       end
 
       def apply_cluster(sql)
@@ -341,20 +348,27 @@ module ActiveRecord
         result
       end
 
-      def change_column_for_alter(table_name, column_name, type, options = {})
+      def change_column_for_alter(table_name, column_name, type, **options)
         td = create_table_definition(table_name)
-        cd = td.new_column_definition(column_name, type, options)
+        cd = td.new_column_definition(column_name, type, **options)
         schema_creation.accept(ChangeColumnDefinition.new(cd, column_name))
       end
 
       private
 
       def connect
-        @connection = @connection_parameters[:connection] || Net::HTTP.start(@connection_parameters[:host], @connection_parameters[:port], use_ssl: @connection_parameters[:ssl], verify_mode: OpenSSL::SSL::VERIFY_NONE)
+        @connection               = @connection_parameters[:connection]
+        @connection             ||= Net::HTTP.start(@connection_parameters[:host],
+                                                      @connection_parameters[:port],
+                                                      use_ssl:     @connection_parameters[:ssl],
+                                                      verify_mode: OpenSSL::SSL::VERIFY_NONE)
 
-        @connection.ca_file = @connection_parameters[:ca_file] if @connection_parameters[:ca_file]
-        @connection.read_timeout = @connection_parameters[:read_timeout] if @connection_parameters[:read_timeout]
+        @connection.ca_file       = @connection_parameters[:ca_file] if @connection_parameters[:ca_file]
+        @connection.read_timeout  = @connection_parameters[:read_timeout] if @connection_parameters[:read_timeout]
         @connection.write_timeout = @connection_parameters[:write_timeout] if @connection_parameters[:write_timeout]
+
+        # Use clickhouse default keep_alive_timeout value of 10, rather than Net::HTTP's default of 2
+        @connection.keep_alive_timeout = @connection_parameters[:keep_alive_timeout] || 10
 
         @connection
       end
