@@ -72,7 +72,7 @@ module ActiveRecord
           register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
           # register_class_with_limit m, %r(UInt128), Type::UnsignedInteger # not implemented in clickhouse
           register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
-          # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
+
           m.register_type(%r(Array)) do |sql_type|
             Clickhouse::OID::Array.new(sql_type)
           end
@@ -108,7 +108,7 @@ module ActiveRecord
 
       extract_precision_def = ->(sql_type) { $1.to_i if sql_type =~ /\((\d+)(,\s?\d+)?\)/ }
 
-      if ActiveRecord::version < Gem::Version.new('7.0.0')
+      if ActiveRecord.version < Gem::Version.new('7')
         define_method :initialize_type_map, &init_type_map_definition
         define_method :extract_limit, &extract_limit_def
         define_method :extract_scale, &extract_scale_def
@@ -133,7 +133,7 @@ module ActiveRecord
         @full_config = full_config
 
         @prepared_statements = false
-        if ActiveRecord::version == Gem::Version.new('6.0.0')
+        if ActiveRecord.version == Gem::Version.new('6.0.0')
           @prepared_statement_status = Concurrent::ThreadLocalVar.new(false)
         end
 
@@ -160,7 +160,7 @@ module ActiveRecord
       def quoted_date(value)
         if value.acts_like?(:time)
           default_timezone =
-            if ActiveRecord::version >= Gem::Version.new('7')
+            if ActiveRecord.version >= Gem::Version.new('7')
               ActiveRecord.default_timezone
             else
               ActiveRecord::Base.default_timezone
@@ -172,7 +172,7 @@ module ActiveRecord
           end
         end
 
-        if ActiveRecord::version < Gem::Version.new('7')
+        if ActiveRecord.version < Gem::Version.new('7')
           value.to_s(:db)
         else
           value.to_fs(:db)
@@ -180,7 +180,7 @@ module ActiveRecord
       end
 
       def column_name_for_operation(_operation, node) # :nodoc:
-        if ActiveRecord::version >= Gem::Version.new('6')
+        if ActiveRecord.version >= Gem::Version.new('6')
           visitor.compile(node)
         else
           column_name_from_arel_node(node)
@@ -281,7 +281,7 @@ module ActiveRecord
 
       def change_column(table_name, column_name, type, **options)
         result = do_execute "ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, **options)}"
-        raise "Error parse json response: #{result}" if result.presence && !result.is_a?(Hash)
+        raise "Error parse json response: #{result}" if result.present? && !result.is_a?(Hash)
       end
 
       def change_column_null(table_name, column_name, null, default = nil)
@@ -326,7 +326,9 @@ module ActiveRecord
       end
 
       def apply_cluster(sql)
-        cluster ? "#{sql} ON CLUSTER #{cluster}" : sql
+        return sql unless cluster
+
+        "#{sql} ON CLUSTER #{cluster}"
       end
 
       def supports_insert_on_duplicate_skip?
@@ -338,8 +340,7 @@ module ActiveRecord
       end
 
       def build_insert_sql(insert) # :nodoc:
-        sql = +"INSERT #{insert.into} #{insert.values_list}"
-        sql
+        +"INSERT #{insert.into} #{insert.values_list}"
       end
 
       protected
@@ -355,6 +356,10 @@ module ActiveRecord
       end
 
       private
+
+      def type_map
+        @type_map ||= Type::TypeMap.new.tap(&method(:initialize_type_map))
+      end
 
       def connect
         @connection               = @connection_parameters[:connection]
