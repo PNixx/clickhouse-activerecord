@@ -45,7 +45,7 @@ module ActiveRecord
         uint16: { name: 'UInt16' },
         uint32: { name: 'UInt32' },
         uint64: { name: 'UInt64' },
-        # uint128: { name: 'UInt128' }, not yet implemented in clickhouse
+        uint128: { name: 'UInt128' },
         uint256: { name: 'UInt256' },
       }.freeze
 
@@ -70,7 +70,7 @@ module ActiveRecord
           register_class_with_limit m, %r(UInt16), Type::UnsignedInteger
           register_class_with_limit m, %r(UInt32), Type::UnsignedInteger
           register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
-          # register_class_with_limit m, %r(UInt128), Type::UnsignedInteger # not implemented in clickhouse
+          register_class_with_limit m, %r(UInt128), Type::UnsignedInteger
           register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
 
           m.register_type(%r(Array)) do |sql_type|
@@ -285,7 +285,7 @@ module ActiveRecord
       end
 
       def change_column_null(table_name, column_name, null, default = nil)
-        structure = table_structure(table_name).select{|v| v[0] == column_name.to_s}.first
+        structure = table_structure(table_name).find { |v| v[0] == column_name.to_s }
         raise "Column #{column_name} not found in table #{table_name}" if structure.nil?
         change_column_opts = { null: null, default: default }.compact
         change_column table_name, column_name, structure[1].gsub(/(Nullable\()?(.*?)\)?/, '\2'), **change_column_opts

@@ -136,7 +136,7 @@ module ActiveRecord
           default = field[3]
           default_value = extract_value_from_default(default)
           default_function = extract_default_function(default_value, default)
-          if ActiveRecord::version >= Gem::Version.new('6')
+          if ActiveRecord.version >= Gem::Version.new('6')
             Column.new(field[0], default_value, type_metadata, field[1].include?('Nullable'), default_function)
           else
             Column.new(field[0], default_value, type_metadata, field[1].include?('Nullable'), table_name, default_function)
