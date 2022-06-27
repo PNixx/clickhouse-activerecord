@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'active_record/connection_adapters/clickhouse/quoting'
 require 'active_record/connection_adapters/clickhouse/schema_creation'
 require 'active_record/connection_adapters/clickhouse/schema_definitions'
 require 'active_record/connection_adapters/clickhouse/schema_dumper'
@@ -28,7 +29,7 @@ module ActiveRecord
         datetime: { name: 'DateTime' },
         datetime64: { name: 'DateTime64' },
         date: { name: 'Date' },
-        boolean: { name: 'UInt8' },
+        boolean: { name: 'Bool' },
         uuid: { name: 'UUID' },
 
         enum8: { name: 'Enum8' },
@@ -49,6 +50,7 @@ module ActiveRecord
         uint256: { name: 'UInt256' },
       }.freeze
 
+      include Clickhouse::Quoting
       include Clickhouse::SchemaStatements
 
       init_type_map_definition =

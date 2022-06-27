@@ -80,9 +80,39 @@ RSpec.describe 'Schema creation', :migrations do
     end
 
     context 'when :default option is given' do
-      xit 'specifies the default value for the column' do
-        model.connection.add_column :events, :location, :string, default: "Bob's House", null: false
-        expect(model.columns.last.default).to eq("Bob's House")
+      it 'sets a String default value for the column' do
+        model.connection.add_column :events, :location, :string, default: "Bob's House \\ Home", null: false
+        expect(model.columns.last.default).to eq("Bob's House \\ Home")
+      end
+
+      it 'sets an Int default value for the column' do
+        model.connection.add_column :events, :attendees, :integer, default: 1, null: false
+        expect(model.columns.last.default).to eq('1')
+      end
+
+      it 'sets a negative Int default value for the column' do
+        model.connection.add_column :events, :cost, :int32, default: -10, null: false
+        expect(model.columns.last.default).to eq('-10')
+      end
+
+      it 'sets a Float default value for the column' do
+        model.connection.add_column :events, :ticket_price, :float, default: 50.0, null: false
+        expect(model.columns.last.default).to eq('50.')
+      end
+
+      it 'sets a negative Float default value for the column' do
+        model.connection.add_column :events, :overhead, :float, default: -100.0, null: false
+        expect(model.columns.last.default).to eq('-100.')
+      end
+
+      it 'sets a "true" boolean literal for the default value of the column' do
+        model.connection.add_column :events, :cool, :boolean, default: true, null: false
+        expect(model.columns.last.default).to eq('true')
+      end
+
+      it 'sets a "false" boolean literal for the default value of the column' do
+        model.connection.add_column :events, :vip_list, :boolean, default: false, null: false
+        expect(model.columns.last.default).to eq('false')
       end
     end
   end

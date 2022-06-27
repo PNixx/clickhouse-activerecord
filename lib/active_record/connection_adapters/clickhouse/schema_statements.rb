@@ -46,7 +46,7 @@ module ActiveRecord
 
         def table_options(table)
           sql = show_create_table(table)
-          { options: sql.gsub(/^(?:.*?)(?:ENGINE = (.*?))?( AS SELECT .*?)?$/, '\\1').presence, as: sql.match(/^CREATE (?:.*?) AS (SELECT .*?)$/).try(:[], 1) }.compact
+          { options: sql.gsub(/^.*?(?:ENGINE = (.*?))?( AS SELECT .*?)?$/, '\\1').presence, as: sql.match(/^CREATE.*? AS (SELECT .*?)$/).try(:[], 1) }.compact
         end
 
         # Not indexes on clickhouse
@@ -97,6 +97,16 @@ module ActiveRecord
           end
         end
 
+        protected
+
+        def table_structure(table_name)
+          result = exec_query("DESCRIBE TABLE `#{table_name}`", table_name)
+          raise ActiveRecord::StatementInvalid, "Could not find table '#{table_name}'" if result.empty?
+
+          result
+        end
+        alias column_definitions table_structure
+
         private
 
         def apply_format(sql, format)
@@ -106,13 +116,9 @@ module ActiveRecord
         end
 
         def process_response(res)
-          case res.code.to_i
-          when 200
-            res.body.present? && JSON.parse(res.body)
-          else
-            raise ActiveRecord::ActiveRecordError,
-              "Response code: #{res.code}:\n#{res.body}"
-          end
+          raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}" unless res.code.to_i == 200
+
+          JSON.parse(res.body) if res.body.present?
         rescue JSON::ParserError
           res.body
         end
@@ -131,47 +137,28 @@ module ActiveRecord
         end
 
         def new_column_from_field(table_name, field)
-          sql_type = field[1]
-          type_metadata = fetch_type_metadata(sql_type)
-          default = field[3]
-          default_value = extract_value_from_default(default)
-          default_function = extract_default_function(default_value, default)
+          type_metadata = fetch_type_metadata(field['type'])
+
+          raw_default = field['default_expression']
+          default_value = extract_value_from_default(raw_default)
+          default_function = extract_default_function(default_value, raw_default)
+
           if ActiveRecord.version >= Gem::Version.new('6')
-            Column.new(field[0], default_value, type_metadata, field[1].include?('Nullable'), default_function)
+            Column.new(field['name'], default_value, type_metadata, field['type'].include?('Nullable'), default_function, comment: field['comment'])
           else
-            Column.new(field[0], default_value, type_metadata, field[1].include?('Nullable'), table_name, default_function)
+            Column.new(field['name'], default_value, type_metadata, field['type'].include?('Nullable'), table_name, default_function, comment: field['comment'])
           end
         end
 
-        protected
-
-        def table_structure(table_name)
-          result = do_system_execute("DESCRIBE TABLE `#{table_name}`", table_name)
-          data = result['data']
-
-          return data unless data.empty?
-
-          raise ActiveRecord::StatementInvalid,
-            "Could not find table '#{table_name}'"
-        end
-        alias column_definitions table_structure
-
-        private
-
-        # Extracts the value from a PostgreSQL column default definition.
+        # Extracts the value from a Clickhouse column raw_default definition.
         def extract_value_from_default(default)
           case default
-            # Quoted types
-          when /\Anow\(\)\z/m
-            nil
-            # Boolean types
-          when "true".freeze, "false".freeze
+          when "true", "false"
             default
-            # Object identifier types
-          when "''"
-            ''
-          when /\A-?\d+\z/
+          when /\A(-?\d+\.?\d*)\z/
             $1
+          when /\A'(.*)'\z/
+            unquote_string($1)
           else
             # Anything else is blank, some user type, or some function
             # and we can't know the value of that, so return nil.
@@ -184,7 +171,7 @@ module ActiveRecord
         end
 
         def has_default_function?(default_value, default) # :nodoc:
-          !default_value && (%r{\w+\(.*\)} === default)
+          %r{\w+\(.*\)}.match?(default) unless default_value
         end
       end
     end
