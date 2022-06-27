@@ -197,7 +197,7 @@ module ActiveRecord
 
       def primary_key(table_name) #:nodoc:
         pk = table_structure(table_name).first
-        return 'id' if pk.present? && pk[0] == 'id'
+        return 'id' if pk&.dig('name') == 'id'
         false
       end
 
@@ -287,7 +287,7 @@ module ActiveRecord
       end
 
       def change_column_null(table_name, column_name, null, default = nil)
-        structure = table_structure(table_name).find { |v| v[0] == column_name.to_s }
+        structure = table_structure(table_name).find { |v| v['name'] == column_name.to_s }
         raise "Column #{column_name} not found in table #{table_name}" if structure.nil?
         change_column_opts = { null: null, default: default }.compact
         change_column table_name, column_name, structure[1].gsub(/(Nullable\()?(.*?)\)?/, '\2'), **change_column_opts
