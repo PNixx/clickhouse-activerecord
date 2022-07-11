@@ -43,10 +43,11 @@ module ClickhouseActiverecord
     end
 
     def structure_load(*args)
-      File.read(args.first).split(";\n\n").each do |sql|
-        if sql.gsub(/[a-z]/i, '').blank?
-          next
-        elsif sql =~ /^INSERT INTO/
+      File.read(args.first)
+          .split(";\n\n")
+          .compact_blank
+          .each do |sql|
+        if sql =~ /^INSERT INTO/
           connection.do_execute(sql, nil, format: nil)
         else
           connection.execute(sql)

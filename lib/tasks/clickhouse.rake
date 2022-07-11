@@ -32,7 +32,7 @@ namespace :clickhouse do
       filename = "#{Rails.root}/db/clickhouse_schema#{simple}.rb"
       File.open(filename, 'w:utf-8') do |file|
         ActiveRecord::Base.establish_connection(:"#{Rails.env}_clickhouse")
-        ClickhouseActiverecord::SchemaDumper.dump(ActiveRecord::Base.connection, file, ActiveRecord::Base, !!simple)
+        ActiveRecord::ConnectionAdapters::Clickhouse::SchemaDumper.dump(ActiveRecord::Base.connection, file, ActiveRecord::Base, !!simple)
       end
     end
 

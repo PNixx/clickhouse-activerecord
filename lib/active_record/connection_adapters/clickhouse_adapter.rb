@@ -202,7 +202,7 @@ module ActiveRecord
       end
 
       def create_schema_dumper(options) # :nodoc:
-        ClickhouseActiverecord::SchemaDumper.create(self, options)
+        Clickhouse::SchemaDumper.create(self, options)
       end
 
       # @param [String] table
