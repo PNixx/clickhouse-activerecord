@@ -53,9 +53,11 @@ def schema(model)
 end
 
 def clear_db
-  current_cluster_name = ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
-  pattern = if current_cluster_name
-              "DROP TABLE %s ON CLUSTER #{current_cluster_name}"
+  cluster = ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
+  pattern = if cluster
+              normalized_cluster_name = cluster.start_with?('{') ? "'#{cluster}'" : cluster
+
+              "DROP TABLE %s ON CLUSTER #{normalized_cluster_name}"
             else
               'DROP TABLE %s'
             end
