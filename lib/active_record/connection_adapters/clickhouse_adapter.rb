@@ -383,7 +383,13 @@ module ActiveRecord
       end
 
       def apply_cluster(sql)
-        cluster ? "#{sql} ON CLUSTER #{cluster}" : sql
+        if cluster
+          normalized_cluster_name = cluster.start_with?('{') ? "'#{cluster}'" : cluster
+
+          "#{sql} ON CLUSTER #{normalized_cluster_name}"
+        else
+          sql
+        end
       end
 
       def supports_insert_on_duplicate_skip?
