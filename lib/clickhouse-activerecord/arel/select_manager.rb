@@ -40,8 +40,6 @@ module ClickhouseActiverecord::Arel
         remove_limit
         remove_offset
         remove_orders
-        remove_with
-        remove_lock
         self
       end
 
