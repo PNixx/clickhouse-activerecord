@@ -36,6 +36,42 @@ module ClickhouseActiverecord::Arel
         self
       end
 
+      def remove_options
+        remove_limit
+        remove_offset
+        remove_orders
+        remove_with
+        remove_lock
+        self
+      end
+
+      def remove_limit
+        @ast.limit = nil
+        self
+      end
+
+      def remove_offset
+        @ast.offset = nil
+        self
+      end
+
+      def remove_orders
+        @ast.orders = []
+        self
+      end
+
+      def remove_with
+        @ast.with = nil
+        self
+      end
+
+      def remove_lock
+        @ast.lock = nil
+        self
+      end
+
+
+
       ::Arel::Nodes::SqlLiteral.class_eval do
         include ::ClickhouseActiverecord::Arel::Extensions::Functions
       end
