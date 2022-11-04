@@ -54,7 +54,7 @@ module ActiveRecord
       orders = order_values.uniq.compact_blank
       return super unless orders.empty? && !primary_key
 
-      self.order_values = %w(date created_at).select {|c| column_names.include?(c) }.map{|c| arel_attribute(c).desc }
+      self.order_values = %w(date created_at).select {|c| column_names.include?(c) }.map{|c| table[c].desc }
       self
     end
   end
