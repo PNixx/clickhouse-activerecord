@@ -230,6 +230,47 @@ RSpec.describe 'Migration', :migrations do
           end
         end
       end
+
+      context 'with alias in cluster_name' do
+        let(:model) do
+          Class.new(ActiveRecord::Base) do
+            self.table_name = 'some'
+          end
+        end
+        connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
+
+        before(:all) do
+          ActiveRecord::Base.establish_connection(connection_config.merge(cluster_name: '{cluster}'))
+        end
+
+        after(:all) do
+          ActiveRecord::Base.establish_connection(connection_config)
+        end
+
+        it 'creates a table' do
+          migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_table_with_cluster_name_alias')
+          quietly { ActiveRecord::MigrationContext.new(migrations_dir, ClickhouseActiverecord::SchemaMigration).up }
+
+          current_schema = schema(model)
+
+          expect(current_schema.keys.count).to eq(1)
+          expect(current_schema).to have_key('date')
+          expect(current_schema['date'].sql_type).to eq('Date')
+        end
+
+        it 'drops a table' do
+          migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_table_with_cluster_name_alias')
+          quietly { ActiveRecord::MigrationContext.new(migrations_dir, ClickhouseActiverecord::SchemaMigration).up }
+
+          expect(ActiveRecord::Base.connection.tables).to include('some')
+
+          quietly do
+            ClickhouseActiverecord::MigrationContext.new(migrations_dir, ClickhouseActiverecord::SchemaMigration).down
+          end
+
+          expect(ActiveRecord::Base.connection.tables).not_to include('some')
+        end
+      end
     end
 
     describe 'drop table' do
