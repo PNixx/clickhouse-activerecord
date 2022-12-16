@@ -12,7 +12,7 @@ module CoreExtensions
 
           table_options = {
             id: false,
-            options: 'ReplacingMergeTree(ver) PARTITION BY version ORDER BY (version)',
+            options: 'ReplacingMergeTree(ver) ORDER BY (version)',
             if_not_exists: true
           }
           full_config = connection.instance_variable_get(:@full_config) || {}
