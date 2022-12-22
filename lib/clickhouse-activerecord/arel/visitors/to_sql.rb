@@ -104,6 +104,17 @@ module ClickhouseActiverecord
           visit o.expr, collector
         end
 
+        def visit_ClickhouseActiverecord_Arel_Nodes_CrossJoin o, collector
+          collector << "CROSS JOIN "
+          collector = visit o.left, collector
+          if o.right
+            collector << SPACE
+            visit(o.right, collector)
+          else
+            collector
+          end
+        end
+
       end
     end
   end

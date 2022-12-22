@@ -68,7 +68,9 @@ module ClickhouseActiverecord::Arel
         self
       end
 
-
+      def cross_join(relation)
+        join(relation, ::ClickhouseActiverecord::Arel::Nodes::CrossJoin)
+      end
 
       ::Arel::Nodes::SqlLiteral.class_eval do
         include ::ClickhouseActiverecord::Arel::Extensions::Functions

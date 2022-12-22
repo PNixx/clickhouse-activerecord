@@ -3,6 +3,7 @@
 require 'clickhouse-activerecord/arel/visitors/to_sql'
 require 'clickhouse-activerecord/arel/table'
 require 'clickhouse-activerecord/arel/nodes/using'
+require 'clickhouse-activerecord/arel/nodes/cross_join'
 require 'clickhouse-activerecord/arel/nodes/functions'
 require 'clickhouse-activerecord/arel/nodes/to'
 require 'clickhouse-activerecord/arel/nodes/limit_by'
