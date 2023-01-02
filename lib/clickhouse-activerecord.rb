@@ -2,6 +2,9 @@
 
 require 'active_record/connection_adapters/clickhouse_adapter'
 
+require_relative '../core_extensions/active_record/migration/command_recorder'
+ActiveRecord::Migration::CommandRecorder.include CoreExtensions::ActiveRecord::Migration::CommandRecorder
+
 if defined?(Rails::Railtie)
   require 'clickhouse-activerecord/railtie'
   require 'clickhouse-activerecord/schema'

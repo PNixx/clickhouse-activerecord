@@ -5,7 +5,7 @@ module ActiveRecord
     module Clickhouse
       class TableDefinition < ActiveRecord::ConnectionAdapters::TableDefinition
 
-        attr_reader :view, :materialized, :if_not_exists
+        attr_reader :view, :materialized, :if_not_exists, :to
 
         def initialize(
             conn,
@@ -17,6 +17,7 @@ module ActiveRecord
             comment: nil,
             view: false,
             materialized: false,
+            to: nil,
             **
           )
           @conn = conn
@@ -32,6 +33,7 @@ module ActiveRecord
           @comment = comment
           @view = view || materialized
           @materialized = materialized
+          @to = to
         end
 
         def integer(*args, **options)
@@ -58,7 +60,39 @@ module ActiveRecord
               kind = :int256     if options[:limit] > 16
             end
           end
-          args.each { |name| column(name, kind, options.except(:limit, :unsigned)) }
+          args.each { |name| column(name, kind, **options.except(:limit, :unsigned)) }
+        end
+
+        def datetime(*args, **options)
+          kind = :datetime
+
+          if options[:precision]
+            kind = :datetime64
+            options[:value] = options[:precision]
+          end
+
+          args.each { |name| column(name, kind, **options.except(:precision)) }
+        end
+
+        def uuid(*args, **options)
+          args.each { |name| column(name, :uuid, **options) }
+        end
+
+        def enum(*args, **options)
+          kind = :enum8
+
+          unless options[:value].is_a? Hash
+            raise ArgumentError, "Column #{args.first}: option 'value' must be Hash, got: #{options[:value].class}"
+          end
+
+          options[:value] = options[:value].each_with_object([]) { |(k, v), arr| arr.push("'#{k}' = #{v}") }.join(', ')
+
+          if options[:limit]
+            kind = :enum8  if options[:limit] == 1
+            kind = :enum16 if options[:limit] == 2
+          end
+
+          args.each { |name| column(name, kind, **options.except(:limit)) }
         end
       end
     end

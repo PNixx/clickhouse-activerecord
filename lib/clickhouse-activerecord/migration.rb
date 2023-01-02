@@ -6,14 +6,24 @@ module ClickhouseActiverecord
     class << self
 
       def create_table
-        unless table_exists?
-          version_options = connection.internal_string_options_for_primary_key
+        return if table_exists?
 
-          connection.create_table(table_name, id: false, options: 'ReplacingMergeTree(ver) PARTITION BY version ORDER BY (version)', if_not_exists: true) do |t|
-            t.string :version, **version_options
-            t.column :active, 'Int8', null: false, default: '1'
-            t.datetime :ver, null: false, default: -> { 'now()' }
-          end
+        version_options = connection.internal_string_options_for_primary_key
+        table_options = {
+          id: false, options: 'ReplacingMergeTree(ver) ORDER BY (version)', if_not_exists: true
+        }
+        full_config = connection.instance_variable_get(:@full_config) || {}
+
+        if full_config[:distributed_service_tables]
+          table_options.merge!(with_distributed: table_name, sharding_key: 'cityHash64(version)')
+
+          distributed_suffix = "_#{full_config[:distributed_service_tables_suffix] || 'distributed'}"
+        end
+
+        connection.create_table(table_name + distributed_suffix.to_s, **table_options) do |t|
+          t.string :version, **version_options
+          t.column :active, 'Int8', null: false, default: '1'
+          t.datetime :ver, null: false, default: -> { 'now()' }
         end
       end
 
@@ -26,14 +36,26 @@ module ClickhouseActiverecord
   class InternalMetadata < ::ActiveRecord::InternalMetadata
     class << self
       def create_table
-        unless table_exists?
-          key_options = connection.internal_string_options_for_primary_key
+        return if table_exists?
 
-          connection.create_table(table_name, id: false, options: connection.adapter_name.downcase == 'clickhouse' ? 'MergeTree() PARTITION BY toDate(created_at) ORDER BY (created_at)' : '', if_not_exists: true) do |t|
-            t.string :key, key_options
-            t.string :value
-            t.timestamps
-          end
+        key_options = connection.internal_string_options_for_primary_key
+        table_options = {
+          id: false,
+          options: connection.adapter_name.downcase == 'clickhouse' ? 'MergeTree() PARTITION BY toDate(created_at) ORDER BY (created_at)' : '',
+          if_not_exists: true
+        }
+        full_config = connection.instance_variable_get(:@full_config) || {}
+
+        if full_config[:distributed_service_tables]
+          table_options.merge!(with_distributed: table_name, sharding_key: 'cityHash64(created_at)')
+
+          distributed_suffix = "_#{full_config[:distributed_service_tables_suffix] || 'distributed'}"
+        end
+
+        connection.create_table(table_name + distributed_suffix.to_s, **table_options) do |t|
+          t.string :key, **key_options
+          t.string :value
+          t.timestamps
         end
       end
     end
@@ -45,6 +67,16 @@ module ClickhouseActiverecord
     def initialize(migrations_paths, schema_migration)
       @migrations_paths = migrations_paths
       @schema_migration = schema_migration
+    end
+
+    def up(target_version = nil)
+      selected_migrations = if block_given?
+        migrations.select { |m| yield m }
+      else
+        migrations
+      end
+
+      ClickhouseActiverecord::Migrator.new(:up, selected_migrations, schema_migration, target_version).migrate
     end
 
     def down(target_version = nil)

@@ -1,3 +1,21 @@
+### Version 0.5.10 (Jun 22, 2022)
+
+ * Fixes to create_table method (#70)
+ * Added support for rails 7 (#65)
+ * Use ClickHouse default KeepAlive timeout of 10 seconds (#67)
+
+### Version 0.5.6 (Oct 25, 2021)
+
+ * Added auto creating service distributed tables and additional options for creating view [@ygreeek](https://github.com/ygreeek)
+ * Added default user agent
+
+### Version 0.5.3 (Sep 22, 2021)
+
+ * Fix replica cluster for a new syntax MergeTree
+ * Fix support rails 5.2 on alter table
+ * Support array type of column
+ * Support Rails 6.1.0 [@bdevel](https://github.com/bdevel)
+
 ### Version 0.4.10 (Mar 10, 2021)
 
  * Support ClickHouse 20.9+
