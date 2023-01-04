@@ -333,7 +333,7 @@ module ActiveRecord
         do_execute apply_cluster "RENAME TABLE #{quote_table_name(table_name)} TO #{quote_table_name(new_name)}"
       end
 
-      def drop_table(table_name, options = {}) # :nodoc:
+      def drop_table(table_name, **options) # :nodoc:
         do_execute apply_cluster "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
 
         if options[:with_distributed]
@@ -342,8 +342,8 @@ module ActiveRecord
         end
       end
 
-      def change_column(table_name, column_name, type, options = {})
-        result = do_execute "ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, options)}"
+      def change_column(table_name, column_name, type, **options)
+        result = do_execute "ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, **options)}"
         raise "Error parse json response: #{result}" if result.presence && !result.is_a?(Hash)
       end
 
@@ -425,9 +425,9 @@ module ActiveRecord
         result
       end
 
-      def change_column_for_alter(table_name, column_name, type, options = {})
-        td = create_table_definition(table_name, options)
-        cd = td.new_column_definition(column_name, type, options)
+      def change_column_for_alter(table_name, column_name, type, **options)
+        td = create_table_definition(table_name, **options)
+        cd = td.new_column_definition(column_name, type, **options)
         schema_creation.accept(ChangeColumnDefinition.new(cd, column_name))
       end
 
