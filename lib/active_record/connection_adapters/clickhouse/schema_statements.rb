@@ -6,8 +6,8 @@ module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module SchemaStatements
-        def execute(sql, name = nil)
-          do_execute(sql, name)
+        def execute(sql, name = nil, settings: {})
+          do_execute(sql, name, settings: settings)
         end
 
         def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil)
