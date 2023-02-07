@@ -53,4 +53,31 @@ RSpec.describe 'ToSql visitor', :migrations do
       end
     end
   end
+
+  context 'when given a query with inline settings' do
+    it 'passes the settings into the SQL' do
+      sql = model.settings(max_insert_block_size: 10, use_skip_indexes: true).to_sql
+      expect(sql).to eq("SELECT events.* FROM events SETTINGS max_insert_block_size = 10, use_skip_indexes = TRUE")
+    end
+
+    it 'sanitizes non-word characters in setting names' do
+      sql = model.settings('max_ insert_block_ size:' => 10, 'use_skip_indexes!' => true).to_sql
+      expect(sql).to eq("SELECT events.* FROM events SETTINGS max_insert_block_size = 10, use_skip_indexes = TRUE")
+    end
+
+    it 'permits arbitrary setting names if given as SqlLiterals (!)' do
+      sql = model.settings(Arel.sql('max_ insert_block_ size:') => 10, Arel.sql('use_skip_indexes!') => true).to_sql
+      expect(sql).to eq("SELECT events.* FROM events SETTINGS max_ insert_block_ size: = 10, use_skip_indexes! = TRUE")
+    end
+
+    it 'quotes setting values' do
+      sql = model.settings(insert_deduplication_token: :foo_bar_123).to_sql
+      expect(sql).to eq("SELECT events.* FROM events SETTINGS insert_deduplication_token = 'foo_bar_123'")
+    end
+
+    it 'allows passing the symbol :default to reset a setting' do
+      sql = model.settings(max_insert_block_size: :default).to_sql
+      expect(sql).to eq("SELECT events.* FROM events SETTINGS max_insert_block_size = DEFAULT")
+    end
+  end
 end

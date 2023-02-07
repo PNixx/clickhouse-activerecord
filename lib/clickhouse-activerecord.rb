@@ -10,6 +10,8 @@ require 'core_extensions/active_record/relation'
 require 'core_extensions/active_record/schema_migration'
 require 'core_extensions/active_record/type_caster/map'
 
+require 'core_extensions/arel/nodes/select_statement'
+require 'core_extensions/arel/select_manager'
 require 'core_extensions/arel/table'
 
 if defined?(Rails::Railtie)
@@ -29,6 +31,8 @@ module ClickhouseActiverecord
     ActiveRecord::SchemaMigration.singleton_class.prepend(CoreExtensions::ActiveRecord::SchemaMigration::ClassMethods)
     ActiveRecord::TypeCaster::Map.include(CoreExtensions::ActiveRecord::TypeCaster::Map)
 
+    Arel::Nodes::SelectStatement.prepend(CoreExtensions::Arel::Nodes::SelectStatement)
+    Arel::SelectManager.prepend(CoreExtensions::Arel::SelectManager)
     Arel::Table.prepend(CoreExtensions::Arel::Table)
   end
 

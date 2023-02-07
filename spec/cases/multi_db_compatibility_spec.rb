@@ -39,6 +39,21 @@ if ActiveRecord::version >= Gem::Version.new('6.0.0')
           end
         end
       end
+
+      describe '::settings' do
+        context 'for non-Clickhouse models' do
+          it 'is not allowed' do
+            expect { in_mem_model.settings(foo: 'bar') }.to raise_error(ActiveRecord::ActiveRecordError)
+          end
+        end
+
+        context 'for Clickhouse models' do
+          it 'works' do
+            query = model.settings(foo: 'bar')
+            expect(query.settings_values).to eq({ foo: 'bar' })
+          end
+        end
+      end
     end
 
     describe 'internal metadata' do

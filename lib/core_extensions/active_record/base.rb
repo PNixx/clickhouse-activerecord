@@ -4,6 +4,8 @@ module CoreExtensions
   module ActiveRecord
     module Base
       module ClassMethods
+        delegate :settings, to: :all
+
         # Establishes a connection to the database that's used by all Active Record objects
         def clickhouse_connection(config)
           config = config.symbolize_keys

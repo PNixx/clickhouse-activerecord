@@ -44,4 +44,31 @@ RSpec.describe 'Model', :migrations do
       }.to raise_error(ActiveRecord::ActiveRecordError, 'Clickhouse delete is not supported')
     end
   end
+
+  describe '::settings' do
+    it 'does not change settings_values when empty' do
+      query = model.all
+      query = query.settings
+      expect(query.settings_values).to be_empty
+    end
+
+    it 'updates settings_values' do
+      query = model.all
+      query = query.settings(foo: 'bar', abc: 123)
+      expect(query.settings_values).to eq({ foo: 'bar', abc: 123 })
+    end
+
+    it 'overwrites settings_values previously set' do
+      query = model.all
+      query = query.settings(foo: 'bar', abc: 123)
+      query = query.settings(foo: 'baz')
+      expect(query.settings_values).to eq({ foo: 'baz', abc: 123 })
+    end
+
+    it 'works as a chainable method' do
+      query = model.all
+      query = query.settings(foo: 'bar', abc: 123).settings(foo: 'baz')
+      expect(query.settings_values).to eq({ foo: 'baz', abc: 123 })
+    end
+  end
 end

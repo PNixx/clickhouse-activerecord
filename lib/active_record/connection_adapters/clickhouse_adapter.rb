@@ -11,6 +11,7 @@ require 'active_record/connection_adapters/clickhouse/oid/big_integer'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
 
+require 'arel/nodes/settings'
 require 'arel/visitors/clickhouse'
 
 require 'net/http'

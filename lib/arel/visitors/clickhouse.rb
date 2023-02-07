@@ -12,6 +12,36 @@ module Arel # :nodoc: all
         end
       end
 
+      def visit_Arel_Nodes_SelectOptions(o, collector)
+        maybe_visit o.settings, super
+      end
+
+      def visit_Arel_Nodes_Settings(o, collector)
+        return collector if o.expr.empty?
+
+        collector << "SETTINGS "
+        o.expr.each_with_index do |(key, value), i|
+          collector << ", " if i > 0
+          collector << sanitize_as_setting_name(key)
+          collector << " = "
+          collector << sanitize_as_setting_value(value)
+        end
+        collector
+      end
+
+      def sanitize_as_setting_value(value)
+        if value == :default
+          'DEFAULT'
+        else
+          quote(value)
+        end
+      end
+
+      def sanitize_as_setting_name(value)
+        return value if Arel::Nodes::SqlLiteral === value
+        @connection.sanitize_as_setting_name(value)
+      end
+
     end
   end
 end
