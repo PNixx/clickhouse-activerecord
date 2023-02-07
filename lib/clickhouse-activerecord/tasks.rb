@@ -48,7 +48,7 @@ module ClickhouseActiverecord
           .compact_blank
           .each do |sql|
         if sql =~ /^INSERT INTO/
-          connection.do_execute(sql, nil, format: nil)
+          connection.execute(sql, format: nil)
         else
           connection.execute(sql)
         end

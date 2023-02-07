@@ -6,18 +6,24 @@ module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module SchemaStatements
-        def execute(sql, name = nil, settings: {})
-          do_execute(sql, name, settings: settings)
+        def execute(sql, name = nil, format: 'JSONCompact', settings: {})
+          log(sql, "#{adapter_name} #{name}") do
+            formatted_sql = apply_format(sql, format)
+            request_params = @config || {}
+            res = @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql, 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
+
+            process_response(res)
+          end
         end
 
         def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil)
           new_sql = sql.dup.sub(/ (DEFAULT )?VALUES/, " VALUES")
-          do_execute(new_sql, name, format: nil)
+          execute(new_sql, name, format: nil)
           true
         end
 
         def exec_query(sql, name = nil, binds = [], prepare: false)
-          result = do_execute(sql, name)
+          result = execute(sql, name)
           ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'])
         rescue ActiveRecord::ActiveRecordError => e
           raise e
@@ -26,7 +32,7 @@ module ActiveRecord
         end
 
         def exec_insert_all(sql, name)
-          do_execute(sql, name, format: nil)
+          execute(sql, name, format: nil)
           true
         end
 
@@ -66,16 +72,6 @@ module ActiveRecord
           end
         end
 
-        def do_execute(sql, name = nil, format: 'JSONCompact', settings: {})
-          log(sql, "#{adapter_name} #{name}") do
-            formatted_sql = apply_format(sql, format)
-            request_params = @config || {}
-            res = @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql, 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
-
-            process_response(res)
-          end
-        end
-
         def assume_migrated_upto_version(version, _migrations_paths = nil)
           version = version.to_i
           sm_table = quote_table_name(schema_migration.table_name)
@@ -93,7 +89,7 @@ module ActiveRecord
               raise "Duplicate migration #{duplicate}. Please renumber your migrations to resolve the conflict."
             end
             settings = { max_partitions_per_insert_block: [100, inserting.size].max }
-            do_execute insert_versions_sql(inserting), nil, settings: settings
+            execute insert_versions_sql(inserting), nil, settings: settings
           end
         end
 

@@ -263,11 +263,11 @@ module ActiveRecord
       end
 
       def rename_table(table_name, new_name)
-        do_execute apply_cluster "RENAME TABLE #{quote_table_name(table_name)} TO #{quote_table_name(new_name)}"
+        execute apply_cluster "RENAME TABLE #{quote_table_name(table_name)} TO #{quote_table_name(new_name)}"
       end
 
       def drop_table(table_name, **options) # :nodoc:
-        do_execute apply_cluster "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
+        execute apply_cluster "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
 
         if options[:with_distributed]
           distributed_table_name = options.delete(:with_distributed)
@@ -276,7 +276,7 @@ module ActiveRecord
       end
 
       def change_column(table_name, column_name, type, **options)
-        result = do_execute "ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, **options)}"
+        result = execute "ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, **options)}"
         raise "Error parse json response: #{result}" if result.present? && !result.is_a?(Hash)
       end
 
