@@ -32,10 +32,13 @@ module ClickhouseActiverecord
     end
 
     def structure_dump(*args)
-      tables = connection.execute("SHOW TABLES FROM #{@configuration['database']}")['data'].flatten
+      sorted_tables =
+        connection.execute("SHOW TABLES FROM #{@configuration['database']}")['data'].flatten.sort do |a, b|
+          connection.show_create_table(a).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) ? 1 : a <=> b
+        end
 
       File.open(args.first, 'w:utf-8') do |file|
-        tables.each do |table|
+        sorted_tables.each do |table|
           next if table.match(/\.inner/)
           file.puts connection.execute("SHOW CREATE TABLE #{table}")['data'].try(:first).try(:first).gsub("#{@configuration['database']}.", '') + ";\n\n"
         end
