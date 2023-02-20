@@ -24,34 +24,38 @@ module ActiveRecord
           end
 
           def deserialize(value)
-            return value.map { |item| deserialize(item) } if value.is_a?(::Array)
-            return value if value.nil?
-
-            case @subtype
-            when :integer
-              value.to_i
-            when :datetime
-              ::DateTime.parse(value)
-            when :date
-              ::Date.parse(value)
+            if value.is_a?(::Array)
+              value.map { |item| deserialize(item) }
             else
-              super
+              return value if value.nil?
+              case @subtype
+                when :integer
+                  value.to_i
+                when :datetime
+                  ::DateTime.parse(value)
+                when :date
+                  ::Date.parse(value)
+              else
+                super
+              end
             end
           end
 
           def serialize(value)
-            return value.map { |item| serialize(item) } if value.is_a?(::Array)
-            return value if value.nil?
-
-            case @subtype
-            when :integer
-              value.to_i
-            when :datetime
-              DateTime.new.serialize(value)
-            when :date
-              Date.new.serialize(value)
+            if value.is_a?(::Array)
+              value.map { |item| serialize(item) }
             else
-              super
+              return value if value.nil?
+              case @subtype
+                when :integer
+                  value.to_i
+                when :datetime
+                  DateTime.new.serialize(value)
+                when :date
+                  Date.new.serialize(value)
+              else
+                super
+              end
             end
           end
 

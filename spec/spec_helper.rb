@@ -4,12 +4,10 @@ require 'bundler/setup'
 require 'pry'
 require 'active_record'
 require 'clickhouse-activerecord'
-require 'active_support/notifications'
 require 'active_support/testing/stream'
 
-ClickhouseActiverecord.load
-
 FIXTURES_PATH = File.join(File.dirname(__FILE__), 'fixtures')
+CLUSTER_NAME = 'test'
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
@@ -31,32 +29,21 @@ RSpec.configure do |config|
 
     clear_consts
     clear_db
-    ActiveRecord::Base.connection.schema_cache.clear!
   end
-
-  config.filter_run_excluding cluster: !ENV.key?('CLICKHOUSE_CLUSTER')
 end
 
 ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(
   default: {
     adapter: 'clickhouse',
     host: 'localhost',
-    port: ENV.fetch('CLICKHOUSE_PORT', 8123),
-    database: ENV.fetch('CLICKHOUSE_DATABASE', 'test'),
+    port: 8123,
+    database: 'test',
     username: nil,
-    password: nil,
-    use_metadata_table: !ENV['CLICKHOUSE_CLUSTER'],
-    cluster_name: ENV['CLICKHOUSE_CLUSTER'],
-  },
-  in_mem: {
-    database: ':memory:',
-    adapter: 'sqlite3'
+    password: nil
   }
 )
 
 ActiveRecord::Base.establish_connection(:default)
-
-require_relative 'models/in_mem_base' if ActiveRecord::VERSION::MAJOR >= 6
 
 def schema(model)
   model.reset_column_information
@@ -66,19 +53,20 @@ def schema(model)
 end
 
 def clear_db
-  cluster = ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
-  pattern =
-    if cluster
-      normalized_cluster_name = cluster.start_with?('{') ? "'#{cluster}'" : cluster
+  if ActiveRecord::version >= Gem::Version.new('6')
+    cluster = ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
+  else
+    cluster = ActiveRecord::Base.connection_config[:cluster_name]
+  end
+  pattern = if cluster
+              normalized_cluster_name = cluster.start_with?('{') ? "'#{cluster}'" : cluster
 
-      "DROP TABLE %s ON CLUSTER #{normalized_cluster_name} SYNC"
-    else
-      'DROP TABLE %s'
-    end
+              "DROP TABLE %s ON CLUSTER #{normalized_cluster_name}"
+            else
+              'DROP TABLE %s'
+            end
 
   ActiveRecord::Base.connection.tables.each { |table| ActiveRecord::Base.connection.execute(pattern % table) }
-rescue ActiveRecord::NoDatabaseError
-  # Ignored
 end
 
 def clear_consts
@@ -90,23 +78,5 @@ def clear_consts
 
     Object.send(:remove_const, const.to_s) if const
     $LOADED_FEATURES.delete(file)
-  end
-end
-
-class SqlCapture
-  def initialize(&block)
-    @block = block
-  end
-
-  def captured
-    trap = ->(_name, _started, _finished, _unique_id, payload) { store_captured(payload[:sql]) }
-    ActiveSupport::Notifications.subscribed(trap, 'sql.active_record') { @block.call }
-    @captured
-  end
-
-  private
-
-  def store_captured(sql)
-    @captured = sql
   end
 end
