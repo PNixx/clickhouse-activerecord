@@ -11,6 +11,7 @@ require 'active_record/connection_adapters/clickhouse/schema_definitions'
 require 'active_record/connection_adapters/clickhouse/schema_creation'
 require 'active_record/connection_adapters/clickhouse/schema_statements'
 require 'net/http'
+require 'openssl'
 
 module ActiveRecord
   class Base
@@ -224,6 +225,15 @@ module ActiveRecord
         end
       end
 
+      def _quote(value)
+        case value
+        when Array
+          '[' + value.map { |v| _quote(v) }.join(', ') + ']'
+        else
+          super
+        end
+      end
+
       # Quoting time without microseconds
       def quoted_date(value)
         if value.acts_like?(:time)
@@ -301,6 +311,7 @@ module ActiveRecord
         options = apply_replica(table_name, options)
         td = create_table_definition(apply_cluster(table_name), **options)
         block.call td if block_given?
+        td.column(:id, options[:id], null: false) if options[:id].present? && td[:id].blank?
 
         if options[:force]
           drop_table(table_name, options.merge(if_exists: true))
