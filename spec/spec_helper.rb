@@ -6,6 +6,8 @@ require 'active_record'
 require 'clickhouse-activerecord'
 require 'active_support/testing/stream'
 
+ClickhouseActiverecord.load
+
 FIXTURES_PATH = File.join(File.dirname(__FILE__), 'fixtures')
 CLUSTER_NAME = 'test'
 
