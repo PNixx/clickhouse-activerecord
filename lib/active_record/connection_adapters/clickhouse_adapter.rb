@@ -48,19 +48,6 @@ module ActiveRecord
     end
   end
 
-  module ClickhouseRelationReverseOrder
-    def reverse_order!
-      return super unless connection.is_a?(ConnectionAdapters::ClickhouseAdapter)
-
-      orders = order_values.uniq.compact_blank
-      return super unless orders.empty? && !primary_key
-
-      self.order_values = %w(date created_at).select {|c| column_names.include?(c) }.map{|c| arel_attribute(c).desc }
-      self
-    end
-  end
-  Relation.prepend(ClickhouseRelationReverseOrder)
-
   module TypeCaster
     class Map
       def is_view
@@ -74,7 +61,7 @@ module ActiveRecord
   end
 
   module ModelSchema
-     module ClassMethods
+    module ClassMethods
       def is_view
         @is_view || false
       end
@@ -352,8 +339,22 @@ module ActiveRecord
         end
       end
 
+      def add_column(table_name, column_name, type, **options)
+        return if options[:if_not_exists] == true && column_exists?(table_name, column_name, type)
+
+        at = create_alter_table table_name
+        at.add_column(column_name, type, **options)
+        execute(schema_creation.accept(at), nil, settings: {wait_end_of_query: 1, send_progress_in_http_headers: 1})
+      end
+
+      def remove_column(table_name, column_name, type = nil, **options)
+        return if options[:if_exists] == true && !column_exists?(table_name, column_name)
+
+        execute("ALTER TABLE #{quote_table_name(table_name)} #{remove_column_for_alter(table_name, column_name, type, **options)}", nil, settings: {wait_end_of_query: 1, send_progress_in_http_headers: 1})
+      end
+
       def change_column(table_name, column_name, type, options = {})
-        result = do_execute "ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, options)}"
+        result = do_execute("ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, options)}", nil, settings: {wait_end_of_query: 1, send_progress_in_http_headers: 1})
         raise "Error parse json response: #{result}" if result.presence && !result.is_a?(Hash)
       end
 
