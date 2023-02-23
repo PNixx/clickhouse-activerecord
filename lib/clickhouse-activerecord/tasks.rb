@@ -32,10 +32,11 @@ module ClickhouseActiverecord
     end
 
     def structure_dump(*args)
-      sorted_tables =
-        connection.execute("SHOW TABLES FROM #{@configuration['database']}")['data'].flatten.sort do |a, b|
-          connection.show_create_table(a).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) ? 1 : a <=> b
+      views, tables =
+        connection.execute("SHOW TABLES FROM #{@configuration['database']}")['data'].flatten.partition do |name|
+          connection.show_create_table(name).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/)
         end
+      sorted_tables = tables.sort + views.sort
 
       File.open(args.first, 'w:utf-8') do |file|
         sorted_tables.each do |table|
