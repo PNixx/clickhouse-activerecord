@@ -190,7 +190,7 @@ module ActiveRecord
           end
 
           def initialize_type_map(m) # :nodoc:
-            super
+            
             register_class_with_limit m, %r(String), Type::String
             register_class_with_limit m, 'Date',  Clickhouse::OID::Date
             register_class_with_limit m, 'DateTime',  Clickhouse::OID::DateTime
@@ -211,6 +211,18 @@ module ActiveRecord
             # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
             m.register_type(%r(Array)) do |sql_type|
               Clickhouse::OID::Array.new(sql_type)
+            end
+
+            m.register_type(%r(Decimal)) do |sql_type|
+              scale = extract_scale(sql_type)
+              precision = extract_precision(sql_type)
+
+              if scale == 0
+                # FIXME: Remove this class as well
+                Type::DecimalWithoutScale.new(precision: precision)
+              else
+                Type::Decimal.new(precision: precision, scale: scale)
+              end
             end
           end
       end
