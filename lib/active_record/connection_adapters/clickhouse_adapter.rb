@@ -192,8 +192,8 @@ module ActiveRecord
           def initialize_type_map(m) # :nodoc:
             
             register_class_with_limit m, %r(String), Type::String
-            register_class_with_limit m, 'Date',  Clickhouse::OID::Date
-            register_class_with_limit m, 'DateTime',  Clickhouse::OID::DateTime
+            register_class_with_limit m, %r(Date),  Clickhouse::OID::Date
+            register_class_with_limit m, %r(DateTime),  Clickhouse::OID::DateTime
 
             register_class_with_limit m, %r(Int8), Type::Integer
             register_class_with_limit m, %r(Int16), Type::Integer

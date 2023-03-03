@@ -11,9 +11,9 @@ module ActiveRecord
                        when /U?Int\d+/
                          :integer
                        when /DateTime/
-                         :datetime
+                         :array_datetime
                        when /Date/
-                         :date
+                         :array_date
                        else
                          :string
             end
@@ -31,9 +31,9 @@ module ActiveRecord
               case @subtype
                 when :integer
                   value.to_i
-                when :datetime
+                when :array_datetime
                   ::DateTime.parse(value)
-                when :date
+                when :array_date
                   ::Date.parse(value)
               else
                 super
@@ -49,10 +49,10 @@ module ActiveRecord
               case @subtype
                 when :integer
                   value.to_i
-                when :datetime
-                  DateTime.new.serialize(value)
-                when :date
-                  Date.new.serialize(value)
+                when :array_datetime
+                  ::DateTime.parse(value)
+                when :array_date
+                  ::Date.parse(value)
               else
                 super
               end
