@@ -209,9 +209,6 @@ module ActiveRecord
             #register_class_with_limit m, %r(UInt128), Type::UnsignedInteger #not implemnted in clickhouse
             register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
             # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
-            m.register_type(%r(Array)) do |sql_type|
-              Clickhouse::OID::Array.new(sql_type)
-            end
 
             m.register_type(%r(Decimal)) do |sql_type|
               scale = extract_scale(sql_type)
@@ -223,6 +220,10 @@ module ActiveRecord
               else
                 Type::Decimal.new(precision: precision, scale: scale)
               end
+            end
+
+            m.register_type(%r(Array)) do |sql_type|
+              Clickhouse::OID::Array.new(sql_type)
             end
           end
       end

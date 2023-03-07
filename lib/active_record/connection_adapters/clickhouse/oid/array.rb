@@ -14,8 +14,15 @@ module ActiveRecord
                          :array_datetime
                        when /Date/
                          :array_date
+                       when /Decimal/
+                         :array_decimal
                        else
                          :string
+            end
+            case @subtype
+            when :array_decimal
+              @scale = extract_scale(sql_type)
+              @precision = extract_precision(sql_type)
             end
           end
 
@@ -35,6 +42,8 @@ module ActiveRecord
                   ::DateTime.parse(value)
                 when :array_date
                   ::Date.parse(value)
+                when :array_decimal
+                  BigDecimal(apply_scale(value), @precision)
               else
                 super
               end
@@ -53,11 +62,33 @@ module ActiveRecord
                   ::DateTime.parse(value)
                 when :array_date
                   ::Date.parse(value)
+                when :array_decimal
+                  BigDecimal(apply_scale(value), @precision)
               else
                 super
               end
             end
           end
+
+          private
+            def apply_scale(value)
+              if @scale
+                value.round(@scale)
+              else
+                value
+              end
+            end
+
+            def extract_scale(sql_type)
+              case sql_type
+              when /\((\d+)\)/ then 0
+              when /\((\d+)(,\s?(\d+))\)/ then $3.to_i
+              end
+            end
+
+            def extract_precision(sql_type)
+              $1.to_i if sql_type =~ /\((\d+)(,\s?\d+)?\)/
+            end
 
         end
       end
