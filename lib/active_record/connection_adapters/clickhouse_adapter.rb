@@ -42,8 +42,13 @@ module ActiveRecord
         else
           raise ArgumentError, 'No database specified. Missing argument: database.'
         end
+        
+        config_params = { user: config[:username], password: config[:password], database: database }
 
-        ConnectionAdapters::ClickhouseAdapter.new(logger, connection, { user: config[:username], password: config[:password], database: database }.compact, config)
+        # Settings specific to the Clickhouse HTTP Protocol.
+        config_params.merge!(config[:http])
+
+        ConnectionAdapters::ClickhouseAdapter.new(logger, connection, config_params.compact, config)
       end
     end
   end
