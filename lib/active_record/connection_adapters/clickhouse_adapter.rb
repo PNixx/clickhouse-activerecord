@@ -10,6 +10,7 @@ require 'active_record/connection_adapters/clickhouse/oid/array'
 require 'active_record/connection_adapters/clickhouse/oid/big_integer'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
+require 'active_record/connection_adapters/clickhouse/oid/tuple'
 
 require 'arel/nodes/settings'
 require 'arel/visitors/clickhouse'
@@ -49,6 +50,8 @@ module ActiveRecord
         uint64: { name: 'UInt64' },
         uint128: { name: 'UInt128' },
         uint256: { name: 'UInt256' },
+
+        tuple: { name: 'Tuple' }
       }.freeze
 
       include Clickhouse::Quoting
@@ -78,6 +81,12 @@ module ActiveRecord
 
           m.register_type(%r(Array)) do |sql_type|
             Clickhouse::OID::Array.new(sql_type)
+          end
+
+          m.register_type(%r(Tuple)) do |sql_type|
+            schema = Clickhouse::OID::Tuple.parse_schema(sql_type)
+                                           .transform_values { |type| m.fetch(type) }
+            Clickhouse::OID::Tuple.new(schema)
           end
         }
 
