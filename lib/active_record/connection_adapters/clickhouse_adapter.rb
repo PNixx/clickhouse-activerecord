@@ -47,7 +47,7 @@ module ActiveRecord
         config_params = { user: config[:username], password: config[:password], database: database }
 
         # Settings specific to the Clickhouse HTTP Protocol.
-        config_params.merge!(config[:http])
+        config_params.merge!(config.fetch(:http, {}))
 
         ConnectionAdapters::ClickhouseAdapter.new(logger, connection, config_params.compact, config)
       end
@@ -148,6 +148,17 @@ module ActiveRecord
 
       def migration_context # :nodoc:
         ClickhouseActiverecord::MigrationContext.new(migrations_paths, schema_migration)
+      end
+
+      def active?
+        # Matches Postgres' implementation.
+        @lock.synchronize do
+          do_execute("SELECT 1", format: nil)
+        end
+
+        true
+      rescue EOFError
+        false
       end
 
       def arel_visitor # :nodoc:
