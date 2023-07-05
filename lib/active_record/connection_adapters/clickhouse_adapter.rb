@@ -153,7 +153,7 @@ module ActiveRecord
       def active?
         # Matches Postgres' implementation.
         @lock.synchronize do
-          do_execute("SELECT 1", format: nil)
+          do_execute("SELECT 1", format: nil, exclude_database: true)
         end
 
         true

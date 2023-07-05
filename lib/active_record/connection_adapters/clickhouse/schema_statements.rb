@@ -67,10 +67,15 @@ module ActiveRecord
           end
         end
 
-        def do_execute(sql, name = nil, format: 'JSONCompact', settings: {})
+        def do_execute(sql, name = nil, format: 'JSONCompact', settings: {}, exclude_database: false)
           log(sql, "#{adapter_name} #{name}") do
             formatted_sql = apply_format(sql, format)
             request_params = @config || {}
+
+            if exclude_database
+              request_params = request_params.except(:database)
+            end
+
             res = @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql, 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
 
             process_response(res)
