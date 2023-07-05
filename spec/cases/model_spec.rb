@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+require_relative '../spec_helper'
 
 RSpec.describe 'Model', :migrations do
 
@@ -101,6 +102,23 @@ RSpec.describe 'Model', :migrations do
         expect(event.array_datetime[0]).to eq('2022-12-06 15:22:49')
         expect(event.array_datetime[1]).to eq('2022-12-05 15:22:49')
       end
+    end
+  end
+
+  context 'connection' do
+    let!(:model) do
+      Class.new(ActiveRecord::Base) do
+        self.table_name = 'events'
+      end
+    end
+
+    it 'returns active when the connection is active' do
+      expect(model.connection.active?).to eql(true)
+    end
+
+    it 'returns false if the Net:HTTP connection raises an EOFError' do
+      expect(model.connection).to receive(:do_execute).and_raise(EOFError)
+      expect(model.connection.active?).to eql(false)
     end
   end
 end
