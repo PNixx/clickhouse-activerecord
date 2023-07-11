@@ -6,8 +6,8 @@ module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module SchemaStatements
-        def execute(sql, name = nil, settings: {})
-          do_execute(sql, name, settings: settings)
+        def execute(sql, name = nil, settings: {}, format: 'JSONCompact')
+          do_execute(sql, name, settings: settings, format: format)
         end
 
         def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil)
