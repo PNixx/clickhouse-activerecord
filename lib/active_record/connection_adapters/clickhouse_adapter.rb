@@ -284,6 +284,20 @@ module ActiveRecord
           distributed_table_name = options.delete(:with_distributed)
           drop_table(distributed_table_name, **options)
         end
+        end
+
+      def add_column(table_name, column_name, type, **options)
+        return if options[:if_not_exists] == true && column_exists?(table_name, column_name, type)
+
+        at = create_alter_table table_name
+        at.add_column(column_name, type, **options)
+        execute(schema_creation.accept(at), nil, settings: { wait_end_of_query: 1, send_progress_in_http_headers: 1 })
+      end
+
+      def remove_column(table_name, column_name, type = nil, **options)
+        return if options[:if_exists] == true && !column_exists?(table_name, column_name)
+
+        execute("ALTER TABLE #{quote_table_name(table_name)} #{remove_column_for_alter(table_name, column_name, type, **options)}", nil, settings: {wait_end_of_query: 1, send_progress_in_http_headers: 1})
       end
 
       def change_column(table_name, column_name, type, **options)

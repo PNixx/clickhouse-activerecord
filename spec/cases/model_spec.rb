@@ -45,6 +45,18 @@ RSpec.describe 'Model', :migrations do
         }.to raise_error(ActiveRecord::ActiveRecordError, 'Clickhouse delete is not supported')
       end
     end
+
+    describe '#reverse_order!' do
+      it 'blank' do
+        expect(model.all.reverse_order!.map(&:event_name)).to eq([])
+      end
+
+      it 'select' do
+        model.create!(event_name: 'some event 1', date: 1.day.ago)
+        model.create!(event_name: 'some event 2', date: 2.day.ago)
+        expect(model.all.reverse_order!.map(&:event_name)).to eq(['some event 1', 'some event 2'])
+      end
+    end
   end
 
   context 'array' do
