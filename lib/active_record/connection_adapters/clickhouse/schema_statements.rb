@@ -8,16 +8,16 @@ module ActiveRecord
       module SchemaStatements
         def with_settings(**settings)
           @block_settings ||= {}
-          prev_settings   = @block_settings
+          prev_settings = @block_settings
           @block_settings.merge! settings
           yield
         ensure
           @block_settings = prev_settings
         end
 
-        def execute(sql, name = nil, format: 'JSONCompact', settings: {})
+        def execute(sql, name = nil, settings: {})
           log(sql, "#{adapter_name} #{name}") do
-            formatted_sql = apply_format(sql, format)
+            formatted_sql = apply_format(sql)
             res = @connection.post("/?#{settings_params(settings)}", formatted_sql, 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
 
             process_response(res)
@@ -25,12 +25,12 @@ module ActiveRecord
         end
 
         def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil)
-          new_sql = sql.dup.sub(/ (DEFAULT )?VALUES/, " VALUES")
-          execute(new_sql, name, format: nil)
+          new_sql = sql.sub(/ (DEFAULT )?VALUES/, " VALUES")
+          execute(new_sql, name)
           true
         end
 
-        def exec_query(sql, name = nil, _binds = [], _prepare: false)
+        def exec_query(sql, name = nil, binds = [], prepare: false)
           result = execute(sql, name)
           ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'])
         rescue ActiveRecord::ActiveRecordError => e
@@ -40,7 +40,7 @@ module ActiveRecord
         end
 
         def exec_insert_all(sql, name)
-          execute(sql, name, format: nil)
+          execute(sql, name)
           true
         end
 
@@ -114,10 +114,18 @@ module ActiveRecord
 
         private
 
-        def apply_format(sql, format)
-          return sql unless format
+        def apply_format(sql)
+          return sql unless formattable?(sql)
 
-          "#{sql} FORMAT #{format}"
+          "#{sql} FORMAT #{ClickhouseAdapter::DEFAULT_FORMAT}"
+        end
+
+        def formattable?(sql)
+          !for_insert?(sql)
+        end
+
+        def for_insert?(sql)
+          /^insert into/i.match?(sql)
         end
 
         def process_response(res)

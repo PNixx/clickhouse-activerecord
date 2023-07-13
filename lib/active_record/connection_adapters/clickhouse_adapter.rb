@@ -23,6 +23,7 @@ module ActiveRecord
     class ClickhouseAdapter < AbstractAdapter
 
       ADAPTER_NAME = 'Clickhouse'
+      DEFAULT_FORMAT = 'JSONCompact'
       NATIVE_DATABASE_TYPES = {
         string: { name: 'String' },
         integer: { name: 'UInt32' },

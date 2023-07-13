@@ -51,11 +51,7 @@ module ClickhouseActiverecord
           .split(";\n\n")
           .compact_blank
           .each do |sql|
-        if sql =~ /^INSERT INTO/
-          connection.execute(sql, format: nil)
-        else
-          connection.execute(sql)
-        end
+        connection.execute(sql)
       end
     end
 
