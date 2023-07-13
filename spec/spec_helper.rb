@@ -64,7 +64,7 @@ end
 
 def clear_db
   cluster =
-    if ActiveRecord::version < Gem::Version.new('6.0.0')
+    if ActiveRecord::version < Gem::Version.new('6')
       ActiveRecord::Base.connection_config[:cluster_name]
     else
       ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]

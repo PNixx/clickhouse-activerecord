@@ -16,6 +16,7 @@ require 'arel/nodes/settings'
 require 'arel/visitors/clickhouse'
 
 require 'net/http'
+require 'openssl'
 
 module ActiveRecord
   module ConnectionAdapters
