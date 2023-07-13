@@ -6,11 +6,19 @@ module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module SchemaStatements
+        def with_settings(**settings)
+          @block_settings ||= {}
+          prev_settings   = @block_settings
+          @block_settings.merge! settings
+          yield
+        ensure
+          @block_settings = prev_settings
+        end
+
         def execute(sql, name = nil, format: 'JSONCompact', settings: {})
           log(sql, "#{adapter_name} #{name}") do
             formatted_sql = apply_format(sql, format)
-            request_params = @config || {}
-            res = @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql, 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
+            res = @connection.post("/?#{settings_params(settings)}", formatted_sql, 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
 
             process_response(res)
           end
@@ -22,7 +30,7 @@ module ActiveRecord
           true
         end
 
-        def exec_query(sql, name = nil, binds = [], prepare: false)
+        def exec_query(sql, name = nil, _binds = [], _prepare: false)
           result = execute(sql, name)
           ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'])
         rescue ActiveRecord::ActiveRecordError => e
@@ -56,7 +64,7 @@ module ActiveRecord
         end
 
         # Not indexes on clickhouse
-        def indexes(table_name, name = nil)
+        def indexes(_table_name, _name = nil)
           []
         end
 
@@ -73,7 +81,7 @@ module ActiveRecord
         end
 
         def assume_migrated_upto_version(version, _migrations_paths = nil)
-          version = version.to_i
+          version  = version.to_i
           sm_table = quote_table_name(schema_migration.table_name)
 
           migrated = migration_context.get_all_versions
@@ -101,6 +109,7 @@ module ActiveRecord
 
           result
         end
+
         alias column_definitions table_structure
 
         private
@@ -135,8 +144,8 @@ module ActiveRecord
         def new_column_from_field(table_name, field)
           type_metadata = fetch_type_metadata(field['type'])
 
-          raw_default = field['default_expression']
-          default_value = extract_value_from_default(raw_default)
+          raw_default      = field['default_expression']
+          default_value    = extract_value_from_default(raw_default)
           default_function = extract_default_function(default_value, raw_default)
 
           if ActiveRecord.version >= Gem::Version.new('6')
@@ -168,6 +177,14 @@ module ActiveRecord
 
         def has_default_function?(default_value, default) # :nodoc:
           %r{\w+\(.*\)}.match?(default) unless default_value
+        end
+
+        def settings_params(settings = {})
+          request_params = @config || {}
+          block_settings = @block_settings || {}
+          request_params.merge(block_settings)
+                        .merge(settings)
+                        .to_param
         end
       end
     end
