@@ -78,8 +78,7 @@ RSpec.describe 'Migration', :migrations do
 
               current_schema = schema(model)
 
-              expect(current_schema.keys.count).to eq(3)
-              expect(current_schema).to have_key('id')
+              expect(current_schema.keys.count).to eq(2)
               expect(current_schema).to have_key('col1')
               expect(current_schema).to have_key('col2')
               expect(current_schema['col1'].sql_type).to eq('UUID')
@@ -94,8 +93,7 @@ RSpec.describe 'Migration', :migrations do
 
               current_schema = schema(model)
 
-              expect(current_schema.keys.count).to eq(3)
-              expect(current_schema).to have_key('id')
+              expect(current_schema.keys.count).to eq(2)
               expect(current_schema).to have_key('datetime')
               expect(current_schema).to have_key('datetime64')
               expect(current_schema['datetime'].sql_type).to eq('DateTime')
@@ -110,8 +108,7 @@ RSpec.describe 'Migration', :migrations do
 
               current_schema = schema(model)
 
-              expect(current_schema.keys.count).to eq(4)
-              expect(current_schema).to have_key('id')
+              expect(current_schema.keys.count).to eq(3)
               expect(current_schema).to have_key('col1')
               expect(current_schema).to have_key('col2')
               expect(current_schema).to have_key('col3')
@@ -128,8 +125,7 @@ RSpec.describe 'Migration', :migrations do
 
               current_schema = schema(model)
 
-              expect(current_schema.keys.count).to eq(3)
-              expect(current_schema).to have_key('id')
+              expect(current_schema.keys.count).to eq(2)
               expect(current_schema).to have_key('fixed_string1')
               expect(current_schema).to have_key('fixed_string16_array')
               expect(current_schema['fixed_string1'].sql_type).to eq('FixedString(1)')
@@ -144,8 +140,7 @@ RSpec.describe 'Migration', :migrations do
 
               current_schema = schema(model)
 
-              expect(current_schema.keys.count).to eq(4)
-              expect(current_schema).to have_key('id')
+              expect(current_schema.keys.count).to eq(3)
               expect(current_schema).to have_key('enum8')
               expect(current_schema).to have_key('enum16')
               expect(current_schema).to have_key('enum_nullable')
@@ -163,7 +158,7 @@ RSpec.describe 'Migration', :migrations do
             end
           end
           connection_config =
-            if ActiveRecord::version < Gem::Version.new('7.0.0')
+            if ActiveRecord::version < Gem::Version.new('6')
               ActiveRecord::Base.connection_config
             else
               ActiveRecord::Base.connection_db_config.configuration_hash
