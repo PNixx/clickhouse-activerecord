@@ -4,6 +4,15 @@ module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module Quoting
+        def quote(value)
+          case value
+          when Array
+            '[' + value.map { |v| quote(v) }.join(', ') + ']'
+          else
+            super
+          end
+        end
+
         def unquote_string(s)
           s.gsub(/\\(.)/, '\1')
         end
