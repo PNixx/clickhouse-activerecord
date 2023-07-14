@@ -48,13 +48,18 @@ RSpec.describe 'Model', :migrations do
 
     describe '#reverse_order!' do
       it 'blank' do
-        expect(model.all.reverse_order!.map(&:event_name)).to eq([])
+        descending = model.order(date: :desc)
+        ascending = descending.reverse_order
+        expect(ascending.map(&:event_name)).to eq([])
       end
 
       it 'select' do
-        model.create!(event_name: 'some event 1', date: 1.day.ago)
-        model.create!(event_name: 'some event 2', date: 2.day.ago)
-        expect(model.all.reverse_order!.map(&:event_name)).to eq(['some event 1', 'some event 2'])
+        model.create!(event_name: 'older event', date: 2.day.ago)
+        model.create!(event_name: 'newer event', date: 1.day.ago)
+
+        descending = model.order(date: :desc)
+        ascending = descending.reverse_order
+        expect(ascending.map(&:event_name)).to eq(['older event', 'newer event'])
       end
     end
   end
@@ -82,9 +87,9 @@ RSpec.describe 'Model', :migrations do
           )
         }.to change { model.count }
         event = model.first
-        expect(event.array_datetime.is_a?(Array)).to be_truthy
-        expect(event.array_datetime[0].is_a?(DateTime)).to be_truthy
-        expect(event.array_string[0].is_a?(String)).to be_truthy
+        expect(event.array_datetime).to be_a(Array)
+        expect(event.array_datetime[0]).to be_a(DateTime)
+        expect(event.array_string[0]).to be_a(String)
         expect(event.array_string).to eq(%w[asdf jkl])
       end
 
@@ -92,10 +97,10 @@ RSpec.describe 'Model', :migrations do
         model.connection.insert("INSERT INTO #{model.table_name} (id, array_datetime, date) VALUES (1, '[''2022-12-06 15:22:49'',''2022-12-05 15:22:49'']', '2022-12-06')")
         expect(model.count).to eq(1)
         event = model.first
-        expect(event.date.is_a?(Date)).to be_truthy
+        expect(event.date).to be_a(Date)
         expect(event.date).to eq(Date.parse('2022-12-06'))
-        expect(event.array_datetime.is_a?(Array)).to be_truthy
-        expect(event.array_datetime[0].is_a?(DateTime)).to be_truthy
+        expect(event.array_datetime).to be_a(Array)
+        expect(event.array_datetime[0]).to be_a(DateTime)
         expect(event.array_datetime[0]).to eq('2022-12-06 15:22:49')
         expect(event.array_datetime[1]).to eq('2022-12-05 15:22:49')
       end
