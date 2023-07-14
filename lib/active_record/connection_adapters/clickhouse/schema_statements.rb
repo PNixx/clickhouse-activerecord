@@ -121,11 +121,15 @@ module ActiveRecord
         end
 
         def formattable?(sql)
-          !for_insert?(sql)
+          !for_insert?(sql) && !system_command?(sql)
         end
 
         def for_insert?(sql)
           /^insert into/i.match?(sql)
+        end
+
+        def system_command?(sql)
+          /^system|optimize/i.match?(sql)
         end
 
         def process_response(res)
