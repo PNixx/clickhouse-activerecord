@@ -2,7 +2,7 @@
 
 class CreateSomeTable < ActiveRecord::Migration[5.0]
   def up
-    create_table :some, id: false do |t|
+    create_table :some, id: false, force: true do |t|
       t.datetime :datetime, null: false
       t.datetime :datetime64, precision: 3, null: true
     end
