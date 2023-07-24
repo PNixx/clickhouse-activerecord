@@ -10,13 +10,13 @@ module ActiveRecord
           do_execute(sql, name, settings: settings)
         end
 
-        def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil)
+        def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil, returning: nil)
           new_sql = sql.dup.sub(/ (DEFAULT )?VALUES/, " VALUES")
           do_execute(new_sql, name, format: nil)
           true
         end
 
-        def exec_query(sql, name = nil, binds = [], prepare: false)
+        def internal_exec_query(sql, name = nil, binds = [], prepare: false, async: false)
           result = do_execute(sql, name)
           ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'], result['meta'].map { |m| [m['name'], type_map.lookup(m['type'])] }.to_h)
         rescue ActiveRecord::ActiveRecordError => e
@@ -137,7 +137,7 @@ module ActiveRecord
           Clickhouse::TableDefinition.new(self, table_name, **options)
         end
 
-        def new_column_from_field(table_name, field)
+        def new_column_from_field(table_name, field, _definitions)
           sql_type = field[1]
           type_metadata = fetch_type_metadata(sql_type)
           default = field[3]

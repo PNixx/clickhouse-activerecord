@@ -15,7 +15,7 @@ module Arel
 
       def visit_Arel_Table o, collector
         collector = super
-        collector << ' FINAL ' if o.final
+        collector << ' FINAL' if o.final
         collector
       end
 

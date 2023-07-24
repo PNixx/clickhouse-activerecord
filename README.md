@@ -1,6 +1,6 @@
 # Clickhouse::Activerecord
 
-A Ruby database ActiveRecord driver for ClickHouse. Support Rails >= 5.2.
+A Ruby database ActiveRecord driver for ClickHouse. Support Rails >= 7.1.
 Support ClickHouse version from 22.0 LTS.
 
 ## Installation
@@ -50,33 +50,9 @@ class ActionView < ActiveRecord::Base
 end
 ```
 
-## Usage in Rails 5
+## Usage in Rails
 
 Add your `database.yml` connection information with postfix `_clickhouse` for you environment:
-
-```yml
-development_clickhouse:
-  adapter: clickhouse
-  database: database
-```
-
-Add to your model:
-
-```ruby
-class Action < ActiveRecord::Base
-  establish_connection "#{Rails.env}_clickhouse".to_sym
-end
-```
-
-For materialized view model add:
-```ruby
-class ActionView < ActiveRecord::Base
-  establish_connection "#{Rails.env}_clickhouse".to_sym
-  self.is_view = true
-end
-```
-
-Or global connection:
 
 ```yml
 development:
@@ -84,7 +60,21 @@ development:
   database: database
 ```
 
-## Usage in Rails 6 with second database
+Your model example:
+
+```ruby
+class Action < ActiveRecord::Base
+end
+```
+
+For materialized view model add:
+```ruby
+class ActionView < ActiveRecord::Base
+  self.is_view = true
+end
+```
+
+## Usage in Rails with second database
 
 Add your `database.yml` connection information for you environment:
 
@@ -102,31 +92,31 @@ Connection [Multiple Databases with Active Record](https://guides.rubyonrails.or
 
 ```ruby
 class Action < ActiveRecord::Base
-  connects_to database: { writing: :clickhouse, reading: :clickhouse }
+  establish_connection :clickhouse
 end
 ```
 
 ### Rake tasks
 
-**Note!** For Rails 6 you can use default rake tasks if you configure `migrations_paths` in your `database.yml`, for example: `rake db:migrate`
-
 Create / drop / purge / reset database:
  
-    $ rake clickhouse:create
-    $ rake clickhouse:drop
-    $ rake clickhouse:purge
-    $ rake clickhouse:reset
+    $ rake db:create
+    $ rake db:drop
+    $ rake db:purge
+    $ rake db:reset
 
-Prepare system tables for rails:
+Or with multiple databases:
 
-    $ rake clickhouse:prepare_schema_migration_table
-    $ rake clickhouse:prepare_internal_metadata_table
+    $ rake db:create:clickhouse
+    $ rake db:drop:clickhouse
+    $ rake db:purge:clickhouse
+    $ rake db:reset:clickhouse
     
 Migration:
 
     $ rails g clickhouse_migration MIGRATION_NAME COLUMNS
-    $ rake clickhouse:migrate
-    $ rake clickhouse:rollback
+    $ rake db:migrate
+    $ rake db:rollback
 
 ### Dump / Load for multiple using databases
 
@@ -195,20 +185,20 @@ User.joins(:actions).using(:group_id)
 Integer types are unsigned by default. Specify signed values with `:unsigned =>
 false`. The default integer is `UInt32`
 
-| Type (bit size)    | Range | :limit (byte size) |
-| :---        |    :----:   |          ---: |
-| Int8 | -128 to 127 | 1 | 
-| Int16 | -32768 to 32767 | 2 |
-| Int32 | -2147483648 to 2,147,483,647 | 3,4 |
-| Int64 | -9223372036854775808 to 9223372036854775807] |  5,6,7,8 |
-| Int128 | ... | 9 - 15 |
-| Int256 | ... | 16+ |
-| UInt8 | 0 to 255 | 1 |
-| UInt16 | 0 to 65,535 | 2 |
-| UInt32 | 0 to 4,294,967,295 | 3,4 |
-| UInt64 | 0 to 18446744073709551615 | 5,6,7,8 |
-| UInt256 | 0 to ... | 8+ |
-| Array | ... | ... |
+| Type (bit size) |                    Range                     | :limit (byte size) |
+|:----------------|:--------------------------------------------:|-------------------:|
+| Int8            |                 -128 to 127                  |                  1 | 
+| Int16           |               -32768 to 32767                |                  2 |
+| Int32           |         -2147483648 to 2,147,483,647         |                3,4 |
+| Int64           | -9223372036854775808 to 9223372036854775807] |            5,6,7,8 |
+| Int128          |                     ...                      |             9 - 15 |
+| Int256          |                     ...                      |                16+ |
+| UInt8           |                   0 to 255                   |                  1 |
+| UInt16          |                 0 to 65,535                  |                  2 |
+| UInt32          |              0 to 4,294,967,295              |                3,4 |
+| UInt64          |          0 to 18446744073709551615           |            5,6,7,8 |
+| UInt256         |                   0 to ...                   |                 8+ |
+| Array           |                     ...                      |                ... |
 
 Example:
 
