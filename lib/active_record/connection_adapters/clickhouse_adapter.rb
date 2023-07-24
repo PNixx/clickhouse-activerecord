@@ -190,7 +190,12 @@ module ActiveRecord
         $1.to_i if sql_type =~ /\((\d+)(,\s?\d+)?\)/
       end
 
-      def initialize_type_map(m) # :nodoc:
+      # In Rails 7 used constant TYPE_MAP, we need redefine method
+      def type_map
+        @type_map ||= Type::TypeMap.new.tap { |m| ClickhouseAdapter.initialize_type_map(m) }
+      end
+
+      def self.initialize_type_map(m) # :nodoc:
         super
         register_class_with_limit m, %r(String), Type::String
         register_class_with_limit m, 'Date',  Clickhouse::OID::Date
@@ -215,10 +220,10 @@ module ActiveRecord
         end
       end
 
-      def _quote(value)
+      def quote(value)
         case value
         when Array
-          '[' + value.map { |v| _quote(v) }.join(', ') + ']'
+          '[' + value.map { |v| quote(v) }.join(', ') + ']'
         else
           super
         end
