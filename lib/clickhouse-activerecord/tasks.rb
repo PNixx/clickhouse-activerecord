@@ -2,18 +2,15 @@
 
 module ClickhouseActiverecord
   class Tasks
-    delegate :connection, :establish_connection, to: ActiveRecord::Base
+    delegate :connection, :establish_connection, :clear_active_connections!, to: ActiveRecord::Base
 
     def initialize(configuration)
-      @configuration = configuration
+      @configuration = configuration.with_indifferent_access
     end
 
     def create
       establish_master_connection
-      connection.create_database @configuration[:database]
-
-      connection.schema_migration.create_table
-      connection.internal_metadata.create_table
+      connection.create_database @configuration['database']
     rescue ActiveRecord::StatementInvalid => e
       if e.cause.to_s.include?('already exists')
         raise ActiveRecord::DatabaseAlreadyExists
@@ -24,7 +21,7 @@ module ClickhouseActiverecord
 
     def drop
       establish_master_connection
-      connection.drop_database @configuration[:database]
+      connection.drop_database @configuration['database']
     end
 
     def purge
@@ -33,32 +30,26 @@ module ClickhouseActiverecord
       create
     end
 
-    def structure_dump(path, *)
-      establish_master_connection
+    def structure_dump(*args)
+      tables = connection.execute("SHOW TABLES FROM #{@configuration['database']}")['data'].flatten
 
-      functions = connection.execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' ORDER BY name")['data']
-                    .flatten
-                    .map { |function| function.gsub('\\n', "\n") }
-      table_defs = connection.execute("SHOW TABLES FROM #{@configuration[:database]}")['data']
-                     .flatten
-                     .reject { |name| /\.inner/.match?(name) || %w[schema_migrations ar_internal_metadata].include?(name) }
-                     .map { |name| connection.show_create_table(name, single_line: false).gsub("#{@configuration[:database]}.", '') }
-      views, tables = table_defs.partition { |sql| sql.match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) }
-      definitions = functions.sort + tables.sort + views.sort
-
-      File.open(path, 'w:utf-8') do |file|
-        definitions.each do |sql|
-          file.puts "#{sql};\n\n"
+      File.open(args.first, 'w:utf-8') do |file|
+        tables.each do |table|
+          next if table.match(/\.inner/)
+          file.puts connection.execute("SHOW CREATE TABLE #{table}")['data'].try(:first).try(:first).gsub("#{@configuration['database']}.", '') + ";\n\n"
         end
       end
     end
 
-    def structure_load(path, *)
-      File.read(path)
-          .split(";\n\n")
-          .compact_blank
-          .each do |sql|
-        connection.execute(sql)
+    def structure_load(*args)
+      File.read(args.first).split(";\n\n").each do |sql|
+        if sql.gsub(/[a-z]/i, '').blank?
+          next
+        elsif sql =~ /^INSERT INTO/
+          connection.do_execute(sql, nil, format: nil)
+        else
+          connection.execute(sql)
+        end
       end
     end
 
@@ -74,14 +65,6 @@ module ClickhouseActiverecord
       ActiveRecord::Base.clear_cache!
     ensure
       ActiveRecord::Migration.verbose = verbose_was
-    end
-
-    def clear_active_connections!
-      if ActiveRecord::Base.respond_to?(:connection_handler)
-        ActiveRecord::Base.connection_handler.clear_active_connections!
-      else
-        ActiveRecord::Base.clear_active_connections!
-      end
     end
 
     private
