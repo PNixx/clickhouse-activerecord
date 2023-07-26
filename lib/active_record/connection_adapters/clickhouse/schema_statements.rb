@@ -1,55 +1,60 @@
 # frozen_string_literal: true
 
-require 'clickhouse-activerecord/version'
-
 module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module SchemaStatements
-        def with_settings(**settings)
-          @block_settings ||= {}
-          prev_settings = @block_settings
-          @block_settings.merge! settings
-          yield
-        ensure
-          @block_settings = prev_settings
-        end
-
-        def execute(sql, name = nil, settings: {})
-          log(sql, "#{adapter_name} #{name}") do
-            formatted_sql = apply_format(sql)
-            res = @connection.post("/?#{settings_params(settings)}", formatted_sql, 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
-
+        # Create a new ClickHouse database.
+        def create_database(name)
+          sql = apply_cluster "CREATE DATABASE #{quote_table_name(name)}"
+          log_with_debug(sql, adapter_name) do
+            res = @connection.post("/?#{@config.except(:database).to_param}", sql)
             process_response(res)
           end
         end
 
-        def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil)
-          new_sql = sql.sub(/ (DEFAULT )?VALUES/, " VALUES")
-          execute(new_sql, name)
-          true
+        # Drops a ClickHouse database.
+        def drop_database(name) #:nodoc:
+          sql = apply_cluster "DROP DATABASE IF EXISTS #{quote_table_name(name)}"
+          log_with_debug(sql, adapter_name) do
+            res = @connection.post("/?#{@config.except(:database).to_param}", sql)
+            process_response(res)
+          end
         end
 
-        def exec_query(sql, name = nil, binds = [], prepare: false)
-          result = execute(sql, name)
-          ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'])
-        rescue ActiveRecord::ActiveRecordError => e
-          raise e
-        rescue StandardError => e
-          raise ActiveRecord::ActiveRecordError, "Response: #{e.message}"
+        def create_table(table_name, id: :primary_key, primary_key: nil, force: nil, **options, &block)
+          options = apply_replica(table_name, options)
+
+          result = super
+
+          if options[:with_distributed]
+            distributed_table_name = options.delete(:with_distributed)
+            sharding_key = options.delete(:sharding_key) || 'rand()'
+            raise 'Set a cluster' unless cluster
+
+            distributed_options = "Distributed(#{cluster}, #{@config[:database]}, #{table_name}, #{sharding_key})"
+            create_table(distributed_table_name,
+                         id: id,
+                         primary_key: primary_key,
+                         force: force,
+                         **options.merge(options: distributed_options),
+                         &block)
+          end
+
+          result
         end
 
-        def exec_insert_all(sql, name)
-          execute(sql, name)
-          true
+        def rename_table(table_name, new_name)
+          execute apply_cluster "RENAME TABLE #{quote_table_name(table_name)} TO #{quote_table_name(new_name)}"
         end
 
-        def exec_update(_sql, _name = nil, _binds = [])
-          raise ActiveRecord::ActiveRecordError, 'Clickhouse update is not supported'
-        end
+        def drop_table(table_name, **options) # :nodoc:
+          execute apply_cluster "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
 
-        def exec_delete(_sql, _name = nil, _binds = [])
-          raise ActiveRecord::ActiveRecordError, 'Clickhouse delete is not supported'
+          if options[:with_distributed]
+            distributed_table_name = options.delete(:with_distributed)
+            drop_table(distributed_table_name, **options)
+          end
         end
 
         def tables(name = nil)
@@ -63,6 +68,53 @@ module ActiveRecord
           { options: sql.gsub(/^.*?(?:ENGINE = (.*?))?( AS SELECT .*?)?$/, '\\1').presence, as: sql.match(/^CREATE.*? AS (SELECT .*?)$/).try(:[], 1) }.compact
         end
 
+        def primary_key(table_name) #:nodoc:
+          pk = table_structure(table_name).first
+          return 'id' if pk&.dig('name') == 'id'
+          false
+        end
+
+        # @param [String] table
+        # @return [String]
+        def show_create_table(table)
+          do_system_execute("SHOW CREATE TABLE `#{table}`")['data'].try(:first).try(:first).gsub(/[\n\s]+/m, ' ')
+        end
+
+        def create_view(table_name, **options)
+          options.merge!(view: true)
+          options = apply_replica(table_name, options)
+          td = create_table_definition(apply_cluster(table_name), **options)
+          yield td if block_given?
+
+          if options[:force]
+            drop_table(table_name, **options, if_exists: true)
+          end
+
+          execute schema_creation.accept td
+        end
+
+        def add_column(table_name, column_name, type, **options)
+          with_settings(wait_end_of_query: 1, send_progress_in_http_headers: 1) { super }
+        end
+
+        def remove_column(table_name, column_name, type = nil, **options)
+          with_settings(wait_end_of_query: 1, send_progress_in_http_headers: 1) { super }
+        end
+
+        def change_column(table_name, column_name, type, **options)
+          result = execute "ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, **options)}"
+          raise "Error parse json response: #{result}" if result.present? && !result.is_a?(Hash)
+        end
+
+        def change_column_null(table_name, column_name, null, default = nil)
+          column = column_for(table_name, column_name)
+          change_column table_name, column_name, strip_nullable(column.sql_type), null: null
+        end
+
+        def change_column_default(table_name, column_name, default_or_changes)
+          change_column table_name, column_name, nil, default: extract_new_default_value(default_or_changes)
+        end
+
         # Not indexes on clickhouse
         def indexes(_table_name, _name = nil)
           []
@@ -70,14 +122,6 @@ module ActiveRecord
 
         def data_sources
           tables
-        end
-
-        def do_system_execute(sql, name = nil)
-          log_with_debug(sql, "#{adapter_name} #{name}") do
-            res = @connection.post("/?#{@config.to_param}", "#{sql} FORMAT JSONCompact", 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
-
-            process_response(res)
-          end
         end
 
         def assume_migrated_upto_version(version, _migrations_paths = nil)
@@ -101,6 +145,10 @@ module ActiveRecord
           end
         end
 
+        def create_schema_dumper(options) # :nodoc:
+          Clickhouse::SchemaDumper.create(self, options)
+        end
+
         protected
 
         def table_structure(table_name)
@@ -112,45 +160,20 @@ module ActiveRecord
 
         alias column_definitions table_structure
 
+        def change_column_for_alter(table_name, column_name, type, **options)
+          td = create_table_definition(table_name)
+          cd = td.new_column_definition(column_name, type, **options)
+          schema_creation.accept(ChangeColumnDefinition.new(cd, column_name))
+        end
+
         private
-
-        def apply_format(sql)
-          return sql unless formattable?(sql)
-
-          "#{sql} FORMAT #{ClickhouseAdapter::DEFAULT_FORMAT}"
-        end
-
-        def formattable?(sql)
-          !for_insert?(sql) && !system_command?(sql)
-        end
-
-        def for_insert?(sql)
-          /^insert into/i.match?(sql)
-        end
-
-        def system_command?(sql)
-          /^system|optimize/i.match?(sql)
-        end
-
-        def process_response(res)
-          raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}" unless res.code.to_i == 200
-
-          JSON.parse(res.body) if res.body.present?
-        rescue JSON::ParserError
-          res.body
-        end
-
-        def log_with_debug(sql, name = nil)
-          return yield unless @debug
-          log(sql, "#{name} (system)") { yield }
-        end
 
         def schema_creation
           Clickhouse::SchemaCreation.new(self)
         end
 
         def create_table_definition(table_name, **options)
-          Clickhouse::TableDefinition.new(self, table_name, **options)
+          Clickhouse::TableDefinition.new(self, apply_cluster(table_name), **options)
         end
 
         def new_column_from_field(table_name, field)
@@ -189,14 +212,6 @@ module ActiveRecord
 
         def has_default_function?(default_value, default) # :nodoc:
           %r{\w+\(.*\)}.match?(default) unless default_value
-        end
-
-        def settings_params(settings = {})
-          request_params = @config || {}
-          block_settings = @block_settings || {}
-          request_params.merge(block_settings)
-                        .merge(settings)
-                        .to_param
         end
       end
     end

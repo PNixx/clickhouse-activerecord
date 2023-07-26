@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'active_record/connection_adapters/clickhouse/database_statements'
 require 'active_record/connection_adapters/clickhouse/quoting'
 require 'active_record/connection_adapters/clickhouse/schema_creation'
 require 'active_record/connection_adapters/clickhouse/schema_definitions'
@@ -56,6 +57,7 @@ module ActiveRecord
         tuple: { name: 'Tuple' }
       }.freeze
 
+      include Clickhouse::DatabaseStatements
       include Clickhouse::Quoting
       include Clickhouse::SchemaStatements
 
@@ -187,130 +189,6 @@ module ActiveRecord
         end
       end
 
-      def column_name_for_operation(_operation, node) # :nodoc:
-        if ActiveRecord.version >= Gem::Version.new('6')
-          visitor.compile(node)
-        else
-          column_name_from_arel_node(node)
-        end
-      end
-
-      # Executes insert +sql+ statement in the context of this connection using
-      # +binds+ as the bind substitutes. +name+ is logged along with
-      # the executed +sql+ statement.
-
-      # SCHEMA STATEMENTS ========================================
-
-      def primary_key(table_name) #:nodoc:
-        pk = table_structure(table_name).first
-        return 'id' if pk&.dig('name') == 'id'
-        false
-      end
-
-      def create_schema_dumper(options) # :nodoc:
-        Clickhouse::SchemaDumper.create(self, options)
-      end
-
-      # @param [String] table
-      # @return [String]
-      def show_create_table(table)
-        do_system_execute("SHOW CREATE TABLE `#{table}`")['data'].try(:first).try(:first).gsub(/[\n\s]+/m, ' ')
-      end
-
-      # Create a new ClickHouse database.
-      def create_database(name)
-        sql = apply_cluster "CREATE DATABASE #{quote_table_name(name)}"
-        log_with_debug(sql, adapter_name) do
-          res = @connection.post("/?#{@config.except(:database).to_param}", sql)
-          process_response(res)
-        end
-      end
-
-      def create_view(table_name, **options)
-        options.merge!(view: true)
-        options = apply_replica(table_name, options)
-        td = create_table_definition(apply_cluster(table_name), **options)
-        yield td if block_given?
-
-        if options[:force]
-          drop_table(table_name, **options, if_exists: true)
-        end
-
-        execute schema_creation.accept td
-      end
-
-      def create_table(table_name, id: :primary_key, primary_key: nil, force: nil, **options, &block)
-        options = apply_replica(table_name, options)
-
-        result = super
-
-        if options[:with_distributed]
-          distributed_table_name = options.delete(:with_distributed)
-          sharding_key = options.delete(:sharding_key) || 'rand()'
-          raise 'Set a cluster' unless cluster
-
-          distributed_options = "Distributed(#{cluster}, #{@config[:database]}, #{table_name}, #{sharding_key})"
-          create_table(distributed_table_name,
-                       id: id,
-                       primary_key: primary_key,
-                       force: force,
-                       **options.merge(options: distributed_options),
-                       &block)
-        end
-
-        result
-      end
-
-      def create_table_definition(table_name, **options)
-        Clickhouse::TableDefinition.new(self, apply_cluster(table_name), **options)
-      end
-
-      # Drops a ClickHouse database.
-      def drop_database(name) #:nodoc:
-        sql = apply_cluster "DROP DATABASE IF EXISTS #{quote_table_name(name)}"
-        log_with_debug(sql, adapter_name) do
-          res = @connection.post("/?#{@config.except(:database).to_param}", sql)
-          process_response(res)
-        end
-      end
-
-      def rename_table(table_name, new_name)
-        execute apply_cluster "RENAME TABLE #{quote_table_name(table_name)} TO #{quote_table_name(new_name)}"
-      end
-
-      def drop_table(table_name, **options) # :nodoc:
-        execute apply_cluster "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
-
-        if options[:with_distributed]
-          distributed_table_name = options.delete(:with_distributed)
-          drop_table(distributed_table_name, **options)
-        end
-      end
-
-      def add_column(table_name, column_name, type, **options)
-        with_settings(wait_end_of_query: 1, send_progress_in_http_headers: 1) { super }
-      end
-
-      def remove_column(table_name, column_name, type = nil, **options)
-        with_settings(wait_end_of_query: 1, send_progress_in_http_headers: 1) { super }
-      end
-
-      def change_column(table_name, column_name, type, **options)
-        result = execute "ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, **options)}"
-        raise "Error parse json response: #{result}" if result.present? && !result.is_a?(Hash)
-      end
-
-      def change_column_null(table_name, column_name, null, default = nil)
-        structure = table_structure(table_name).find { |v| v['name'] == column_name.to_s }
-        raise "Column #{column_name} not found in table #{table_name}" if structure.nil?
-        change_column_opts = { null: null, default: default }.compact
-        change_column table_name, column_name, structure[1].gsub(/(Nullable\()?(.*?)\)?/, '\2'), **change_column_opts
-      end
-
-      def change_column_default(table_name, column_name, default_or_changes)
-        change_column table_name, column_name, nil, default: extract_new_default_value(default_or_changes)
-      end
-
       def cluster
         @full_config[:cluster_name]
       end
@@ -340,13 +218,6 @@ module ActiveRecord
           end
       end
 
-      def apply_cluster(sql)
-        return sql unless cluster
-
-        normalized_cluster_name = cluster.start_with?('{') ? "'#{cluster}'" : cluster
-        "#{sql} ON CLUSTER #{normalized_cluster_name}"
-      end
-
       def supports_insert_on_duplicate_skip?
         true
       end
@@ -357,18 +228,6 @@ module ActiveRecord
 
       def build_insert_sql(insert) # :nodoc:
         +"INSERT #{insert.into} #{insert.values_list}"
-      end
-
-      protected
-
-      def last_inserted_id(result)
-        result
-      end
-
-      def change_column_for_alter(table_name, column_name, type, **options)
-        td = create_table_definition(table_name)
-        cd = td.new_column_definition(column_name, type, **options)
-        schema_creation.accept(ChangeColumnDefinition.new(cd, column_name))
       end
 
       private
@@ -422,6 +281,12 @@ module ActiveRecord
         else
           default_or_changes
         end
+      end
+
+      def strip_nullable(sql_type)
+        return sql_type unless sql_type.start_with?('Nullable(')
+
+        sql_type.match(/Nullable\((.*?)\)/)[1]
       end
     end
   end
