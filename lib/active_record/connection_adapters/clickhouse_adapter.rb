@@ -307,9 +307,8 @@ module ActiveRecord
         change_column table_name, column_name, structure[1].gsub(/(Nullable\()?(.*?)\)?/, '\2'), **change_column_opts
       end
 
-      def change_column_default(table_name, column_name, default)
-        change_default_opts = { default: default }.compact
-        change_column table_name, column_name, nil, **change_default_opts
+      def change_column_default(table_name, column_name, default_or_changes)
+        change_column table_name, column_name, nil, default: extract_new_default_value(default_or_changes)
       end
 
       def cluster
@@ -415,6 +414,14 @@ module ActiveRecord
         end
 
         "Replicated#{match[1]}(#{engine_params})#{match[3]}"
+      end
+
+      def extract_new_default_value(default_or_changes)
+        if default_or_changes.is_a?(Hash) && default_or_changes.key?(:from) && default_or_changes.key?(:to)
+          default_or_changes[:to]
+        else
+          default_or_changes
+        end
       end
     end
   end

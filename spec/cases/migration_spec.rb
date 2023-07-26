@@ -8,7 +8,7 @@ RSpec.describe 'Migration', :migrations do
       end
     end
 
-    context 'table creation' do
+    describe 'table creation' do
       context 'plain' do
         it 'creates a table' do
           migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'plain_table_creation')
@@ -308,6 +308,90 @@ RSpec.describe 'Migration', :migrations do
         expect(current_schema.keys.count).to eq(1)
         expect(current_schema).to have_key('date')
         expect(current_schema['date'].sql_type).to eq('Date')
+      end
+    end
+
+    describe 'change column' do
+      describe 'default' do
+        migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'change_column')
+
+        before(:all) { FileUtils.mkdir_p migrations_dir }
+        after(:all) { FileUtils.rm_rf migrations_dir }
+
+        subject(:migrate_and_query_schema) do
+          migrations.each do |name, body|
+            File.write(File.join(migrations_dir, name), body)
+          end
+
+          quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+
+          schema(model)
+        end
+
+        let(:migrations) do
+          { '1_create_table.rb' => <<~RUBY }
+            class CreateTable < ActiveRecord::Migration[#{ActiveRecord::VERSION::MAJOR}.#{ActiveRecord::VERSION::MINOR}]
+              def change
+                create_table :some, id: false, options: 'MergeTree ORDER BY date' do |t|
+                  t.date :date, null: false
+                  t.integer :new_column, default: 1
+                end
+              end
+            end
+          RUBY
+        end
+
+        it 'sets new default with basic syntax' do
+          migrations['2_change_column_default.rb'] = <<~RUBY
+            class ChangeColumnDefault < ActiveRecord::Migration[#{ActiveRecord::VERSION::MAJOR}.#{ActiveRecord::VERSION::MINOR}]
+              def change
+                change_column_default :some, :new_column, 200
+              end
+            end
+          RUBY
+
+          current_schema = migrate_and_query_schema
+          expect(current_schema['new_column'].default).to eq('200')
+        end
+
+        it 'sets new default with hash syntax' do
+          migrations['2_change_column_default.rb'] = <<~RUBY
+            class ChangeColumnDefault < ActiveRecord::Migration[#{ActiveRecord::VERSION::MAJOR}.#{ActiveRecord::VERSION::MINOR}]
+              def change
+                change_column_default :some, :new_column, from: 1, to: 200
+              end
+            end
+          RUBY
+
+          current_schema = migrate_and_query_schema
+          expect(current_schema['new_column'].default).to eq('200')
+        end
+
+        it 'removes default with basic syntax' do
+          migrations['2_change_column_default.rb'] = <<~RUBY
+            class ChangeColumnDefault < ActiveRecord::Migration[#{ActiveRecord::VERSION::MAJOR}.#{ActiveRecord::VERSION::MINOR}]
+              def change
+                change_column_default :some, :new_column, nil
+              end
+            end
+          RUBY
+
+          current_schema = migrate_and_query_schema
+          expect(current_schema['new_column'].default).to be_nil
+        end
+
+        it 'removes default with hash syntax' do
+          migrations['2_change_column_default.rb'] = <<~RUBY
+            class ChangeColumnDefault < ActiveRecord::Migration[#{ActiveRecord::VERSION::MAJOR}.#{ActiveRecord::VERSION::MINOR}]
+              def change
+                change_column_default :some, :new_column, from: 1, to: nil
+              end
+            end
+          RUBY
+
+          current_schema = migrate_and_query_schema
+          expect(current_schema['new_column'].default).to be_nil
+        end
       end
     end
   end
