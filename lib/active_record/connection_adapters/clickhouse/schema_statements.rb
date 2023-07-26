@@ -107,6 +107,12 @@ module ActiveRecord
         end
 
         def change_column_null(table_name, column_name, null, default = nil)
+          raise(ActiveRecordError, <<~MSG.squish) if !null && default
+            Cannot set temporary default when changing column nullability;
+            ClickHouse does not support UPDATE statements. Please manually
+            update NULL values before making column non-nullable.
+          MSG
+
           column = column_for(table_name, column_name)
           change_column table_name, column_name, strip_nullable(column.sql_type), null: null
         end
