@@ -64,6 +64,32 @@ RSpec.describe 'Model', :migrations do
     end
   end
 
+  context 'DateTime64' do
+
+    let!(:model) do
+      Class.new(ActiveRecord::Base) do
+        self.table_name = 'some'
+      end
+    end
+
+    before do
+      migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_table_with_datetime_creation')
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+    end
+
+    describe '#create' do
+      it 'create a new record' do
+        time = DateTime.parse('2023-07-21 08:00:00.123')
+        model.create!(datetime: time, datetime64: time)
+        row = model.first
+        expect(row.datetime).to_not eq(row.datetime64)
+        expect(row.datetime.strftime('%Y-%m-%d %H:%M:%S')).to eq('2023-07-21 08:00:00')
+        expect(row.datetime64.strftime('%Y-%m-%d %H:%M:%S.%3N')).to eq('2023-07-21 08:00:00.123')
+      end
+    end
+
+  end
+
   context 'array' do
 
     let!(:model) do
