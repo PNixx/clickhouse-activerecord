@@ -78,6 +78,7 @@ module ActiveRecord
           "#{sql} ON CLUSTER #{normalized_cluster_name}"
         end
 
+        # TODO: Extract this whole thing info a separate FormatWrapper class
         def apply_format(sql)
           return sql unless formattable?(sql)
 
@@ -85,7 +86,7 @@ module ActiveRecord
         end
 
         def formattable?(sql)
-          !for_insert?(sql) && !system_command?(sql)
+          !for_insert?(sql) && !system_command?(sql) && !format_specified?(sql)
         end
 
         def for_insert?(sql)
@@ -94,6 +95,10 @@ module ActiveRecord
 
         def system_command?(sql)
           /^system|optimize/i.match?(sql)
+        end
+
+        def format_specified?(sql)
+          /format [a-z]+\z/i.match?(sql)
         end
 
         def process_response(res)
