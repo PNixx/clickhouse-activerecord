@@ -159,65 +159,67 @@ module ActiveRecord
         !native_database_types[type].nil?
       end
 
-      def extract_limit(sql_type) # :nodoc:
-        case sql_type
-          when /(Nullable)?\(?String\)?/
-            super('String')
-          when /(Nullable)?\(?U?Int8\)?/
-            1
-          when /(Nullable)?\(?U?Int16\)?/
-            2
-          when /(Nullable)?\(?U?Int32\)?/
-            nil
-          when /(Nullable)?\(?U?Int64\)?/
-            8
-          else
-            super
+      class << self
+        def extract_limit(sql_type) # :nodoc:
+          case sql_type
+            when /(Nullable)?\(?String\)?/
+              super('String')
+            when /(Nullable)?\(?U?Int8\)?/
+              1
+            when /(Nullable)?\(?U?Int16\)?/
+              2
+            when /(Nullable)?\(?U?Int32\)?/
+              nil
+            when /(Nullable)?\(?U?Int64\)?/
+              8
+            else
+              super
+          end
         end
-      end
 
-      # `extract_scale` and `extract_precision` are the same as in the Rails abstract base class,
-      # except this permits a space after the comma
+        # `extract_scale` and `extract_precision` are the same as in the Rails abstract base class,
+        # except this permits a space after the comma
 
-      def extract_scale(sql_type)
-        case sql_type
-        when /\((\d+)\)/ then 0
-        when /\((\d+)(,\s?(\d+))\)/ then $3.to_i
+        def extract_scale(sql_type)
+          case sql_type
+          when /\((\d+)\)/ then 0
+          when /\((\d+)(,\s?(\d+))\)/ then $3.to_i
+          end
         end
-      end
 
-      def extract_precision(sql_type)
-        $1.to_i if sql_type =~ /\((\d+)(,\s?\d+)?\)/
+        def extract_precision(sql_type)
+          $1.to_i if sql_type =~ /\((\d+)(,\s?\d+)?\)/
+        end
+
+        def initialize_type_map(m) # :nodoc:
+          super
+          register_class_with_limit m, %r(String), Type::String
+          register_class_with_limit m, 'Date',  Clickhouse::OID::Date
+          register_class_with_precision m, %r(datetime)i,  Clickhouse::OID::DateTime
+
+          register_class_with_limit m, %r(Int8), Type::Integer
+          register_class_with_limit m, %r(Int16), Type::Integer
+          register_class_with_limit m, %r(Int32), Type::Integer
+          register_class_with_limit m, %r(Int64), Type::Integer
+          register_class_with_limit m, %r(Int128), Type::Integer
+          register_class_with_limit m, %r(Int256), Type::Integer
+
+          register_class_with_limit m, %r(UInt8), Type::UnsignedInteger
+          register_class_with_limit m, %r(UInt16), Type::UnsignedInteger
+          register_class_with_limit m, %r(UInt32), Type::UnsignedInteger
+          register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
+          #register_class_with_limit m, %r(UInt128), Type::UnsignedInteger #not implemnted in clickhouse
+          register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
+          # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
+          m.register_type(%r(Array)) do |sql_type|
+            Clickhouse::OID::Array.new(sql_type)
+          end
+        end
       end
 
       # In Rails 7 used constant TYPE_MAP, we need redefine method
       def type_map
         @type_map ||= Type::TypeMap.new.tap { |m| ClickhouseAdapter.initialize_type_map(m) }
-      end
-
-      def self.initialize_type_map(m) # :nodoc:
-        super
-        register_class_with_limit m, %r(String), Type::String
-        register_class_with_limit m, 'Date',  Clickhouse::OID::Date
-        register_class_with_precision m, %r(datetime)i,  Clickhouse::OID::DateTime
-
-        register_class_with_limit m, %r(Int8), Type::Integer
-        register_class_with_limit m, %r(Int16), Type::Integer
-        register_class_with_limit m, %r(Int32), Type::Integer
-        register_class_with_limit m, %r(Int64), Type::Integer
-        register_class_with_limit m, %r(Int128), Type::Integer
-        register_class_with_limit m, %r(Int256), Type::Integer
-
-        register_class_with_limit m, %r(UInt8), Type::UnsignedInteger
-        register_class_with_limit m, %r(UInt16), Type::UnsignedInteger
-        register_class_with_limit m, %r(UInt32), Type::UnsignedInteger
-        register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
-        #register_class_with_limit m, %r(UInt128), Type::UnsignedInteger #not implemnted in clickhouse
-        register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
-        # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
-        m.register_type(%r(Array)) do |sql_type|
-          Clickhouse::OID::Array.new(sql_type)
-        end
       end
 
       def quote(value)
