@@ -92,7 +92,7 @@ module ActiveRecord
         datetime: { name: 'DateTime' },
         datetime64: { name: 'DateTime64' },
         date: { name: 'Date' },
-        boolean: { name: 'UInt8' },
+        boolean: { name: 'Bool' },
         uuid: { name: 'UUID' },
 
         enum8: { name: 'Enum8' },
