@@ -165,7 +165,7 @@ Structure load from `db/clickhouse_structure.sql` file:
 
 ```ruby
 Action.where(url: 'http://example.com', date: Date.current).where.not(name: nil).order(created_at: :desc).limit(10)
-# Clickhouse Action Load (10.3ms)  SELECT  actions.* FROM actions WHERE actions.date = '2017-11-29' AND actions.url = 'http://example.com' AND (actions.name IS NOT NULL)  ORDER BY actions.created_at DESC LIMIT 10
+# Clickhouse Action Load (10.3ms)  SELECT actions.* FROM actions WHERE actions.date = '2017-11-29' AND actions.url = 'http://example.com' AND (actions.name IS NOT NULL)  ORDER BY actions.created_at DESC LIMIT 10
 #=> #<ActiveRecord::Relation [#<Action *** >]>
 
 Action.create(url: 'http://example.com', date: Date.yesterday)
@@ -175,6 +175,14 @@ Action.create(url: 'http://example.com', date: Date.yesterday)
 ActionView.maximum(:date)
 # Clickhouse (10.3ms)  SELECT maxMerge(actions.date) FROM actions
 #=> 'Wed, 29 Nov 2017'
+
+Action.where(date: Date.current).final.limit(10)
+# Clickhouse Action Load (10.3ms)  SELECT actions.* FROM actions FINAL WHERE actions.date = '2017-11-29' LIMIT 10
+#=> #<ActiveRecord::Relation [#<Action *** >]>
+
+Action.settings(optimize_read_in_order: 1).where(date: Date.current).limit(10)
+# Clickhouse Action Load (10.3ms)  SELECT actions.* FROM actions FINAL WHERE actions.date = '2017-11-29' LIMIT 10 SETTINGS optimize_read_in_order = 1
+#=> #<ActiveRecord::Relation [#<Action *** >]>
 ```
 
 

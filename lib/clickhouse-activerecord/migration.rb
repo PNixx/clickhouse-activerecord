@@ -28,7 +28,7 @@ module ClickhouseActiverecord
       end
 
       def all_versions
-        from("#{table_name} FINAL").where(active: 1).order(:version).pluck(:version)
+        final.where(active: 1).order(:version).pluck(:version)
       end
     end
   end
