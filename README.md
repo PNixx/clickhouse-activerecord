@@ -134,11 +134,11 @@ If you using multiple databases, for example: PostgreSQL, Clickhouse.
 
 Schema dump to `db/clickhouse_schema.rb` file:
 
-    $ rake db:schema:dump:clickhouse
+    $ rake clickhouse:schema:dump
     
 Schema load from `db/clickhouse_schema.rb` file:
 
-    $ rake db:schema:load:clickhouse
+    $ rake clickhouse:schema:load
 
 For export schema to PostgreSQL, you need use:
 
@@ -165,7 +165,7 @@ Structure load from `db/clickhouse_structure.sql` file:
 
 ```ruby
 Action.where(url: 'http://example.com', date: Date.current).where.not(name: nil).order(created_at: :desc).limit(10)
-# Clickhouse Action Load (10.3ms)  SELECT  actions.* FROM actions WHERE actions.date = '2017-11-29' AND actions.url = 'http://example.com' AND (actions.name IS NOT NULL)  ORDER BY actions.created_at DESC LIMIT 10
+# Clickhouse Action Load (10.3ms)  SELECT actions.* FROM actions WHERE actions.date = '2017-11-29' AND actions.url = 'http://example.com' AND (actions.name IS NOT NULL)  ORDER BY actions.created_at DESC LIMIT 10
 #=> #<ActiveRecord::Relation [#<Action *** >]>
 
 Action.create(url: 'http://example.com', date: Date.yesterday)
@@ -182,10 +182,6 @@ Action.where(date: Date.current).final.limit(10)
 
 Action.settings(optimize_read_in_order: 1).where(date: Date.current).limit(10)
 # Clickhouse Action Load (10.3ms)  SELECT actions.* FROM actions FINAL WHERE actions.date = '2017-11-29' LIMIT 10 SETTINGS optimize_read_in_order = 1
-#=> #<ActiveRecord::Relation [#<Action *** >]>
-
-User.joins(:actions).using(:group_id)
-# Clickhouse Action Load (10.3ms)  SELECT users.* FROM users INNER JOIN actions USING group_id
 #=> #<ActiveRecord::Relation [#<Action *** >]>
 ```
 
@@ -248,21 +244,12 @@ Donations to this project are going directly to [PNixx](https://github.com/PNixx
 * BTC address: `1H3rhpf7WEF5JmMZ3PVFMQc7Hm29THgUfN`
 * ETH address: `0x6F094365A70fe7836A633d2eE80A1FA9758234d5`
 * XMR address: `42gP71qLB5M43RuDnrQ3vSJFFxis9Kw9VMURhpx9NLQRRwNvaZRjm2TFojAMC8Fk1BQhZNKyWhoyJSn5Ak9kppgZPjE17Zh`
-* TON address: `UQBt0-s1igIpJoEup0B1yAUkZ56rzbpruuAjNhQ26MVCaNlC`
 
 ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
 
 To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
-
-## Running Test Suite
-
-1. Install base dependencies by running `bundle install`
-2. Install multiple ActiveRecord environments by running `appraisal` (or `bundle exec appraisal`)
-3. Create a test database by running `clickhouse-client --query "CREATE DATABASE IF NOT EXISTS test"`
-4. Run tests for all supported ActiveRecord versions by running `appraisal rake spec`, or for a specific version by
-   running `appraisal activerecord-6 rake spec` for ActiveRecord 6, etc.
 
 ## Contributing
 

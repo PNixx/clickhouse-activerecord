@@ -1,13 +1,8 @@
-# frozen_string_literal: true
-
 module CoreExtensions
   module Arel
     module SelectManager
-      def final!
-        @ctx.final = true
-        self
-      end
 
+      # @param [Hash] values
       def settings(values)
         @ast.settings = ::Arel::Nodes::Settings.new(values)
         self

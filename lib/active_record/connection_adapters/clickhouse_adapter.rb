@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'clickhouse-activerecord/arel/visitors/to_sql'
-require 'clickhouse-activerecord/arel/table'
+require 'arel/visitors/clickhouse'
+require 'arel/nodes/settings'
 require 'clickhouse-activerecord/migration'
 require 'active_record/connection_adapters/clickhouse/oid/array'
 require 'active_record/connection_adapters/clickhouse/oid/date'
@@ -62,6 +62,8 @@ module ActiveRecord
 
   module ModelSchema
     module ClassMethods
+      delegate :final, :settings, to: :all
+
       def is_view
         @is_view || false
       end
@@ -69,10 +71,10 @@ module ActiveRecord
       def is_view=(value)
         @is_view = value
       end
-
-      def arel_table # :nodoc:
-        @arel_table ||= ClickhouseActiverecord::Arel::Table.new(table_name, type_caster: type_caster)
-      end
+      #
+      # def arel_table # :nodoc:
+      #   @arel_table ||= Arel::Table.new(table_name, type_caster: type_caster)
+      # end
     end
   end
 
@@ -145,7 +147,7 @@ module ActiveRecord
       end
 
       def arel_visitor # :nodoc:
-        ClickhouseActiverecord::Arel::Visitors::ToSql.new(self)
+        Arel::Visitors::Clickhouse.new(self)
       end
 
       def native_database_types #:nodoc:

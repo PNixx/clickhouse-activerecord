@@ -7,7 +7,7 @@ RSpec.describe 'Model', :migrations do
   context 'sample' do
     let!(:model) do
       Class.new(ActiveRecord::Base) do
-        self.table_name = 'events'
+        self.table_name = 'sample'
       end
     end
 
@@ -78,22 +78,25 @@ RSpec.describe 'Model', :migrations do
         expect(model.first.enabled.class).to eq(FalseClass)
       end
     end
-  end
 
-  context 'DateTime64' do
+    describe '#settings' do
+      it 'works' do
+        sql = model.settings(optimize_read_in_order: 1, cast_keep_nullable: 1).to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample SETTINGS optimize_read_in_order = 1, cast_keep_nullable = 1')
+      end
 
-    let!(:model) do
-      Class.new(ActiveRecord::Base) do
-        self.table_name = 'some'
+      it 'quotes' do
+        sql = model.settings(foo: :bar).to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample SETTINGS foo = \'bar\'')
+      end
+
+      it 'allows passing the symbol :default to reset a setting' do
+        sql = model.settings(max_insert_block_size: :default).to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample SETTINGS max_insert_block_size = DEFAULT')
       end
     end
 
-    before do
-      migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_table_with_datetime_creation')
-      quietly { ClickhouseActiverecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
-    end
-
-    describe '#create' do
+    describe 'DateTime64 create' do
       it 'create a new record' do
         time = DateTime.parse('2023-07-21 08:00:00.123')
         model.create!(datetime: time, datetime64: time)
@@ -104,6 +107,15 @@ RSpec.describe 'Model', :migrations do
       end
     end
 
+    describe 'final request' do
+      let!(:record1) { model.create!(date: date, event_name: '1') }
+      let!(:record2) { model.create!(date: date, event_name: '1') }
+
+      it 'select' do
+        expect(model.count).to eq(2)
+        expect(model.final.count).to eq(1)
+      end
+    end
   end
 
   context 'array' do
