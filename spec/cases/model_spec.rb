@@ -70,6 +70,14 @@ RSpec.describe 'Model', :migrations do
         expect(model.pluck(Arel.sql('sum(event_value)')).first[0].class).to eq(Integer)
       end
     end
+
+    describe 'boolean column type' do
+      let!(:record1) { model.create!(event_name: 'some event', event_value: 1, date: date) }
+
+      it 'bool result' do
+        expect(model.first.enabled.class).to eq(FalseClass)
+      end
+    end
   end
 
   context 'DateTime64' do
