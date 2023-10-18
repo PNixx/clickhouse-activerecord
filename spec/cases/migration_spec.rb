@@ -8,6 +8,12 @@ RSpec.describe 'Migration', :migrations do
       end
     end
 
+    if ActiveRecord::version >= Gem::Version.new('6')
+      connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
+    else
+      connection_config = ActiveRecord::Base.connection_config
+    end
+
     context 'table creation' do
       context 'plain' do
         it 'creates a table' do
@@ -151,16 +157,28 @@ RSpec.describe 'Migration', :migrations do
           end
         end
 
+        context 'no database' do
+          before(:all) do
+            ActiveRecord::Base.establish_connection(connection_config.merge(database: 'test_not_exist'))
+          end
+
+          after(:all) do
+            ActiveRecord::Base.establish_connection(connection_config)
+          end
+
+          it 'raise error' do
+            expect {
+              migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'plain_table_creation')
+              quietly { ClickhouseActiverecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+            }.to raise_error(ActiveRecord::NoDatabaseError)
+          end
+        end
+
         context 'with distributed' do
           let(:model_distributed) do
             Class.new(ActiveRecord::Base) do
               self.table_name = 'some_distributed'
             end
-          end
-          if ActiveRecord::version >= Gem::Version.new('6')
-            connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
-          else
-            connection_config = ActiveRecord::Base.connection_config
           end
 
           before(:all) do

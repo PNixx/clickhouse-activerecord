@@ -107,8 +107,14 @@ module ActiveRecord
           when 200
             res.body.presence && JSON.parse(res.body)
           else
-            raise ActiveRecord::ActiveRecordError,
-              "Response code: #{res.code}:\n#{res.body}"
+            case res.body
+              when /DB::Exception:.*\(UNKNOWN_DATABASE\)/
+                raise ActiveRecord::NoDatabaseError
+              when /DB::Exception:.*\(DATABASE_ALREADY_EXISTS\)/
+                raise ActiveRecord::DatabaseAlreadyExists
+              else
+                raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}"
+            end
           end
         rescue JSON::ParserError
           res.body
