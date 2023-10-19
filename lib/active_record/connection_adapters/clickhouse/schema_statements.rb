@@ -105,7 +105,11 @@ module ActiveRecord
         def process_response(res)
           case res.code.to_i
           when 200
-            res.body.presence && JSON.parse(res.body)
+            if res.body.to_s.include?("DB::Exception")
+              raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}"
+            else
+              res.body.presence && JSON.parse(res.body)
+            end
           else
             case res.body
               when /DB::Exception:.*\(UNKNOWN_DATABASE\)/
