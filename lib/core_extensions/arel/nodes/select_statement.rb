@@ -2,16 +2,15 @@ module CoreExtensions
   module Arel # :nodoc: all
     module Nodes
       module SelectStatement
-        attr_accessor :final, :settings
+        attr_accessor :settings
 
         def initialize
           super
-          @final = nil
           @settings = nil
         end
 
         def eql?(other)
-          super && final == other.final && settings == other.settings
+          super && settings == other.settings
         end
       end
     end
