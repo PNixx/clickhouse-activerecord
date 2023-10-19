@@ -35,13 +35,25 @@ module ClickhouseActiverecord
 
   class InternalMetadata < ::ActiveRecord::InternalMetadata
     class << self
+
+      def []=(key, value)
+        row = final.find_by(key: key)
+        if row.nil? || row.value != value
+          create!(key: key, value: value)
+        end
+      end
+
+      def [](key)
+        final.where(key: key).pluck(:value).first
+      end
+
       def create_table
         return if table_exists?
 
         key_options = connection.internal_string_options_for_primary_key
         table_options = {
           id: false,
-          options: connection.adapter_name.downcase == 'clickhouse' ? 'MergeTree() PARTITION BY toDate(created_at) ORDER BY (created_at)' : '',
+          options: connection.adapter_name.downcase == 'clickhouse' ? 'ReplacingMergeTree(created_at) PARTITION BY key ORDER BY key' : '',
           if_not_exists: true
         }
         full_config = connection.instance_variable_get(:@full_config) || {}
@@ -122,5 +134,13 @@ module ClickhouseActiverecord
         super
       end
     end
+
+    private
+
+    def record_environment
+      return if down?
+      ClickhouseActiverecord::InternalMetadata[:environment] = ActiveRecord::Base.connection.migration_context.current_environment
+    end
+
   end
 end

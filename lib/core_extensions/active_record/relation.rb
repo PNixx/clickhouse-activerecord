@@ -21,6 +21,7 @@ module CoreExtensions
       # @param [Boolean] final
       def final(final = true)
         check_command('FINAL')
+        @table = @table.dup
         @table.final = final
         self
       end

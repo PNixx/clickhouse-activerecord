@@ -14,22 +14,13 @@ module Arel
       end
 
       def visit_Arel_Table o, collector
-        if o.table_alias
-          collector << "#{quote_table_name o.name} #{quote_table_name o.table_alias}"
-        else
-          collector << quote_table_name(o.name)
-        end
+        collector = super
         collector << ' FINAL ' if o.final
         collector
       end
 
       def visit_Arel_Nodes_SelectOptions(o, collector)
         maybe_visit o.settings, super
-      end
-
-      def visit_Arel_Nodes_Final(o, collector)
-        collector << " FINAL "
-        collector
       end
 
       def visit_Arel_Nodes_Settings(o, collector)
