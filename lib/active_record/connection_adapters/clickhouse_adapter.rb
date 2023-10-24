@@ -14,37 +14,44 @@ require 'net/http'
 require 'openssl'
 
 module ActiveRecord
-  class Base
-    class << self
-      # Establishes a connection to the database that's used by all Active Record objects
-      def clickhouse_connection(config)
-        config = config.symbolize_keys
+  module ConnectionHandling # :nodoc:
+    def clickhouse_adapdated_class
+      ConnectionAdapters::ClickhouseAdapter
+    end
 
-        if config[:connection]
-          connection = {
-            connection: config[:connection]
-          }
-        else
-          port = config[:port] || 8123
-          connection = {
-            host: config[:host] || 'localhost',
-            port: port,
-            ssl: config[:ssl].present? ? config[:ssl] : port == 443,
-            sslca: config[:sslca],
-            read_timeout: config[:read_timeout],
-            write_timeout: config[:write_timeout],
-            keep_alive_timeout: config[:keep_alive_timeout]
-          }
-        end
+    # Establishes a connection to the database that's used by all Active Record objects
+    def clickhouse_connection(config)
+      config = config.symbolize_keys
 
-        if config.key?(:database)
-          database = config[:database]
-        else
-          raise ArgumentError, 'No database specified. Missing argument: database.'
-        end
-
-        ConnectionAdapters::ClickhouseAdapter.new(logger, connection, { user: config[:username], password: config[:password], database: database }.compact, config)
+      if config[:connection]
+        connection = {
+          connection: config[:connection]
+        }
+      else
+        port = config[:port] || 8123
+        connection = {
+          host: config[:host] || 'localhost',
+          port: port,
+          ssl: config[:ssl].present? ? config[:ssl] : port == 443,
+          sslca: config[:sslca],
+          read_timeout: config[:read_timeout],
+          write_timeout: config[:write_timeout],
+          keep_alive_timeout: config[:keep_alive_timeout]
+        }
       end
+
+      if config.key?(:database)
+        database = config[:database]
+      else
+        raise ArgumentError, 'No database specified. Missing argument: database.'
+      end
+
+      clickhouse_adapdated_class.new(
+        logger,
+        connection,
+        { user: config[:username], password: config[:password], database: database }.compact,
+        config
+      )
     end
   end
 
@@ -117,6 +124,36 @@ module ActiveRecord
 
       include Clickhouse::SchemaStatements
 
+      class << self
+        private
+
+        def initialize_type_map(m) # :nodoc:
+          super
+          register_class_with_limit m, %r(String), Type::String
+          register_class_with_limit m, 'Date',  Clickhouse::OID::Date
+          register_class_with_precision m, %r(datetime)i,  Clickhouse::OID::DateTime
+
+          register_class_with_limit m, %r(Int8), Type::Integer
+          register_class_with_limit m, %r(Int16), Type::Integer
+          register_class_with_limit m, %r(Int32), Type::Integer
+          register_class_with_limit m, %r(Int64), Type::Integer
+          register_class_with_limit m, %r(Int128), Type::Integer
+          register_class_with_limit m, %r(Int256), Type::Integer
+
+          register_class_with_limit m, %r(UInt8), Type::UnsignedInteger
+          register_class_with_limit m, %r(UInt16), Type::UnsignedInteger
+          register_class_with_limit m, %r(UInt32), Type::UnsignedInteger
+          register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
+          register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
+          # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
+          m.register_type(%r(Array)) do |sql_type|
+            Clickhouse::OID::Array.new(sql_type)
+          end
+        end
+      end
+
+      TYPE_MAP = Type::TypeMap.new.tap { |m| initialize_type_map(m) }
+
       # Initializes and connects a Clickhouse adapter.
       def initialize(logger, connection_parameters, config, full_config)
         super(nil, logger)
@@ -148,6 +185,10 @@ module ActiveRecord
 
       def arel_visitor # :nodoc:
         Arel::Visitors::Clickhouse.new(self)
+      end
+
+      def type_map
+        self.class::TYPE_MAP
       end
 
       def native_database_types #:nodoc:
@@ -187,31 +228,6 @@ module ActiveRecord
 
       def extract_precision(sql_type)
         $1.to_i if sql_type =~ /\((\d+)(,\s?\d+)?\)/
-      end
-
-      def initialize_type_map(m) # :nodoc:
-        super
-        register_class_with_limit m, %r(String), Type::String
-        register_class_with_limit m, 'Date',  Clickhouse::OID::Date
-        register_class_with_precision m, %r(datetime)i,  Clickhouse::OID::DateTime
-
-        register_class_with_limit m, %r(Int8), Type::Integer
-        register_class_with_limit m, %r(Int16), Type::Integer
-        register_class_with_limit m, %r(Int32), Type::Integer
-        register_class_with_limit m, %r(Int64), Type::Integer
-        register_class_with_limit m, %r(Int128), Type::Integer
-        register_class_with_limit m, %r(Int256), Type::Integer
-
-        register_class_with_limit m, %r(UInt8), Type::UnsignedInteger
-        register_class_with_limit m, %r(UInt16), Type::UnsignedInteger
-        register_class_with_limit m, %r(UInt32), Type::UnsignedInteger
-        register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
-        #register_class_with_limit m, %r(UInt128), Type::UnsignedInteger #not implemnted in clickhouse
-        register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
-        # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
-        m.register_type(%r(Array)) do |sql_type|
-          Clickhouse::OID::Array.new(sql_type)
-        end
       end
 
       def _quote(value)
