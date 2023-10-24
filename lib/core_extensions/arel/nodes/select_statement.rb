@@ -4,8 +4,8 @@ module CoreExtensions
       module SelectStatement
         attr_accessor :settings
 
-        def initialize
-          super
+        def initialize(relation = nil)
+          super(relation)
           @settings = nil
         end
 
