@@ -6,6 +6,7 @@ require 'clickhouse-activerecord/migration'
 require 'active_record/connection_adapters/clickhouse/oid/array'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
+require 'active_record/connection_adapters/clickhouse/oid/map'
 require 'active_record/connection_adapters/clickhouse/oid/big_integer'
 require 'active_record/connection_adapters/clickhouse/schema_definitions'
 require 'active_record/connection_adapters/clickhouse/schema_creation'
@@ -87,7 +88,38 @@ module ActiveRecord
 
   module ConnectionAdapters
     class ClickhouseColumn < Column
+      def key_type
+        return nil unless type == :map
 
+        cast_type(map_types.first)
+      end
+
+      def value_type
+        return nil unless type == :map
+
+        cast_type(map_types.last)
+      end
+
+      private
+
+      def map_types
+        sql_type_metadata.sql_type.match(/Map\((.+)\,\s?(.+)\)/).captures
+      end
+
+      def cast_type(type)
+        return type if type.nil?
+
+        case type
+        when /U?Int\d+/
+          :integer
+        when /DateTime/
+          :datetime
+        when /Date/
+          :date
+        else
+          :string
+        end
+      end
     end
 
     class ClickhouseAdapter < AbstractAdapter
@@ -120,6 +152,8 @@ module ActiveRecord
         uint64: { name: 'UInt64' },
         # uint128: { name: 'UInt128' }, not yet implemented in clickhouse
         uint256: { name: 'UInt256' },
+
+        map: { name: 'Map' }
       }.freeze
 
       include Clickhouse::SchemaStatements
@@ -148,6 +182,10 @@ module ActiveRecord
           # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
           m.register_type(%r(Array)) do |sql_type|
             Clickhouse::OID::Array.new(sql_type)
+          end
+
+          m.register_type(%r(Map)) do |sql_type|
+            Clickhouse::OID::Map.new(sql_type)
           end
         end
       end

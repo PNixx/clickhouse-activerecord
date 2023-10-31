@@ -152,6 +152,12 @@ HEADER
       spec = {}
       spec[:unsigned] = schema_unsigned(column)
       spec[:array] = schema_array(column)
+
+      if column.type == :map
+        spec[:key_type] = "\"#{column.key_type}\""
+        spec[:value_type] = "\"#{column.value_type}\""
+      end
+
       spec.merge(super).compact
     end
   end
