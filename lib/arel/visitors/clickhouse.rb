@@ -36,6 +36,12 @@ module Arel
         collector
       end
 
+      def visit_Arel_Nodes_Using o, collector
+        collector << "USING "
+        visit o.expr, collector
+        collector
+      end
+
       def sanitize_as_setting_value(value)
         if value == :default
           'DEFAULT'
