@@ -334,7 +334,13 @@ module ActiveRecord
       end
 
       def drop_table(table_name, options = {}) # :nodoc:
-        do_execute apply_cluster "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
+        query = "DROP TABLE"
+        query = "#{query} IF EXISTS " if options[:if_exists]
+        query = "#{query} #{quote_table_name(table_name)}"
+        query = apply_cluster(query)
+        query = "#{query} SYNC" if options[:sync]
+
+        do_execute(query)
 
         if options[:with_distributed]
           distributed_table_name = options.delete(:with_distributed)
