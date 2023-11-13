@@ -5,3 +5,4 @@ class DropSomeTable < ActiveRecord::Migration[5.0]
     drop_table :some, sync: true
   end
 end
+
