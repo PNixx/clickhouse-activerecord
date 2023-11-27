@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'yaml'
+
 module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
@@ -25,13 +27,13 @@ module ActiveRecord
           def deserialize(value)
             return value if value.is_a?(Hash)
 
-            JSON.parse(value)
+            YAML.safe_load(value)
           end
 
           def serialize(value)
             return '{}' if value.nil?
 
-            "{#{value.map { |key, value| "'#{key}': '#{value}'" }.join(' ')}}"
+            "{#{value.map { |k, v| "'#{k}': '#{v}'" }.join(', ')}}"
           end
 
           private
