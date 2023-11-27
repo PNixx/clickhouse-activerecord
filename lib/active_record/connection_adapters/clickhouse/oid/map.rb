@@ -8,7 +8,7 @@ module ActiveRecord
           attr_reader :key_type, :value_type
 
           def initialize(sql_type)
-            types = sql_type.match(/Map\((.+)\,\s?(.+)\)/).captures
+            types = sql_type.match(/Map\((.+),\s?(.+)\)/).captures
 
             @key_type = cast_type(types.first)
             @value_type = cast_type(types.last)
@@ -28,11 +28,10 @@ module ActiveRecord
             JSON.parse(value)
           end
 
-
           def serialize(value)
             return '{}' if value.nil?
 
-            "#{value.map { |key, value| "'#{key}': '#{value}'" }.join(' ')}"
+            "{#{value.map { |key, value| "'#{key}': '#{value}'" }.join(' ')}}"
           end
 
           private
