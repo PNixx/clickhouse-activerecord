@@ -185,7 +185,7 @@ Action.settings(optimize_read_in_order: 1).where(date: Date.current).limit(10)
 #=> #<ActiveRecord::Relation [#<Action *** >]>
 
 User.joins(:actions).using(:group_id)
-# Clickhouse Action Load (10.3ms)  SELECT users.* FROM users INNER JOIN actions USING group_id
+# Clickhouse User Load (10.3ms)  SELECT users.* FROM users INNER JOIN actions USING group_id
 #=> #<ActiveRecord::Relation [#<Action *** >]>
 ```
 

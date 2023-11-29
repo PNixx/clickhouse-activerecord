@@ -55,7 +55,7 @@ def schema(model)
 end
 
 def clear_db
-  if ActiveRecord::version >= Gem::Version.new('6')
+  if ActiveRecord::version >= Gem::Version.new('6.1')
     cluster = ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
   else
     cluster = ActiveRecord::Base.connection_config[:cluster_name]

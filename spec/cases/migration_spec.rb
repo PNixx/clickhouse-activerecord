@@ -8,7 +8,7 @@ RSpec.describe 'Migration', :migrations do
       end
     end
 
-    if ActiveRecord::version >= Gem::Version.new('6')
+    if ActiveRecord::version >= Gem::Version.new('6.1')
       connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
     else
       connection_config = ActiveRecord::Base.connection_config
@@ -251,7 +251,7 @@ RSpec.describe 'Migration', :migrations do
             self.table_name = 'some'
           end
         end
-        if ActiveRecord::version >= Gem::Version.new('6')
+        if ActiveRecord::version >= Gem::Version.new('6.1')
           connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
         else
           connection_config = ActiveRecord::Base.connection_config

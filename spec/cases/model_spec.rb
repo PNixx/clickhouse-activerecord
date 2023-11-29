@@ -32,6 +32,16 @@ RSpec.describe 'Model', :migrations do
           )
         }.to change { model.count }
       end
+
+      it 'insert all' do
+        if ActiveRecord::version >= Gem::Version.new('6')
+          model.insert_all([
+            {event_name: 'some event 1', date: date},
+            {event_name: 'some event 2', date: date},
+          ])
+          expect(model.count).to eq(2)
+        end
+      end
     end
 
     describe '#update' do
