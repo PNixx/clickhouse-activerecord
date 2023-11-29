@@ -305,14 +305,16 @@ RSpec.describe 'Migration', :migrations do
     end
 
     describe 'drop table sync' do
-      migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_drop_table_sync')
-      quietly { ClickhouseActiverecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up(1) }
+      it 'drops table' do
+        migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_drop_table_sync')
+        quietly { ClickhouseActiverecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up(1) }
 
-      expect(ActiveRecord::Base.connection.tables).to include('some')
+        expect(ActiveRecord::Base.connection.tables).to include('some')
 
-      quietly { ClickhouseActiverecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up(2) }
+        quietly { ClickhouseActiverecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up(2) }
 
-      expect(ActiveRecord::Base.connection.tables).not_to include('some')
+        expect(ActiveRecord::Base.connection.tables).not_to include('some')
+      end
     end
 
     describe 'add column' do
