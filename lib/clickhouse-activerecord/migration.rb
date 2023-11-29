@@ -25,8 +25,21 @@ module ClickhouseActiverecord
       end
     end
 
-    def all_versions
-      final.where(active: 1).order(:version).pluck(:version)
+    def versions
+      table = arel_table.dup
+      table.final = true
+      sm = Arel::SelectManager.new(table)
+      sm.project(arel_table[primary_key])
+      sm.order(arel_table[primary_key].asc)
+      sm.where([arel_table['active'].eq(1)])
+
+      connection.select_values(sm, "#{self.class} Load")
+    end
+
+    def delete_version(version)
+      im = Arel::InsertManager.new(arel_table)
+      im.insert(arel_table[primary_key] => version.to_s, arel_table['active'] => 0)
+      connection.insert(im, "#{self.class} Create Rollback Version", primary_key, version)
     end
   end
 
@@ -77,29 +90,9 @@ module ClickhouseActiverecord
 
   class MigrationContext < ::ActiveRecord::MigrationContext #:nodoc:
 
-    def up(target_version = nil)
-      selected_migrations = if block_given?
-        migrations.select { |m| yield m }
-      else
-        migrations
-      end
-
-      ClickhouseActiverecord::Migrator.new(:up, selected_migrations, schema_migration, internal_metadata, target_version).migrate
-    end
-
-    def down(target_version = nil)
-      selected_migrations = if block_given?
-        migrations.select { |m| yield m }
-      else
-        migrations
-      end
-
-      ClickhouseActiverecord::Migrator.new(:down, selected_migrations, schema_migration, internal_metadata, target_version).migrate
-    end
-
     def get_all_versions
       if schema_migration.table_exists?
-        schema_migration.all_versions.map(&:to_i)
+        schema_migration.versions.map(&:to_i)
       else
         []
       end
@@ -107,16 +100,4 @@ module ClickhouseActiverecord
 
   end
 
-  class Migrator < ::ActiveRecord::Migrator
-
-    def record_version_state_after_migrating(version)
-      if down?
-        migrated.delete(version)
-        @schema_migration.create!(version: version.to_s, active: 0)
-      else
-        super
-      end
-    end
-
-  end
 end
