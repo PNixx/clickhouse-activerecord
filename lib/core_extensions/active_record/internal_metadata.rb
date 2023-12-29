@@ -12,7 +12,7 @@ module CoreExtensions
 
         table_options = {
           id: false,
-          options: ('ReplacingMergeTree(created_at) PARTITION BY key ORDER BY key' if connection.adapter_name.downcase == 'clickhouse'),
+          options: 'ReplacingMergeTree(created_at) PARTITION BY key ORDER BY key',
           if_not_exists: true
         }
         full_config = connection.instance_variable_get(:@full_config) || {}
@@ -40,15 +40,14 @@ module CoreExtensions
       def select_entry(key)
         return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
 
-        table = arel_table.dup
-        sm = ::Arel::SelectManager.new(table)
-        sm.final!
-        sm.project(::Arel::Nodes::SqlLiteral.new("*"))
-        sm.where(table[primary_key].eq(::Arel::Nodes::BindParam.new(key)))
-        sm.order(table[primary_key].asc)
+        sm = ::Arel::SelectManager.new(arel_table)
+        sm.final! if connection.table_options(table_name)[:options] =~ /^ReplacingMergeTree/
+        sm.project(::Arel.star)
+        sm.where(arel_table[primary_key].eq(::Arel::Nodes::BindParam.new(key)))
+        sm.order(arel_table[primary_key].asc)
         sm.limit = 1
 
-        connection.select_all(sm, "#{self.class} Load").first
+        connection.select_one(sm, "#{self.class} Load")
       end
     end
   end

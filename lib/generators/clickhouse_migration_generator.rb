@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails/generators/active_record/migration/migration_generator'
 
 class ClickhouseMigrationGenerator < ActiveRecord::Generators::MigrationGenerator
