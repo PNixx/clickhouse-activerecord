@@ -48,6 +48,15 @@ module Arel # :nodoc: all
         @connection.sanitize_as_setting_name(value)
       end
 
+      def visit_Arel_Nodes_Using(o, collector)
+        collector << 'USING '
+        o.expr.each_with_index do |expr, i|
+          collector << ", " if i > 0
+          collector << quote_column_name(expr)
+        end
+        collector
+      end
+
     end
   end
 end

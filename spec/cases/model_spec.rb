@@ -5,9 +5,17 @@ RSpec.describe 'Model', :migrations do
 
   context 'sample' do
     let!(:model) do
-      Class.new(ActiveRecord::Base) do
-        self.table_name = 'sample'
+      class ModelJoin < ActiveRecord::Base
+        self.table_name = 'joins'
+        belongs_to :model, class_name: 'Model'
       end
+
+      class Model < ActiveRecord::Base
+        self.table_name = 'sample'
+        has_many :joins, class_name: 'ModelJoin', primary_key: 'event_name'
+      end
+
+      Model
     end
 
     before do
@@ -81,13 +89,20 @@ RSpec.describe 'Model', :migrations do
       end
     end
 
-    describe 'final request' do
+    describe '#final' do
       it 'issues a FINAL query' do
         model.create!(date: date, event_name: '1')
         model.create!(date: date, event_name: '1')
 
         expect(model.count).to eq(2)
         expect(model.final.count).to eq(1)
+      end
+    end
+
+    xdescribe '#using' do
+      it 'works' do
+        sql = model.joins(:joins).using(:event_name, :date).to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample INNER JOIN joins USING event_name, date')
       end
     end
   end

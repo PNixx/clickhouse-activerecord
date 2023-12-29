@@ -1,0 +1,11 @@
+# frozen_string_literal: true
+
+class CreateJoinTable < ActiveRecord::Migration[5.0]
+  def up
+    create_table :joins, options: 'MergeTree PARTITION BY toYYYYMM(date) ORDER BY (event_name)' do |t|
+      t.string :event_name, null: false
+      t.integer :join_value, null: false
+      t.date :date, null: false
+    end
+  end
+end
