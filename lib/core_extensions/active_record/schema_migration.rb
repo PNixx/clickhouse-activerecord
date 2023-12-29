@@ -32,7 +32,7 @@ module CoreExtensions
         def all_versions
           return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
 
-          from("#{table_name} FINAL").where(active: 1).order(:version).pluck(:version)
+          final.where(active: 1).order(:version).pluck(:version)
         end
       end
     end

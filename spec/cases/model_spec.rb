@@ -6,7 +6,7 @@ RSpec.describe 'Model', :migrations do
   context 'sample' do
     let!(:model) do
       Class.new(ActiveRecord::Base) do
-        self.table_name = 'events'
+        self.table_name = 'sample'
       end
     end
 
@@ -78,6 +78,16 @@ RSpec.describe 'Model', :migrations do
       it 'returns boolean' do
         model.create!(event_name: 'some event', event_value: 1, date: date)
         expect(model.first.enabled.class).to eq(FalseClass)
+      end
+    end
+
+    describe 'final request' do
+      it 'issues a FINAL query' do
+        model.create!(date: date, event_name: '1')
+        model.create!(date: date, event_name: '1')
+
+        expect(model.count).to eq(2)
+        expect(model.final.count).to eq(1)
       end
     end
   end

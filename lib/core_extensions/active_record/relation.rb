@@ -26,8 +26,7 @@ module CoreExtensions
       end
 
       def settings!(**opts) # :nodoc:
-        raise ::ActiveRecord::ActiveRecordError, 'SETTINGS is a ClickHouse-specific query clause' unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
-
+        check_command!('SETTINGS')
         self.settings_values = settings_values.merge opts
         self
       end
@@ -41,11 +40,37 @@ module CoreExtensions
         @values[:settings] = value
       end
 
+      # @param [Boolean] final
+      def final(final = true)
+        spawn.final!(final)
+      end
+
+      # @param [Boolean] final
+      def final!(final = true)
+        check_command!('FINAL')
+        self.final_value = final
+        self
+      end
+
+      def final_value=(value)
+        assert_mutability!
+        @values[:final] = value
+      end
+
+      def final_value
+        @values.fetch(:final, nil)
+      end
+
       private
+
+      def check_command!(cmd)
+        raise ::ActiveRecord::ActiveRecordError, "#{cmd} is a ClickHouse specific query clause" unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+      end
 
       def build_arel(aliases = nil)
         arel = super
 
+        arel.final! if final_value
         arel.settings(settings_values) unless settings_values.empty?
 
         arel

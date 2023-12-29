@@ -61,7 +61,7 @@ if ActiveRecord.version >= Gem::Version.new('6')
         migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_sample_data')
         quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).migrate }
 
-        expect(model.connection.table_options(:ar_internal_metadata)).to include(options: /^MergeTree/)
+        expect(model.connection.table_options(:ar_internal_metadata)).to include(options: /^ReplacingMergeTree/)
       end
 
       it 'creates ar_internal_metadata correctly for other databases' do

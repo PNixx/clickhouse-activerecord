@@ -4,6 +4,17 @@ module CoreExtensions
   module ActiveRecord
     module InternalMetadata
       module ClassMethods
+        def []=(key, value)
+          row = final.find_by(key: key)
+          if row.nil? || row.value != value
+            create!(key: key, value: value)
+          end
+        end
+
+        def [](key)
+          final.where(key: key).pluck(:value).first
+        end
+
         def create_table
           return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
           return if table_exists?
@@ -12,7 +23,7 @@ module CoreExtensions
 
           table_options = {
             id: false,
-            options: ('MergeTree() PARTITION BY toDate(created_at) ORDER BY (created_at)' if connection.adapter_name == 'Clickhouse'),
+            options: ('ReplacingMergeTree(created_at) PARTITION BY key ORDER BY key' if connection.adapter_name.downcase == 'clickhouse'),
             if_not_exists: true
           }
           full_config = connection.instance_variable_get(:@full_config) || {}

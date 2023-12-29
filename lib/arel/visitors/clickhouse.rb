@@ -12,6 +12,12 @@ module Arel # :nodoc: all
         end
       end
 
+      def visit_Arel_Nodes_Final(o, collector)
+        visit o.expr, collector
+        collector << ' FINAL'
+        collector
+      end
+
       def visit_Arel_Nodes_SelectOptions(o, collector)
         maybe_visit o.settings, super
       end

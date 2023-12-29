@@ -1,18 +1,20 @@
 # frozen_string_literal: true
 
-class CreateEventsTable < ActiveRecord::Migration[5.0]
+class CreateSampleTable < ActiveRecord::Migration[5.0]
   def up
     opts = <<~SQL.squish
-      MergeTree
+      ReplacingMergeTree
       PARTITION BY date
       ORDER BY (date, event_name)
       SETTINGS index_granularity = 8192
     SQL
-    create_table :events, options: opts do |t|
+    create_table :sample, options: opts do |t|
       t.string :event_name, null: false
       t.integer :event_value, null: false
       t.boolean :enabled, null: false, default: false
       t.date :date, null: false
+      t.datetime :datetime, null: false
+      t.datetime :datetime64, precision: 3, null: true
     end
   end
 end
