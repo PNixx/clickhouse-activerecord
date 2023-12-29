@@ -1,7 +1,7 @@
 PATH
   remote: ..
   specs:
-    clickhouse-activerecord (0.6.0)
+    clickhouse-activerecord (0.6.1)
       activerecord (>= 6.0)
       bundler (>= 1.13.4)
 

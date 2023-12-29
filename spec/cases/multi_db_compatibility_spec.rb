@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-if ActiveRecord.version >= Gem::Version.new('6')
+if ActiveRecord.version >= Gem::Version.new('6.1')
   RSpec.describe 'multi-database compatibility', :migrations do
     let(:model) do
       Class.new(ActiveRecord::Base) do

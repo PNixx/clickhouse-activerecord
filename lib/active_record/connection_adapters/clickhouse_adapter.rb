@@ -145,9 +145,6 @@ module ActiveRecord
         @full_config = full_config
 
         @prepared_statements = false
-        if ActiveRecord.version == Gem::Version.new('6.0.0')
-          @prepared_statement_status = Concurrent::ThreadLocalVar.new(false)
-        end
 
         connect
       end

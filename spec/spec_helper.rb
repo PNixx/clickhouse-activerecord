@@ -63,19 +63,15 @@ def schema(model)
 end
 
 def clear_db
-  cluster =
-    if ActiveRecord::version < Gem::Version.new('6')
-      ActiveRecord::Base.connection_config[:cluster_name]
-    else
-      ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
-    end
-  pattern = if cluster
-              normalized_cluster_name = cluster.start_with?('{') ? "'#{cluster}'" : cluster
+  cluster = ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
+  pattern =
+    if cluster
+      normalized_cluster_name = cluster.start_with?('{') ? "'#{cluster}'" : cluster
 
-              "DROP TABLE %s ON CLUSTER #{normalized_cluster_name}"
-            else
-              'DROP TABLE %s'
-            end
+      "DROP TABLE %s ON CLUSTER #{normalized_cluster_name}"
+    else
+      'DROP TABLE %s'
+    end
 
   ActiveRecord::Base.connection.tables.each { |table| ActiveRecord::Base.connection.execute(pattern % table) }
 rescue ActiveRecord::NoDatabaseError
