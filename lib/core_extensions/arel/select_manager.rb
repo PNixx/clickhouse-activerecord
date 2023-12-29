@@ -12,11 +12,6 @@ module CoreExtensions
         @ast.settings = ::Arel::Nodes::Settings.new(values)
         self
       end
-
-      def using(*exprs)
-        @ctx.source.right.last.right = ::Arel::Nodes::Using.new(exprs)
-        self
-      end
     end
   end
 end

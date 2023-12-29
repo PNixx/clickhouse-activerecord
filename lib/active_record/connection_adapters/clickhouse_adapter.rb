@@ -15,7 +15,6 @@ require 'active_record/connection_adapters/clickhouse/oid/tuple'
 
 require 'arel/nodes/final'
 require 'arel/nodes/settings'
-require 'arel/nodes/using'
 require 'arel/visitors/clickhouse'
 
 require 'net/http'

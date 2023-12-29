@@ -61,25 +61,6 @@ module CoreExtensions
         @values.fetch(:final, nil)
       end
 
-      def using(*exprs)
-        spawn.using!(*exprs)
-      end
-
-      def using!(*exprs)
-        check_command!('USING')
-        self.using_values = exprs
-        self
-      end
-
-      def using_values=(exprs)
-        assert_mutability!
-        @values[:using] = exprs
-      end
-
-      def using_values
-        @values.fetch(:using, ::ActiveRecord::QueryMethods::FROZEN_EMPTY_ARRAY)
-      end
-
       private
 
       def check_command!(cmd)
