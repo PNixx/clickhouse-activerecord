@@ -62,6 +62,17 @@ RSpec.describe 'Model', :migrations do
         expect(ascending.map(&:event_name)).to eq(['older event', 'newer event'])
       end
     end
+
+    describe 'convert type with aggregations' do
+      it 'returns integers' do
+        model.create!(event_name: 'some event', event_value: 1, date: date)
+        model.create!(event_name: 'some event', event_value: 3, date: date)
+
+        expect(model.select(Arel.sql('sum(event_value) AS event_value')).to_a.first.event_value).to be_a(Integer)
+        expect(model.select(Arel.sql('sum(event_value) AS value')).to_a.first.attributes['value']).to be_a(Integer)
+        expect(model.pluck(Arel.sql('sum(event_value)')).to_a.first[0]).to be_a(Integer)
+      end
+    end
   end
 
   context 'DateTime64' do

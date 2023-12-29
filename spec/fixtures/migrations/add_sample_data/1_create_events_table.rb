@@ -10,6 +10,7 @@ class CreateEventsTable < ActiveRecord::Migration[5.0]
     SQL
     create_table :events, options: opts do |t|
       t.string :event_name, null: false
+      t.integer :event_value, null: false
       t.date :date, null: false
     end
   end

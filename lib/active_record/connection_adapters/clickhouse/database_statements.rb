@@ -35,7 +35,7 @@ module ActiveRecord
 
         def exec_query(sql, name = nil, binds = [], prepare: false)
           result = execute(sql, name)
-          ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'])
+          ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'], result['meta'].map { |m| [m['name'], type_map.lookup(m['type'])] }.to_h)
         rescue ActiveRecord::ActiveRecordError => e
           raise e
         rescue StandardError => e
