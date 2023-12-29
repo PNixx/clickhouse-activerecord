@@ -1,7 +1,7 @@
 PATH
   remote: ..
   specs:
-    clickhouse-activerecord (0.5.15)
+    clickhouse-activerecord (0.6.0)
       activerecord (>= 6.0)
       bundler (>= 1.13.4)
 
@@ -73,7 +73,6 @@ PLATFORMS
 DEPENDENCIES
   activerecord (~> 7.1.0)
   appraisal
-  bundler (>= 1.15)
   clickhouse-activerecord!
   pry (~> 0.12)
   rake (~> 13.0)
