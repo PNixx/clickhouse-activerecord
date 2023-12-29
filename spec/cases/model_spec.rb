@@ -100,6 +100,7 @@ RSpec.describe 'Model', :migrations do
 
         expect(model.count).to eq(2)
         expect(model.final.count).to eq(1)
+        expect(model.final.where(date: '2023-07-21').to_sql).to eq('SELECT sample.* FROM sample FINAL WHERE sample.date = \'2023-07-21\'')
       end
     end
   end

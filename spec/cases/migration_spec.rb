@@ -7,6 +7,9 @@ RSpec.describe 'Migration', :migrations do
         self.table_name = 'some'
       end
     end
+    let(:directory) { raise 'NotImplemented' }
+    let(:migrations_dir) { File.join(FIXTURES_PATH, 'migrations', directory) }
+    let(:migration_context) { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration) }
 
     connection_config =
       if ActiveRecord::version >= Gem::Version.new('6.1')
@@ -15,11 +18,16 @@ RSpec.describe 'Migration', :migrations do
         ActiveRecord::Base.connection_config
       end
 
+    subject do
+      quietly { migration_context.up }
+    end
+
     describe 'table creation' do
       context 'plain' do
+        let(:directory) { 'plain_table_creation' }
+
         it 'creates a table' do
-          migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'plain_table_creation')
-          quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+          subject
 
           current_schema = schema(model)
 
@@ -33,9 +41,10 @@ RSpec.describe 'Migration', :migrations do
 
       context 'dsl' do
         context 'empty' do
+          let(:directory) { 'dsl_table_creation' }
+
           it 'creates a table' do
-            migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_table_creation')
-            quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+            subject
 
             current_schema = schema(model)
 
@@ -46,9 +55,10 @@ RSpec.describe 'Migration', :migrations do
         end
 
         context 'with engine' do
+          let(:directory) { 'dsl_table_with_engine_creation' }
+
           it 'creates a table' do
-            migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_table_with_engine_creation')
-            quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+            subject
 
             current_schema = schema(model)
 
@@ -62,9 +72,10 @@ RSpec.describe 'Migration', :migrations do
 
         context 'types' do
           context 'decimal' do
+            let(:directory) { 'dsl_table_with_decimal_creation' }
+
             it 'creates a table with valid scale and precision' do
-              migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_table_with_decimal_creation')
-              quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+              subject
 
               current_schema = schema(model)
 
@@ -79,9 +90,10 @@ RSpec.describe 'Migration', :migrations do
           end
 
           context 'uuid' do
+            let(:directory) { 'dsl_table_with_uuid_creation' }
+
             it 'creates a table with uuid columns' do
-              migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_table_with_uuid_creation')
-              quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+              subject
 
               current_schema = schema(model)
 
@@ -94,9 +106,10 @@ RSpec.describe 'Migration', :migrations do
           end
 
           context 'datetime' do
+            let(:directory) { 'dsl_table_with_datetime_creation' }
+
             it 'creates a table with datetime columns' do
-              migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_table_with_datetime_creation')
-              quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+              subject
 
               current_schema = schema(model)
 
@@ -109,9 +122,10 @@ RSpec.describe 'Migration', :migrations do
           end
 
           context 'low_cardinality' do
+            let(:directory) { 'dsl_table_with_low_cardinality_creation' }
+
             it 'creates a table with low cardinality columns' do
-              migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_table_with_low_cardinality_creation')
-              quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+              subject
 
               current_schema = schema(model)
 
@@ -126,9 +140,10 @@ RSpec.describe 'Migration', :migrations do
           end
 
           context 'fixed_string' do
+            let(:directory) { 'dsl_table_with_fixed_string_creation' }
+
             it 'creates a table with fixed string columns' do
-              migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_table_with_fixed_string_creation')
-              quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+              subject
 
               current_schema = schema(model)
 
@@ -141,9 +156,10 @@ RSpec.describe 'Migration', :migrations do
           end
 
           context 'enum' do
+            let(:directory) { 'dsl_table_with_enum_creation' }
+
             it 'creates a table with enum columns' do
-              migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_table_with_enum_creation')
-              quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+              subject
 
               current_schema = schema(model)
 
@@ -167,11 +183,10 @@ RSpec.describe 'Migration', :migrations do
             ActiveRecord::Base.establish_connection(connection_config)
           end
 
+          let(:directory) { 'plain_table_creation' }
+
           it 'raise error' do
-            expect {
-              migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'plain_table_creation')
-              quietly { ActiveRecord::MigrationContext.new(migrations_dir, ActiveRecord::SchemaMigration).up }
-            }.to raise_error(ActiveRecord::NoDatabaseError)
+            expect { subject }.to raise_error(ActiveRecord::NoDatabaseError)
           end
         end
 
@@ -190,9 +205,10 @@ RSpec.describe 'Migration', :migrations do
             ActiveRecord::Base.establish_connection(connection_config)
           end
 
+          let(:directory) { 'dsl_create_table_with_distributed' }
+
           it 'creates a table with distributed table' do
-            migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_table_with_distributed')
-            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ActiveRecord::SchemaMigration).up }
+            subject
 
             current_schema = schema(model)
             current_schema_distributed = schema(model_distributed)
@@ -208,14 +224,13 @@ RSpec.describe 'Migration', :migrations do
           end
 
           it 'drops a table with distributed table' do
-            migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_table_with_distributed')
-            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ActiveRecord::SchemaMigration).up }
+            subject
 
             expect(ActiveRecord::Base.connection.tables).to include('some')
             expect(ActiveRecord::Base.connection.tables).to include('some_distributed')
 
             quietly do
-              ActiveRecord::MigrationContext.new(migrations_dir, ActiveRecord::SchemaMigration).down
+              migration_context.down
             end
 
             expect(ActiveRecord::Base.connection.tables).not_to include('some')
@@ -223,21 +238,23 @@ RSpec.describe 'Migration', :migrations do
           end
         end
 
-        context 'view' do
+        context 'creates a view' do
+          let(:directory) { 'dsl_create_view_with_to_section' }
+
           it 'creates a view' do
-            migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_view_with_to_section')
-            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ActiveRecord::SchemaMigration).up }
+            subject
 
             expect(ActiveRecord::Base.connection.tables).to include('some_view')
           end
 
           it 'drops a view' do
-            migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_view_without_to_section')
-            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ActiveRecord::SchemaMigration).up }
+            subject
 
             expect(ActiveRecord::Base.connection.tables).to include('some_view')
 
-            quietly { ActiveRecord::MigrationContext.new(migrations_dir, ActiveRecord::SchemaMigration).down }
+            quietly do
+              migration_context.down
+            end
 
             expect(ActiveRecord::Base.connection.tables).not_to include('some_view')
           end
@@ -260,9 +277,10 @@ RSpec.describe 'Migration', :migrations do
           ActiveRecord::Base.establish_connection(connection_config)
         end
 
+        let(:directory) { 'dsl_create_table_with_cluster_name_alias' }
+
         it 'creates a table' do
-          migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_table_with_cluster_name_alias')
-          quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+          subject
 
           current_schema = schema(model)
 
@@ -272,13 +290,12 @@ RSpec.describe 'Migration', :migrations do
         end
 
         it 'drops a table' do
-          migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_table_with_cluster_name_alias')
-          quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+          subject
 
           expect(ActiveRecord::Base.connection.tables).to include('some')
 
           quietly do
-            ClickhouseActiverecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).down
+            migration_context.down
           end
 
           expect(ActiveRecord::Base.connection.tables).not_to include('some')
@@ -287,25 +304,25 @@ RSpec.describe 'Migration', :migrations do
     end
 
     describe 'drop table' do
+      let(:directory) { 'dsl_drop_table' }
+
       it 'drops table' do
-        migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_drop_table')
-        quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up(1) }
+        quietly { migration_context.up(1) }
 
         expect(ActiveRecord::Base.connection.tables).to include('some')
 
-        quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up(2) }
+        quietly { migration_context.up(2) }
 
         expect(ActiveRecord::Base.connection.tables).not_to include('some')
       end
 
       describe 'drop table sync' do
         it 'drops table' do
-          migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_drop_table_sync')
-          quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up(1) }
+          quietly { migration_context.up(1) }
 
           expect(ActiveRecord::Base.connection.tables).to include('some')
 
-          quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up(2) }
+          quietly { migration_context.up(2) }
 
           expect(ActiveRecord::Base.connection.tables).not_to include('some')
         end
@@ -313,9 +330,10 @@ RSpec.describe 'Migration', :migrations do
     end
 
     describe 'add column' do
+      let(:directory) { 'dsl_add_column' }
+
       it 'adds a new column' do
-        migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_add_column')
-        quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+        subject
 
         current_schema = schema(model)
 
@@ -330,9 +348,10 @@ RSpec.describe 'Migration', :migrations do
     end
 
     describe 'drop column' do
+      let(:directory) { 'dsl_drop_column' }
+
       it 'drops column' do
-        migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_drop_column')
-        quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+        subject
 
         current_schema = schema(model)
 

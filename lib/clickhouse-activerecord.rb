@@ -22,20 +22,28 @@ if defined?(Rails::Railtie)
 end
 
 module ClickhouseActiverecord
+  class << self
+    def load
+      ActiveRecord::Base.singleton_class.prepend(CoreExtensions::ActiveRecord::Base::ClassMethods)
+      prepend_for_rails_version ActiveRecord::InternalMetadata, CoreExtensions::ActiveRecord::InternalMetadata
+      ActiveRecord::Migration::CommandRecorder.include(CoreExtensions::ActiveRecord::Migration::CommandRecorder)
+      ActiveRecord::Migrator.prepend(CoreExtensions::ActiveRecord::Migrator)
+      ActiveRecord::Relation.prepend(CoreExtensions::ActiveRecord::Relation)
+      prepend_for_rails_version ActiveRecord::SchemaMigration, CoreExtensions::ActiveRecord::SchemaMigration
+      ActiveRecord::TypeCaster::Map.include(CoreExtensions::ActiveRecord::TypeCaster::Map)
 
-  def self.load
-    ActiveRecord::Base.singleton_class.prepend(CoreExtensions::ActiveRecord::Base::ClassMethods)
-    ActiveRecord::InternalMetadata.singleton_class.prepend(CoreExtensions::ActiveRecord::InternalMetadata::ClassMethods)
-    ActiveRecord::Migration::CommandRecorder.include(CoreExtensions::ActiveRecord::Migration::CommandRecorder)
-    ActiveRecord::Migrator.prepend(CoreExtensions::ActiveRecord::Migrator)
-    ActiveRecord::Relation.prepend(CoreExtensions::ActiveRecord::Relation)
-    ActiveRecord::SchemaMigration.singleton_class.prepend(CoreExtensions::ActiveRecord::SchemaMigration::ClassMethods)
-    ActiveRecord::TypeCaster::Map.include(CoreExtensions::ActiveRecord::TypeCaster::Map)
+      Arel::Nodes::SelectCore.prepend(CoreExtensions::Arel::Nodes::SelectCore)
+      Arel::Nodes::SelectStatement.prepend(CoreExtensions::Arel::Nodes::SelectStatement)
+      Arel::SelectManager.prepend(CoreExtensions::Arel::SelectManager)
+      Arel::Table.prepend(CoreExtensions::Arel::Table)
+    end
 
-    Arel::Nodes::SelectCore.prepend(CoreExtensions::Arel::Nodes::SelectCore)
-    Arel::Nodes::SelectStatement.prepend(CoreExtensions::Arel::Nodes::SelectStatement)
-    Arel::SelectManager.prepend(CoreExtensions::Arel::SelectManager)
-    Arel::Table.prepend(CoreExtensions::Arel::Table)
+    private
+
+    def prepend_for_rails_version(ar_module, ch_module)
+      receiver = ar_module
+      receiver = receiver.singleton_class if ActiveRecord.version < Gem::Version.new('7.1')
+      receiver.prepend ch_module
+    end
   end
-
 end

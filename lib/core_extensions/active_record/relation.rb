@@ -14,17 +14,19 @@ module CoreExtensions
         self
       end
 
-      # Specify settings to be used for this single query.
+      # Define settings in the SETTINGS clause of the SELECT query. The setting value is applied only to that query and is reset to the default or previous value after the query is executed.
       # For example:
       #
-      #   users = User.settings(use_skip_indexes: true).where(name: 'John')
-      #   # SELECT "users".* FROM "users"
-      #   # WHERE "users"."name" = 'John'
-      #   # SETTINGS use_skip_indexes = 1
+      #   users = User.settings(optimize_read_in_order: 1, cast_keep_nullable: 1).where(name: 'John')
+      #   # SELECT users.* FROM users WHERE users.name = 'John' SETTINGS optimize_read_in_order = 1, cast_keep_nullable = 1
+      #
+      # An <tt>ActiveRecord::ActiveRecordError</tt> will be raised if database not ClickHouse.
+      # @param [Hash] opts
       def settings(**opts)
         spawn.settings!(**opts)
       end
 
+      # @param [Hash] opts
       def settings!(**opts) # :nodoc:
         check_command!('SETTINGS')
         self.settings_values = settings_values.merge opts
@@ -40,6 +42,13 @@ module CoreExtensions
         @values[:settings] = value
       end
 
+      # When FINAL is specified, ClickHouse fully merges the data before returning the result and thus performs all data transformations that happen during merges for the given table engine.
+      # For example:
+      #
+      #   users = User.final.all
+      #   # SELECT users.* FROM users FINAL
+      #
+      # An <tt>ActiveRecord::ActiveRecordError</tt> will be raised if database not ClickHouse.
       # @param [Boolean] final
       def final(final = true)
         spawn.final!(final)

@@ -27,13 +27,20 @@ module ActiveRecord
         # Executes insert +sql+ statement in the context of this connection using
         # +binds+ as the bind substitutes. +name+ is logged along with
         # the executed +sql+ statement.
-        def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil)
+        def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil, returning: nil)
           new_sql = sql.sub(/ (DEFAULT )?VALUES/, " VALUES")
           execute(new_sql, name)
           true
         end
 
-        def exec_query(sql, name = nil, _binds = [], prepare: false)
+        exec_method_name =
+          if ActiveRecord.version < Gem::Version.new('7.1')
+            :exec_query
+          else
+            :internal_exec_query
+          end
+
+        define_method exec_method_name do |sql, name = nil, _binds = [], prepare: false, async: false|
           result = execute(sql, name)
           ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'], result['meta'].map { |m| [m['name'], type_map.lookup(m['type'])] }.to_h)
         rescue ActiveRecord::ActiveRecordError => e

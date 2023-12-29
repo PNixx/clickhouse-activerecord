@@ -161,6 +161,10 @@ module ActiveRecord
           Clickhouse::SchemaDumper.create(self, options)
         end
 
+        def valid_column_definition_options # :nodoc:
+          super + %i[after array fixed_string low_cardinality value]
+        end
+
         protected
 
         def table_structure(table_name)
@@ -188,7 +192,7 @@ module ActiveRecord
           Clickhouse::TableDefinition.new(self, apply_cluster(table_name), **options)
         end
 
-        def new_column_from_field(table_name, field)
+        def new_column_from_field(table_name, field, _definitions = nil)
           type_metadata = fetch_type_metadata(field['type'])
 
           raw_default      = field['default_expression']

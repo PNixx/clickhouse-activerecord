@@ -235,14 +235,14 @@ module ActiveRecord
       end
 
       def connect
-        @connection               = @connection_parameters[:connection]
-        @connection             ||= Net::HTTP.start(@connection_parameters[:host],
-                                                      @connection_parameters[:port],
-                                                      use_ssl:     @connection_parameters[:ssl],
-                                                      verify_mode: OpenSSL::SSL::VERIFY_NONE)
+        @connection = @connection_parameters[:connection]
+        @connection ||= Net::HTTP.start(@connection_parameters[:host],
+                                        @connection_parameters[:port],
+                                        use_ssl:     @connection_parameters[:ssl],
+                                        verify_mode: OpenSSL::SSL::VERIFY_NONE)
 
-        @connection.ca_file       = @connection_parameters[:ca_file] if @connection_parameters[:ca_file]
-        @connection.read_timeout  = @connection_parameters[:read_timeout] if @connection_parameters[:read_timeout]
+        @connection.ca_file = @connection_parameters[:ca_file] if @connection_parameters[:ca_file]
+        @connection.read_timeout = @connection_parameters[:read_timeout] if @connection_parameters[:read_timeout]
         @connection.write_timeout = @connection_parameters[:write_timeout] if @connection_parameters[:write_timeout]
 
         # Use clickhouse default keep_alive_timeout value of 10, rather than Net::HTTP's default of 2
