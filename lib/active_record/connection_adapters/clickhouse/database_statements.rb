@@ -102,9 +102,18 @@ module ActiveRecord
         end
 
         def process_response(res)
-          raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}" unless res.code.to_i == 200
+          if res.code.to_i == 200
+            return (JSON.parse(res.body) if res.body.present?)
+          end
 
-          JSON.parse(res.body) if res.body.present?
+          case res.body
+          when /DB::Exception:.*\(UNKNOWN_DATABASE\)/
+            raise ActiveRecord::NoDatabaseError
+          when /DB::Exception:.*\(DATABASE_ALREADY_EXISTS\)/
+            raise ActiveRecord::DatabaseAlreadyExists
+          else
+            raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}"
+          end
         rescue JSON::ParserError
           res.body
         end
