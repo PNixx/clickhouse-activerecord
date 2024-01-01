@@ -4,17 +4,13 @@ module ClickhouseActiverecord
   class Tasks
     delegate :connection, :establish_connection, to: ActiveRecord::Base
 
-    receiver = ActiveRecord::Base
-    receiver = receiver.connection_handler unless ActiveRecord.version < Gem::Version.new('7.1')
-    delegate :clear_active_connections!, to: receiver
-
     def initialize(configuration)
       @configuration = configuration.with_indifferent_access
     end
 
     def create
       establish_master_connection
-      connection.create_database @configuration['database']
+      connection.create_database @configuration[:database]
     rescue ActiveRecord::StatementInvalid => e
       if e.cause.to_s.include?('already exists')
         raise ActiveRecord::DatabaseAlreadyExists
@@ -25,7 +21,7 @@ module ClickhouseActiverecord
 
     def drop
       establish_master_connection
-      connection.drop_database @configuration['database']
+      connection.drop_database @configuration[:database]
     end
 
     def purge
@@ -36,7 +32,7 @@ module ClickhouseActiverecord
 
     def structure_dump(*args)
       views, tables =
-        connection.execute("SHOW TABLES FROM #{@configuration['database']}")['data'].flatten.partition do |name|
+        connection.execute("SHOW TABLES FROM #{@configuration[:database]}")['data'].flatten.partition do |name|
           connection.show_create_table(name).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/)
         end
       sorted_tables = tables.sort + views.sort
@@ -44,7 +40,7 @@ module ClickhouseActiverecord
       File.open(args.first, 'w:utf-8') do |file|
         sorted_tables.each do |table|
           next if table.match(/\.inner/)
-          file.puts connection.execute("SHOW CREATE TABLE #{table}")['data'].try(:first).try(:first).gsub("#{@configuration['database']}.", '') + ";\n\n"
+          file.puts connection.execute("SHOW CREATE TABLE #{table}")['data'].try(:first).try(:first).gsub("#{@configuration[:database]}.", '') + ";\n\n"
         end
       end
     end
@@ -70,6 +66,14 @@ module ClickhouseActiverecord
       ActiveRecord::Base.clear_cache!
     ensure
       ActiveRecord::Migration.verbose = verbose_was
+    end
+
+    def clear_active_connections!
+      if ActiveRecord::Base.respond_to?(:connection_handler)
+        ActiveRecord::Base.connection_handler.clear_active_connections!
+      else
+        ActiveRecord::Base.clear_active_connections!
+      end
     end
 
     private
