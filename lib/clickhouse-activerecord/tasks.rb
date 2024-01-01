@@ -3,7 +3,10 @@
 module ClickhouseActiverecord
   class Tasks
     delegate :connection, :establish_connection, to: ActiveRecord::Base
-    delegate :clear_active_connections!, to: ((ActiveRecord.version < Gem::Version.new('7.1')) ? ActiveRecord::Base : ActiveRecord::Base.connection_handler)
+
+    receiver = ActiveRecord::Base
+    receiver = receiver.connection_handler unless ActiveRecord.version < Gem::Version.new('7.1')
+    delegate :clear_active_connections!, to: receiver
 
     def initialize(configuration)
       @configuration = configuration.with_indifferent_access
