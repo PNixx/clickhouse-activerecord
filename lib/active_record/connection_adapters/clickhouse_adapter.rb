@@ -127,9 +127,6 @@ module ActiveRecord
         @full_config = full_config
 
         @prepared_statements = false
-        if ActiveRecord::version == Gem::Version.new('6.0.0')
-          @prepared_statement_status = Concurrent::ThreadLocalVar.new(false)
-        end
 
         connect
       end
@@ -238,30 +235,18 @@ module ActiveRecord
       # Quoting time without microseconds
       def quoted_date(value)
         if value.acts_like?(:time)
-          if ActiveRecord::version >= Gem::Version.new('7')
-            zone_conversion_method = ActiveRecord.default_timezone == :utc ? :getutc : :getlocal
-          else
-            zone_conversion_method = ActiveRecord::Base.default_timezone == :utc ? :getutc : :getlocal
-          end
+          zone_conversion_method = ActiveRecord.default_timezone == :utc ? :getutc : :getlocal
 
           if value.respond_to?(zone_conversion_method)
             value = value.send(zone_conversion_method)
           end
         end
 
-        if ActiveRecord::version >= Gem::Version.new('7')
-          value.to_fs(:db)
-        else
-          value.to_s(:db)
-        end
+        value.to_fs(:db)
       end
 
       def column_name_for_operation(operation, node) # :nodoc:
-        if ActiveRecord::version >= Gem::Version.new('6')
-          visitor.compile(node)
-        else
-          column_name_from_arel_node(node)
-        end
+        visitor.compile(node)
       end
 
       # Executes insert +sql+ statement in the context of this connection using
