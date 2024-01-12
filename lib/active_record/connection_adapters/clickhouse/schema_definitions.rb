@@ -25,7 +25,6 @@ module ActiveRecord
           @indexes = []
           @foreign_keys = []
           @primary_keys = nil
-          @check_constraints = []
           @temporary = temporary
           @if_not_exists = if_not_exists
           @options = options
@@ -65,7 +64,12 @@ module ActiveRecord
         end
 
         def datetime(*args, **options)
-          kind = options[:precision] ? :datetime64 : :datetime
+          kind = :datetime
+
+          if options[:precision]
+            kind = :datetime64
+          end
+
           args.each { |name| column(name, kind, **options) }
         end
 

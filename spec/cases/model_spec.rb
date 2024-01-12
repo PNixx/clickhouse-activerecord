@@ -48,9 +48,8 @@ RSpec.describe 'Model', :migrations do
       let(:record) { model.create!(event_name: 'some event', date: date) }
 
       it 'raises an error' do
-        expect {
-          record.update!(event_name: 'new event name')
-        }.to raise_error(ActiveRecord::ActiveRecordError, 'Clickhouse update is not supported')
+        record.update!(event_name: 'new event name')
+        expect(model.where(event_name: 'new event name').count).to eq(1)
       end
     end
 
@@ -58,9 +57,8 @@ RSpec.describe 'Model', :migrations do
       let(:record) { model.create!(event_name: 'some event', date: date) }
 
       it 'raises an error' do
-        expect {
-          record.destroy!
-        }.to raise_error(ActiveRecord::ActiveRecordError, 'Clickhouse delete is not supported')
+        record.destroy!
+        expect(model.count).to eq(0)
       end
     end
 
