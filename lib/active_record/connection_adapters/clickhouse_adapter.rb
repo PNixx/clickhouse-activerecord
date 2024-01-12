@@ -211,6 +211,8 @@ module ActiveRecord
           register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
           #register_class_with_limit m, %r(UInt128), Type::UnsignedInteger #not implemnted in clickhouse
           register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
+
+          m.register_type %r(bool)i, ActiveModel::Type::Boolean.new
           # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
           m.register_type(%r(Array)) do |sql_type|
             Clickhouse::OID::Array.new(sql_type)

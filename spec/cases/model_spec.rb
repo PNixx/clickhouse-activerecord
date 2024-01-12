@@ -91,6 +91,11 @@ RSpec.describe 'Model', :migrations do
       it 'bool result' do
         expect(model.first.enabled.class).to eq(FalseClass)
       end
+
+      it 'is mapped to :boolean' do
+        type = model.columns_hash['enabled'].type
+        expect(type).to eq(:boolean)
+      end
     end
 
     describe '#settings' do
