@@ -8,6 +8,7 @@ require 'active_record/connection_adapters/clickhouse/oid/array'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
 require 'active_record/connection_adapters/clickhouse/oid/big_integer'
+require 'active_record/connection_adapters/clickhouse/oid/uuid'
 require 'active_record/connection_adapters/clickhouse/schema_definitions'
 require 'active_record/connection_adapters/clickhouse/schema_creation'
 require 'active_record/connection_adapters/clickhouse/schema_statements'
@@ -211,6 +212,9 @@ module ActiveRecord
           register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
           #register_class_with_limit m, %r(UInt128), Type::UnsignedInteger #not implemnted in clickhouse
           register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
+
+          m.register_type %r(bool)i, ActiveModel::Type::Boolean.new
+          m.register_type %r{uuid}i, Clickhouse::OID::Uuid.new
           # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
           m.register_type(%r(Array)) do |sql_type|
             Clickhouse::OID::Array.new(sql_type)
