@@ -91,6 +91,32 @@ RSpec.describe 'Model', :migrations do
       it 'bool result' do
         expect(model.first.enabled.class).to eq(FalseClass)
       end
+
+      it 'is mapped to :boolean' do
+        type = model.columns_hash['enabled'].type
+        expect(type).to eq(:boolean)
+      end
+    end
+
+    describe 'UUID column type' do
+      let(:random_uuid) { SecureRandom.uuid }
+      let!(:record1) do
+        model.create!(event_name: 'some event', event_value: 1, date: date, relation_uuid: random_uuid)
+      end
+
+      it 'is mapped to :uuid' do
+        type = model.columns_hash['relation_uuid'].type
+        expect(type).to eq(:uuid)
+      end
+
+      it 'accepts proper value' do
+        expect(record1.relation_uuid).to eq(random_uuid)
+      end
+
+      it 'does not accept invalid values' do
+        record1.relation_uuid = 'invalid-uuid'
+        expect(record1.relation_uuid).to be_nil
+      end
     end
 
     describe '#settings' do
