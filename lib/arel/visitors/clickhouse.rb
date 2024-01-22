@@ -13,12 +13,6 @@ module Arel
         end
       end
 
-      def visit_Arel_Table o, collector
-        collector = super
-        collector << ' FINAL' if o.final
-        collector
-      end
-
       def visit_Arel_Nodes_SelectOptions(o, collector)
         maybe_visit o.settings, super
       end
@@ -32,6 +26,12 @@ module Arel
         collect_nodes_for o.wheres, collector, ' WHERE ', ' AND '
         collect_nodes_for o.orders, collector, ' ORDER BY '
         maybe_visit o.limit, collector
+      end
+
+      def visit_Arel_Nodes_Final(o, collector)
+        visit o.expr, collector
+        collector << ' FINAL'
+        collector
       end
 
       def visit_Arel_Nodes_Settings(o, collector)

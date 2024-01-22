@@ -38,17 +38,14 @@ module CoreExtensions
       #   # SELECT users.* FROM users FINAL
       #
       # An <tt>ActiveRecord::ActiveRecordError</tt> will be raised if database not ClickHouse.
-      # @param [Boolean] final
-      def final(final = true)
-        spawn.final!(final)
+      def final
+        spawn.final!
       end
 
-      # @param [Boolean] final
-      def final!(final = true)
+      def final!
         assert_mutability!
         check_command('FINAL')
-        @table = @table.dup
-        @table.final = final
+        @values[:final] = true
         self
       end
 
@@ -79,6 +76,7 @@ module CoreExtensions
       def build_arel(aliases = nil)
         arel = super
 
+        arel.final! if @values[:final].present?
         arel.settings(@values[:settings]) if @values[:settings].present?
         arel.using(@values[:using]) if @values[:using].present?
 

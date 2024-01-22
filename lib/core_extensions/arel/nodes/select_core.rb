@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 module CoreExtensions
   module Arel # :nodoc: all
     module Nodes
@@ -10,13 +8,6 @@ module CoreExtensions
           return super unless final
 
           ::Arel::Nodes::Final.new(super)
-        end
-
-        def hash
-          [
-            @source, @set_quantifier, @projections, @optimizer_hints,
-            @wheres, @groups, @havings, @windows, @comment, @final
-          ].hash
         end
 
         def eql?(other)
