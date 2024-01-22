@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require 'arel/visitors/clickhouse'
+require 'arel/nodes/final'
 require 'arel/nodes/settings'
 require 'arel/nodes/using'
-require 'clickhouse-activerecord/migration'
 require 'active_record/connection_adapters/clickhouse/oid/array'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
@@ -64,7 +64,7 @@ module ActiveRecord
 
   module ModelSchema
     module ClassMethods
-      delegate :final, :settings, to: :all
+      delegate :final, :final!, :settings, :settings!, to: :all
 
       def is_view
         @is_view || false
@@ -132,21 +132,8 @@ module ActiveRecord
         connect
       end
 
-      # Support SchemaMigration from v5.2.2 to v6+
-      def schema_migration # :nodoc:
-        ClickhouseActiverecord::SchemaMigration.new(self)
-      end
-
-      def internal_metadata # :nodoc:
-        ClickhouseActiverecord::InternalMetadata.new(self)
-      end
-
       def migrations_paths
         @full_config[:migrations_paths] || 'db/migrate_clickhouse'
-      end
-
-      def migration_context # :nodoc:
-        ClickhouseActiverecord::MigrationContext.new(migrations_paths, schema_migration, internal_metadata)
       end
 
       def arel_visitor # :nodoc:

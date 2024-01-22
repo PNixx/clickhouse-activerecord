@@ -124,11 +124,11 @@ If you using multiple databases, for example: PostgreSQL, Clickhouse.
 
 Schema dump to `db/clickhouse_schema.rb` file:
 
-    $ rake clickhouse:schema:dump
+    $ rake db:schema:dump:clickhouse
     
 Schema load from `db/clickhouse_schema.rb` file:
 
-    $ rake clickhouse:schema:load
+    $ rake db:schema:load:clickhouse
 
 For export schema to PostgreSQL, you need use:
 
@@ -238,6 +238,7 @@ Donations to this project are going directly to [PNixx](https://github.com/PNixx
 * BTC address: `1H3rhpf7WEF5JmMZ3PVFMQc7Hm29THgUfN`
 * ETH address: `0x6F094365A70fe7836A633d2eE80A1FA9758234d5`
 * XMR address: `42gP71qLB5M43RuDnrQ3vSJFFxis9Kw9VMURhpx9NLQRRwNvaZRjm2TFojAMC8Fk1BQhZNKyWhoyJSn5Ak9kppgZPjE17Zh`
+* TON address: `UQBt0-s1igIpJoEup0B1yAUkZ56rzbpruuAjNhQ26MVCaNlC`
 
 ## Development
 
