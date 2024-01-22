@@ -2,7 +2,7 @@
 
 module ClickhouseActiverecord
   class Tasks
-    delegate :connection, :establish_connection, :clear_active_connections!, to: ActiveRecord::Base
+    delegate :connection, :establish_connection, to: ActiveRecord::Base
 
     def initialize(configuration)
       @configuration = configuration.with_indifferent_access
@@ -25,7 +25,7 @@ module ClickhouseActiverecord
     end
 
     def purge
-      clear_active_connections!
+      ActiveRecord::Base.connection_handler.clear_active_connections!(:all)
       drop
       create
     end
