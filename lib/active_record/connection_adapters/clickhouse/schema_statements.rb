@@ -18,7 +18,10 @@ module ActiveRecord
 
         def internal_exec_query(sql, name = nil, binds = [], prepare: false, async: false)
           result = do_execute(sql, name)
-          ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'], result['meta'].map { |m| [m['name'], type_map.lookup(m['type'])] }.to_h)
+          column_types = result['meta'].map do |m|
+            [m['name'].to_s.split('.').last, type_map.lookup(m['type'])]
+          end.to_h
+          ActiveRecord::Result.new(column_types.keys, result['data'], column_types)
         rescue ActiveRecord::ActiveRecordError => e
           raise e
         rescue StandardError => e

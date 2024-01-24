@@ -10,9 +10,17 @@ RSpec.describe 'Model', :migrations do
         self.table_name = 'joins'
         belongs_to :model, class_name: 'Model'
       end
+      class ModelSecondaryJoin < ActiveRecord::Base
+        self.table_name = 'secondary_joins'
+        belongs_to :model, class_name: 'Model'
+      end
       class Model < ActiveRecord::Base
         self.table_name = 'sample'
-        has_many :joins, class_name: 'ModelJoin', primary_key: 'event_name'
+        has_many :joins, class_name: 'ModelJoin', primary_key: 'event_name', foreign_key: 'event_name'
+        has_many :secondary_joins,
+                 class_name: 'ModelSecondaryJoin',
+                 primary_key: 'event_name',
+                 foreign_key: 'event_name'
       end
       Model
     end
@@ -163,6 +171,21 @@ RSpec.describe 'Model', :migrations do
         expect(model.final.count).to eq(1)
         expect(model.final!.count).to eq(1)
         expect(model.final.where(date: '2023-07-21').to_sql).to eq('SELECT sample.* FROM sample FINAL WHERE sample.date = \'2023-07-21\'')
+      end
+    end
+
+    describe 'multiple joins' do
+      it 'properly resolves column names' do
+        model.create!(id: 1, event_name: 'some event 1')
+        model.create!(id: 2, event_name: 'some event 2')
+        ModelJoin.create!(id: 1, event_name: 'some event 2')
+        ModelJoin.create!(id: 2, event_name: 'some event 1')
+        ModelSecondaryJoin.create!(id: 1, event_name: 'some event 2')
+        ModelSecondaryJoin.create!(id: 2, event_name: 'some event 1')
+
+        res = model.joins(:joins, :secondary_joins).first
+        expect(res.attribute_names.sort).to eq(model.attribute_names.sort)
+        expect(res.id).not_to be_nil
       end
     end
   end
