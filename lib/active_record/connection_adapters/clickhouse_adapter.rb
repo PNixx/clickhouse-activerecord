@@ -1,13 +1,15 @@
 # frozen_string_literal: true
 
 require 'arel/visitors/clickhouse'
+require 'arel/nodes/final'
 require 'arel/nodes/settings'
-require 'clickhouse-activerecord/migration'
+require 'arel/nodes/using'
 require 'active_record/connection_adapters/clickhouse/oid/array'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
 require 'active_record/connection_adapters/clickhouse/oid/map'
 require 'active_record/connection_adapters/clickhouse/oid/big_integer'
+require 'active_record/connection_adapters/clickhouse/oid/uuid'
 require 'active_record/connection_adapters/clickhouse/schema_definitions'
 require 'active_record/connection_adapters/clickhouse/schema_creation'
 require 'active_record/connection_adapters/clickhouse/schema_statements'
@@ -70,7 +72,7 @@ module ActiveRecord
 
   module ModelSchema
     module ClassMethods
-      delegate :final, :settings, to: :all
+      delegate :final, :final!, :settings, :settings!, to: :all
 
       def is_view
         @is_view || false
@@ -201,24 +203,12 @@ module ActiveRecord
         @full_config = full_config
 
         @prepared_statements = false
-        if ActiveRecord::version == Gem::Version.new('6.0.0')
-          @prepared_statement_status = Concurrent::ThreadLocalVar.new(false)
-        end
 
         connect
       end
 
-      # Support SchemaMigration from v5.2.2 to v6+
-      def schema_migration # :nodoc:
-        ClickhouseActiverecord::SchemaMigration
-      end
-
       def migrations_paths
         @full_config[:migrations_paths] || 'db/migrate_clickhouse'
-      end
-
-      def migration_context # :nodoc:
-        ClickhouseActiverecord::MigrationContext.new(migrations_paths, schema_migration)
       end
 
       def arel_visitor # :nodoc:
@@ -237,41 +227,80 @@ module ActiveRecord
         !native_database_types[type].nil?
       end
 
-      def extract_limit(sql_type) # :nodoc:
-        case sql_type
-          when /(Nullable)?\(?String\)?/
-            super('String')
-          when /(Nullable)?\(?U?Int8\)?/
-            1
-          when /(Nullable)?\(?U?Int16\)?/
-            2
-          when /(Nullable)?\(?U?Int32\)?/
-            nil
-          when /(Nullable)?\(?U?Int64\)?/
-            8
-          else
-            super
+      class << self
+        def extract_limit(sql_type) # :nodoc:
+          case sql_type
+            when /(Nullable)?\(?String\)?/
+              super('String')
+            when /(Nullable)?\(?U?Int8\)?/
+              1
+            when /(Nullable)?\(?U?Int16\)?/
+              2
+            when /(Nullable)?\(?U?Int32\)?/
+              nil
+            when /(Nullable)?\(?U?Int64\)?/
+              8
+            else
+              super
+          end
+        end
+
+        # `extract_scale` and `extract_precision` are the same as in the Rails abstract base class,
+        # except this permits a space after the comma
+
+        def extract_scale(sql_type)
+          case sql_type
+          when /\((\d+)\)/ then 0
+          when /\((\d+)(,\s?(\d+))\)/ then $3.to_i
+          end
+        end
+
+        def extract_precision(sql_type)
+          $1.to_i if sql_type =~ /\((\d+)(,\s?\d+)?\)/
+        end
+
+        def initialize_type_map(m) # :nodoc:
+          super
+          register_class_with_limit m, %r(String), Type::String
+          register_class_with_limit m, 'Date',  Clickhouse::OID::Date
+          register_class_with_precision m, %r(datetime)i,  Clickhouse::OID::DateTime
+
+          register_class_with_limit m, %r(Int8), Type::Integer
+          register_class_with_limit m, %r(Int16), Type::Integer
+          register_class_with_limit m, %r(Int32), Type::Integer
+          register_class_with_limit m, %r(Int64), Type::Integer
+          register_class_with_limit m, %r(Int128), Type::Integer
+          register_class_with_limit m, %r(Int256), Type::Integer
+
+          register_class_with_limit m, %r(UInt8), Type::UnsignedInteger
+          register_class_with_limit m, %r(UInt16), Type::UnsignedInteger
+          register_class_with_limit m, %r(UInt32), Type::UnsignedInteger
+          register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
+          #register_class_with_limit m, %r(UInt128), Type::UnsignedInteger #not implemnted in clickhouse
+          register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
+
+          m.register_type %r(bool)i, ActiveModel::Type::Boolean.new
+          m.register_type %r{uuid}i, Clickhouse::OID::Uuid.new
+          # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
+          m.register_type(%r(Array)) do |sql_type|
+            Clickhouse::OID::Array.new(sql_type)
+          end
         end
       end
 
-      # `extract_scale` and `extract_precision` are the same as in the Rails abstract base class,
-      # except this permits a space after the comma
-
-      def extract_scale(sql_type)
-        case sql_type
-        when /\((\d+)\)/ then 0
-        when /\((\d+)(,\s?(\d+))\)/ then $3.to_i
-        end
+      # In Rails 7 used constant TYPE_MAP, we need redefine method
+      def type_map
+        @type_map ||= Type::TypeMap.new.tap { |m| ClickhouseAdapter.initialize_type_map(m) }
       end
 
       def extract_precision(sql_type)
         $1.to_i if sql_type =~ /\((\d+)(,\s?\d+)?\)/
       end
 
-      def _quote(value)
+      def quote(value)
         case value
         when Array
-          '[' + value.map { |v| _quote(v) }.join(', ') + ']'
+          '[' + value.map { |v| quote(v) }.join(', ') + ']'
         else
           super
         end
@@ -280,30 +309,18 @@ module ActiveRecord
       # Quoting time without microseconds
       def quoted_date(value)
         if value.acts_like?(:time)
-          if ActiveRecord::version >= Gem::Version.new('7')
-            zone_conversion_method = ActiveRecord.default_timezone == :utc ? :getutc : :getlocal
-          else
-            zone_conversion_method = ActiveRecord::Base.default_timezone == :utc ? :getutc : :getlocal
-          end
+          zone_conversion_method = ActiveRecord.default_timezone == :utc ? :getutc : :getlocal
 
           if value.respond_to?(zone_conversion_method)
             value = value.send(zone_conversion_method)
           end
         end
 
-        if ActiveRecord::version >= Gem::Version.new('7')
-          value.to_fs(:db)
-        else
-          value.to_s(:db)
-        end
+        value.to_fs(:db)
       end
 
       def column_name_for_operation(operation, node) # :nodoc:
-        if ActiveRecord::version >= Gem::Version.new('6')
-          visitor.compile(node)
-        else
-          column_name_from_arel_node(node)
-        end
+        visitor.compile(node)
       end
 
       # Executes insert +sql+ statement in the context of this connection using
@@ -387,7 +404,13 @@ module ActiveRecord
       end
 
       def drop_table(table_name, options = {}) # :nodoc:
-        do_execute apply_cluster "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}"
+        query = "DROP TABLE"
+        query = "#{query} IF EXISTS " if options[:if_exists]
+        query = "#{query} #{quote_table_name(table_name)}"
+        query = apply_cluster(query)
+        query = "#{query} SYNC" if options[:sync]
+
+        do_execute(query)
 
         if options[:with_distributed]
           distributed_table_name = options.delete(:with_distributed)

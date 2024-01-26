@@ -10,13 +10,13 @@ module ActiveRecord
           do_execute(sql, name, settings: settings)
         end
 
-        def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil)
+        def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil, returning: nil)
           new_sql = sql.dup.sub(/ (DEFAULT )?VALUES/, " VALUES")
           do_execute(new_sql, name, format: nil)
           true
         end
 
-        def exec_query(sql, name = nil, binds = [], prepare: false)
+        def internal_exec_query(sql, name = nil, binds = [], prepare: false, async: false)
           result = do_execute(sql, name)
           ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'], result['meta'].map { |m| [m['name'], type_map.lookup(m['type'])] }.to_h)
         rescue ActiveRecord::ActiveRecordError => e
@@ -30,12 +30,16 @@ module ActiveRecord
           true
         end
 
+        # @link https://clickhouse.com/docs/en/sql-reference/statements/alter/update
         def exec_update(_sql, _name = nil, _binds = [])
-          raise ActiveRecord::ActiveRecordError, 'Clickhouse update is not supported'
+          do_execute(_sql, _name, format: nil)
+          true
         end
 
+        # @link https://clickhouse.com/docs/en/sql-reference/statements/delete
         def exec_delete(_sql, _name = nil, _binds = [])
-          raise ActiveRecord::ActiveRecordError, 'Clickhouse delete is not supported'
+          do_execute(_sql, _name, format: nil)
+          true
         end
 
         def tables(name = nil)
@@ -137,17 +141,13 @@ module ActiveRecord
           Clickhouse::TableDefinition.new(self, table_name, **options)
         end
 
-        def new_column_from_field(table_name, field)
+        def new_column_from_field(table_name, field, _definitions)
           sql_type = field[1]
           type_metadata = fetch_type_metadata(sql_type)
           default = field[3]
           default_value = extract_value_from_default(default)
           default_function = extract_default_function(default_value, default)
-          if ActiveRecord::version >= Gem::Version.new('6')
-            ClickhouseColumn.new(field[0], default_value, type_metadata, field[1].include?('Nullable'), default_function)
-          else
-            ClickhouseColumn.new(field[0], default_value, type_metadata, field[1].include?('Nullable'), table_name, default_function)
-          end
+          ClickhouseColumn.new(field[0], default_value, type_metadata, field[1].include?('Nullable'), default_function)
         end
 
         protected

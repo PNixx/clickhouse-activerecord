@@ -2,8 +2,7 @@
 
 module ClickhouseActiverecord
   class Tasks
-
-    delegate :connection, :establish_connection, :clear_active_connections!, to: ActiveRecord::Base
+    delegate :connection, :establish_connection, to: ActiveRecord::Base
 
     def initialize(configuration)
       @configuration = configuration.with_indifferent_access
@@ -11,7 +10,7 @@ module ClickhouseActiverecord
 
     def create
       establish_master_connection
-      connection.create_database @configuration["database"]
+      connection.create_database @configuration['database']
     rescue ActiveRecord::StatementInvalid => e
       if e.cause.to_s.include?('already exists')
         raise ActiveRecord::DatabaseAlreadyExists
@@ -22,11 +21,11 @@ module ClickhouseActiverecord
 
     def drop
       establish_master_connection
-      connection.drop_database @configuration["database"]
+      connection.drop_database @configuration['database']
     end
 
     def purge
-      clear_active_connections!
+      ActiveRecord::Base.connection_handler.clear_active_connections!(:all)
       drop
       create
     end

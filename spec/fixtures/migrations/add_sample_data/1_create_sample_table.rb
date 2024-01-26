@@ -9,7 +9,7 @@ class CreateSampleTable < ActiveRecord::Migration[5.0]
       t.date :date, null: false
       t.datetime :datetime, null: false
       t.datetime :datetime64, precision: 3, null: true
+      t.uuid :relation_uuid
     end
   end
 end
-

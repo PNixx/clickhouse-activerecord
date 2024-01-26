@@ -6,14 +6,20 @@ RSpec.describe 'Model', :migrations do
 
   context 'sample' do
     let!(:model) do
-      Class.new(ActiveRecord::Base) do
-        self.table_name = 'sample'
+      class ModelJoin < ActiveRecord::Base
+        self.table_name = 'joins'
+        belongs_to :model, class_name: 'Model'
       end
+      class Model < ActiveRecord::Base
+        self.table_name = 'sample'
+        has_many :joins, class_name: 'ModelJoin', primary_key: 'event_name'
+      end
+      Model
     end
 
     before do
       migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_sample_data')
-      quietly { ClickhouseActiverecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
     end
 
 
@@ -26,15 +32,24 @@ RSpec.describe 'Model', :migrations do
           )
         }.to change { model.count }
       end
+
+      it 'insert all' do
+        if ActiveRecord::version >= Gem::Version.new('6')
+          model.insert_all([
+            {event_name: 'some event 1', date: date},
+            {event_name: 'some event 2', date: date},
+          ])
+          expect(model.count).to eq(2)
+        end
+      end
     end
 
     describe '#update' do
       let(:record) { model.create!(event_name: 'some event', date: date) }
 
       it 'raises an error' do
-        expect {
-          record.update!(event_name: 'new event name')
-        }.to raise_error(ActiveRecord::ActiveRecordError, 'Clickhouse update is not supported')
+        record.update!(event_name: 'new event name')
+        expect(model.where(event_name: 'new event name').count).to eq(1)
       end
     end
 
@@ -42,9 +57,8 @@ RSpec.describe 'Model', :migrations do
       let(:record) { model.create!(event_name: 'some event', date: date) }
 
       it 'raises an error' do
-        expect {
-          record.destroy!
-        }.to raise_error(ActiveRecord::ActiveRecordError, 'Clickhouse delete is not supported')
+        record.destroy!
+        expect(model.count).to eq(0)
       end
     end
 
@@ -77,6 +91,32 @@ RSpec.describe 'Model', :migrations do
       it 'bool result' do
         expect(model.first.enabled.class).to eq(FalseClass)
       end
+
+      it 'is mapped to :boolean' do
+        type = model.columns_hash['enabled'].type
+        expect(type).to eq(:boolean)
+      end
+    end
+
+    describe 'UUID column type' do
+      let(:random_uuid) { SecureRandom.uuid }
+      let!(:record1) do
+        model.create!(event_name: 'some event', event_value: 1, date: date, relation_uuid: random_uuid)
+      end
+
+      it 'is mapped to :uuid' do
+        type = model.columns_hash['relation_uuid'].type
+        expect(type).to eq(:uuid)
+      end
+
+      it 'accepts proper value' do
+        expect(record1.relation_uuid).to eq(random_uuid)
+      end
+
+      it 'does not accept invalid values' do
+        record1.relation_uuid = 'invalid-uuid'
+        expect(record1.relation_uuid).to be_nil
+      end
     end
 
     describe '#settings' do
@@ -93,6 +133,13 @@ RSpec.describe 'Model', :migrations do
       it 'allows passing the symbol :default to reset a setting' do
         sql = model.settings(max_insert_block_size: :default).to_sql
         expect(sql).to eq('SELECT sample.* FROM sample SETTINGS max_insert_block_size = DEFAULT')
+      end
+    end
+
+    describe '#using' do
+      it 'works' do
+        sql = model.joins(:joins).using(:event_name, :date).to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample INNER JOIN joins USING event_name,date')
       end
     end
 
@@ -114,6 +161,8 @@ RSpec.describe 'Model', :migrations do
       it 'select' do
         expect(model.count).to eq(2)
         expect(model.final.count).to eq(1)
+        expect(model.final!.count).to eq(1)
+        expect(model.final.where(date: '2023-07-21').to_sql).to eq('SELECT sample.* FROM sample FINAL WHERE sample.date = \'2023-07-21\'')
       end
     end
   end
@@ -128,7 +177,7 @@ RSpec.describe 'Model', :migrations do
 
     before do
       migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_array_datetime')
-      quietly { ClickhouseActiverecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
     end
 
     describe '#create' do
