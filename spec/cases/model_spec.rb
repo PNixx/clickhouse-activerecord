@@ -143,6 +143,20 @@ RSpec.describe 'Model', :migrations do
       end
     end
 
+    describe 'arel predicates' do
+      describe '#matches' do
+        it 'uses ilike for case insensitive matches' do
+          sql = model.where(model.arel_table[:event_name].matches('some event')).to_sql
+          expect(sql).to eq("SELECT sample.* FROM sample WHERE sample.event_name ILIKE 'some event'")
+        end
+
+        it 'uses like for case sensitive matches' do
+          sql = model.where(model.arel_table[:event_name].matches('some event', nil, true)).to_sql
+          expect(sql).to eq("SELECT sample.* FROM sample WHERE sample.event_name LIKE 'some event'")
+        end
+      end
+    end
+
     describe 'DateTime64 create' do
       it 'create a new record' do
         time = DateTime.parse('2023-07-21 08:00:00.123')
