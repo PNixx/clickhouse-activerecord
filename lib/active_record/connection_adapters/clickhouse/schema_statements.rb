@@ -64,7 +64,7 @@ module ActiveRecord
 
         def do_system_execute(sql, name = nil)
           log_with_debug(sql, "#{adapter_name} #{name}") do
-            res = @connection.post("/?#{@config.to_param}", "#{sql} FORMAT JSONCompact", 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
+            res = @connection.post("/?#{@connection_config.to_param}", "#{sql} FORMAT JSONCompact", 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
 
             process_response(res)
           end
@@ -73,7 +73,7 @@ module ActiveRecord
         def do_execute(sql, name = nil, format: 'JSONCompact', settings: {})
           log(sql, "#{adapter_name} #{name}") do
             formatted_sql = apply_format(sql, format)
-            request_params = @config || {}
+            request_params = @connection_config || {}
             res = @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql, 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
 
             process_response(res)

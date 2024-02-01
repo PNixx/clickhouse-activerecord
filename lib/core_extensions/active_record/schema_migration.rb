@@ -12,7 +12,7 @@ module CoreExtensions
           table_options = {
             id: false, options: 'ReplacingMergeTree(ver) ORDER BY (version)', if_not_exists: true
           }
-          full_config = connection.instance_variable_get(:@full_config) || {}
+          full_config = connection.instance_variable_get(:@config) || {}
 
           if full_config[:distributed_service_tables]
             table_options.merge!(with_distributed: table_name, sharding_key: 'cityHash64(version)')

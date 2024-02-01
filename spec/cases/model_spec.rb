@@ -200,6 +200,7 @@ RSpec.describe 'Model', :migrations do
           model.create!(
             array_datetime: [1.day.ago, Time.now, '2022-12-06 15:22:49'],
             array_string: %w[asdf jkl],
+            array_int: [1, 2],
             date: date
           )
         }.to change { model.count }
@@ -208,6 +209,8 @@ RSpec.describe 'Model', :migrations do
         expect(event.array_datetime[0].is_a?(DateTime)).to be_truthy
         expect(event.array_string[0].is_a?(String)).to be_truthy
         expect(event.array_string).to eq(%w[asdf jkl])
+        expect(event.array_int.is_a?(Array)).to be_truthy
+        expect(event.array_int).to eq([1, 2])
       end
 
       it 'get record' do
