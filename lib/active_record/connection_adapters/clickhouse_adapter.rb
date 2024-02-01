@@ -45,7 +45,7 @@ module ActiveRecord
           raise ArgumentError, 'No database specified. Missing argument: database.'
         end
 
-        ConnectionAdapters::ClickhouseAdapter.new(logger, connection, { user: config[:username], password: config[:password], database: database }.compact, config)
+        ConnectionAdapters::ClickhouseAdapter.new(logger, connection, config)
       end
     end
   end
@@ -120,12 +120,12 @@ module ActiveRecord
       include Clickhouse::SchemaStatements
 
       # Initializes and connects a Clickhouse adapter.
-      def initialize(logger, connection_parameters, config, full_config)
+      def initialize(logger, connection_parameters, config)
         super(nil, logger)
         @connection_parameters = connection_parameters
+        @connection_config = { user: config[:username], password: config[:password], database: config[:database] }.compact
+        @debug = config[:debug] || false
         @config = config
-        @debug = full_config[:debug] || false
-        @full_config = full_config
 
         @prepared_statements = false
 
@@ -133,7 +133,7 @@ module ActiveRecord
       end
 
       def migrations_paths
-        @full_config[:migrations_paths] || 'db/migrate_clickhouse'
+        @config[:migrations_paths] || 'db/migrate_clickhouse'
       end
 
       def arel_visitor # :nodoc:
@@ -266,7 +266,7 @@ module ActiveRecord
       def create_database(name)
         sql = apply_cluster "CREATE DATABASE #{quote_table_name(name)}"
         log_with_debug(sql, adapter_name) do
-          res = @connection.post("/?#{@config.except(:database).to_param}", sql)
+          res = @connection.post("/?#{@connection_config.except(:database).to_param}", sql)
           process_response(res)
         end
       end
@@ -302,7 +302,7 @@ module ActiveRecord
           raise 'Set a cluster' unless cluster
 
           distributed_options =
-            "Distributed(#{cluster}, #{@config[:database]}, #{table_name}, #{sharding_key})"
+            "Distributed(#{cluster}, #{@connection_config[:database]}, #{table_name}, #{sharding_key})"
           create_table(distributed_table_name, **options.merge(options: distributed_options), &block)
         end
       end
@@ -311,7 +311,7 @@ module ActiveRecord
       def drop_database(name) #:nodoc:
         sql = apply_cluster "DROP DATABASE IF EXISTS #{quote_table_name(name)}"
         log_with_debug(sql, adapter_name) do
-          res = @connection.post("/?#{@config.except(:database).to_param}", sql)
+          res = @connection.post("/?#{@connection_config.except(:database).to_param}", sql)
           process_response(res)
         end
       end
@@ -365,15 +365,15 @@ module ActiveRecord
       end
 
       def cluster
-        @full_config[:cluster_name]
+        @config[:cluster_name]
       end
 
       def replica
-        @full_config[:replica_name]
+        @config[:replica_name]
       end
 
       def use_default_replicated_merge_tree_params?
-        database_engine_atomic? && @full_config[:use_default_replicated_merge_tree_params]
+        database_engine_atomic? && @config[:use_default_replicated_merge_tree_params]
       end
 
       def use_replica?
@@ -381,11 +381,11 @@ module ActiveRecord
       end
 
       def replica_path(table)
-        "/clickhouse/tables/#{cluster}/#{@config[:database]}.#{table}"
+        "/clickhouse/tables/#{cluster}/#{@connection_config[:database]}.#{table}"
       end
 
       def database_engine_atomic?
-        current_database_engine = "select engine from system.databases where name = '#{@config[:database]}'"
+        current_database_engine = "select engine from system.databases where name = '#{@connection_config[:database]}'"
         res = select_one(current_database_engine)
         res['engine'] == 'Atomic' if res
       end

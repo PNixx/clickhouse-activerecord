@@ -24,7 +24,7 @@ module CoreExtensions
             options: connection.adapter_name.downcase == 'clickhouse' ? 'ReplacingMergeTree(created_at) PARTITION BY key ORDER BY key' : '',
             if_not_exists: true
           }
-          full_config = connection.instance_variable_get(:@full_config) || {}
+          full_config = connection.instance_variable_get(:@config) || {}
 
           if full_config[:distributed_service_tables]
             table_options.merge!(with_distributed: table_name, sharding_key: 'cityHash64(created_at)')
