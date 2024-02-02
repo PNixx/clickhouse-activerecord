@@ -100,6 +100,16 @@ module ActiveRecord
           end
         end
 
+        # Fix insert_all method
+        # https://github.com/PNixx/clickhouse-activerecord/issues/71#issuecomment-1923244983
+        def with_yaml_fallback(value) # :nodoc:
+          if value.is_a?(Array)
+            value
+          else
+            super
+          end
+        end
+
         private
 
         def apply_format(sql, format)
