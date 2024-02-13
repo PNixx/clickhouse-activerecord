@@ -207,12 +207,25 @@ module ActiveRecord
         end
 
         def format_body_response(body, format)
-          return body if body.blank? || format != DEFAULT_RESPONSE_FORMAT
+          return body if body.blank?
 
+          case format
+          when 'JSONCompact'
+            format_from_json_compact(body)
+          when 'JSONCompactEachRowWithNamesAndTypes'
+            format_from_json_compact_each_row_with_names_and_types(body)
+          else
+            body
+          end
+        end
+
+        def format_from_json_compact(body)
+          JSON.parse(body)
+        end
+
+        def format_from_json_compact_each_row_with_names_and_types(body)
           rows = body.split("\n").map { |row| JSON.parse(row) }
-          names = rows[0]
-          types = rows[1]
-          data = rows[2..]
+          names, types, *data = rows
 
           meta = names.zip(types).map do |name, type|
             {
