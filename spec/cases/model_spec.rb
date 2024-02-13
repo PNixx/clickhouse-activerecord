@@ -98,6 +98,17 @@ RSpec.describe 'Model', :migrations do
       end
     end
 
+    describe 'string column type as byte array' do
+      let(:bytes) { (0..255).to_a }
+      let!(:record1) { model.create!(event_name: 'some event', byte_array: bytes.pack('C*')) }
+
+      it 'keeps all bytes' do
+        returned_byte_array = model.first.byte_array
+
+        expect(returned_byte_array.unpack('C*')).to eq(bytes)
+      end
+    end
+
     describe 'UUID column type' do
       let(:random_uuid) { SecureRandom.uuid }
       let!(:record1) do
