@@ -22,6 +22,12 @@ RSpec.describe 'Model', :migrations do
       quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
     end
 
+    it '#do_execute' do
+      result = model.connection.do_execute('SELECT 1 AS t', format: 'JSONCompact')
+      expect(result['data']).to eq([[1]])
+      expect(result['meta']).to eq([{'name' => 't', 'type' => 'UInt8'}])
+    end
+
 
     describe '#create' do
       it 'creates a new record' do
