@@ -22,12 +22,29 @@ RSpec.describe 'Model', :migrations do
       quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
     end
 
-    it '#do_execute' do
-      result = model.connection.do_execute('SELECT 1 AS t', format: 'JSONCompact')
-      expect(result['data']).to eq([[1]])
-      expect(result['meta']).to eq([{'name' => 't', 'type' => 'UInt8'}])
-    end
+    describe '#do_execute' do
+      it 'returns formatted result' do
+        result = model.connection.do_execute('SELECT 1 AS t')
+        expect(result['data']).to eq([[1]])
+        expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+      end
 
+      context 'with JSONCompact format' do
+        it 'returns formatted result' do
+          result = model.connection.do_execute('SELECT 1 AS t', format: 'JSONCompact')
+          expect(result['data']).to eq([[1]])
+          expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+        end
+      end
+
+      context 'with JSONCompactEachRowWithNamesAndTypes format' do
+        it 'returns formatted result' do
+          result = model.connection.do_execute('SELECT 1 AS t', format: 'JSONCompactEachRowWithNamesAndTypes')
+          expect(result['data']).to eq([[1]])
+          expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+        end
+      end
+    end
 
     describe '#create' do
       it 'creates a new record' do
@@ -101,6 +118,17 @@ RSpec.describe 'Model', :migrations do
       it 'is mapped to :boolean' do
         type = model.columns_hash['enabled'].type
         expect(type).to eq(:boolean)
+      end
+    end
+
+    describe 'string column type as byte array' do
+      let(:bytes) { (0..255).to_a }
+      let!(:record1) { model.create!(event_name: 'some event', byte_array: bytes.pack('C*')) }
+
+      it 'keeps all bytes' do
+        returned_byte_array = model.first.byte_array
+
+        expect(returned_byte_array.unpack('C*')).to eq(bytes)
       end
     end
 
