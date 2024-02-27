@@ -19,9 +19,32 @@ RSpec.describe 'Model', :migrations do
 
     before do
       migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_sample_data')
-      quietly { ClickhouseActiverecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
     end
 
+    describe '#do_execute' do
+      it 'returns formatted result' do
+        result = model.connection.do_execute('SELECT 1 AS t')
+        expect(result['data']).to eq([[1]])
+        expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+      end
+
+      context 'with JSONCompact format' do
+        it 'returns formatted result' do
+          result = model.connection.do_execute('SELECT 1 AS t', format: 'JSONCompact')
+          expect(result['data']).to eq([[1]])
+          expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+        end
+      end
+
+      context 'with JSONCompactEachRowWithNamesAndTypes format' do
+        it 'returns formatted result' do
+          result = model.connection.do_execute('SELECT 1 AS t', format: 'JSONCompactEachRowWithNamesAndTypes')
+          expect(result['data']).to eq([[1]])
+          expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+        end
+      end
+    end
 
     describe '#create' do
       it 'creates a new record' do
@@ -48,9 +71,8 @@ RSpec.describe 'Model', :migrations do
       let(:record) { model.create!(event_name: 'some event', date: date) }
 
       it 'raises an error' do
-        expect {
-          record.update!(event_name: 'new event name')
-        }.to raise_error(ActiveRecord::ActiveRecordError, 'Clickhouse update is not supported')
+        record.update!(event_name: 'new event name')
+        expect(model.where(event_name: 'new event name').count).to eq(1)
       end
     end
 
@@ -58,9 +80,8 @@ RSpec.describe 'Model', :migrations do
       let(:record) { model.create!(event_name: 'some event', date: date) }
 
       it 'raises an error' do
-        expect {
-          record.destroy!
-        }.to raise_error(ActiveRecord::ActiveRecordError, 'Clickhouse delete is not supported')
+        record.destroy!
+        expect(model.count).to eq(0)
       end
     end
 
@@ -93,6 +114,43 @@ RSpec.describe 'Model', :migrations do
       it 'bool result' do
         expect(model.first.enabled.class).to eq(FalseClass)
       end
+
+      it 'is mapped to :boolean' do
+        type = model.columns_hash['enabled'].type
+        expect(type).to eq(:boolean)
+      end
+    end
+
+    describe 'string column type as byte array' do
+      let(:bytes) { (0..255).to_a }
+      let!(:record1) { model.create!(event_name: 'some event', byte_array: bytes.pack('C*')) }
+
+      it 'keeps all bytes' do
+        returned_byte_array = model.first.byte_array
+
+        expect(returned_byte_array.unpack('C*')).to eq(bytes)
+      end
+    end
+
+    describe 'UUID column type' do
+      let(:random_uuid) { SecureRandom.uuid }
+      let!(:record1) do
+        model.create!(event_name: 'some event', event_value: 1, date: date, relation_uuid: random_uuid)
+      end
+
+      it 'is mapped to :uuid' do
+        type = model.columns_hash['relation_uuid'].type
+        expect(type).to eq(:uuid)
+      end
+
+      it 'accepts proper value' do
+        expect(record1.relation_uuid).to eq(random_uuid)
+      end
+
+      it 'does not accept invalid values' do
+        record1.relation_uuid = 'invalid-uuid'
+        expect(record1.relation_uuid).to be_nil
+      end
     end
 
     describe '#settings' do
@@ -119,6 +177,20 @@ RSpec.describe 'Model', :migrations do
       end
     end
 
+    describe 'arel predicates' do
+      describe '#matches' do
+        it 'uses ilike for case insensitive matches' do
+          sql = model.where(model.arel_table[:event_name].matches('some event')).to_sql
+          expect(sql).to eq("SELECT sample.* FROM sample WHERE sample.event_name ILIKE 'some event'")
+        end
+
+        it 'uses like for case sensitive matches' do
+          sql = model.where(model.arel_table[:event_name].matches('some event', nil, true)).to_sql
+          expect(sql).to eq("SELECT sample.* FROM sample WHERE sample.event_name LIKE 'some event'")
+        end
+      end
+    end
+
     describe 'DateTime64 create' do
       it 'create a new record' do
         time = DateTime.parse('2023-07-21 08:00:00.123')
@@ -137,6 +209,8 @@ RSpec.describe 'Model', :migrations do
       it 'select' do
         expect(model.count).to eq(2)
         expect(model.final.count).to eq(1)
+        expect(model.final!.count).to eq(1)
+        expect(model.final.where(date: '2023-07-21').to_sql).to eq('SELECT sample.* FROM sample FINAL WHERE sample.date = \'2023-07-21\'')
       end
     end
   end
@@ -151,7 +225,7 @@ RSpec.describe 'Model', :migrations do
 
     before do
       migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_array_datetime')
-      quietly { ClickhouseActiverecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
     end
 
     describe '#create' do
@@ -160,6 +234,7 @@ RSpec.describe 'Model', :migrations do
           model.create!(
             array_datetime: [1.day.ago, Time.now, '2022-12-06 15:22:49'],
             array_string: %w[asdf jkl],
+            array_int: [1, 2],
             date: date
           )
         }.to change { model.count }
@@ -168,6 +243,19 @@ RSpec.describe 'Model', :migrations do
         expect(event.array_datetime[0].is_a?(DateTime)).to be_truthy
         expect(event.array_string[0].is_a?(String)).to be_truthy
         expect(event.array_string).to eq(%w[asdf jkl])
+        expect(event.array_int.is_a?(Array)).to be_truthy
+        expect(event.array_int).to eq([1, 2])
+      end
+
+      it 'create with insert all' do
+        expect {
+          model.insert_all([{
+            array_datetime: [1.day.ago, Time.now, '2022-12-06 15:22:49'],
+            array_string: %w[asdf jkl],
+            array_int: [1, 2],
+            date: date
+          }])
+        }.to change { model.count }
       end
 
       it 'get record' do

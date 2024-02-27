@@ -13,14 +13,25 @@ module Arel
         end
       end
 
-      def visit_Arel_Table o, collector
-        collector = super
-        collector << ' FINAL ' if o.final
-        collector
-      end
-
       def visit_Arel_Nodes_SelectOptions(o, collector)
         maybe_visit o.settings, super
+      end
+
+      def visit_Arel_Nodes_UpdateStatement(o, collector)
+        o = prepare_update_statement(o)
+
+        collector << 'ALTER TABLE '
+        collector = visit o.relation, collector
+        collect_nodes_for o.values, collector, ' UPDATE '
+        collect_nodes_for o.wheres, collector, ' WHERE ', ' AND '
+        collect_nodes_for o.orders, collector, ' ORDER BY '
+        maybe_visit o.limit, collector
+      end
+
+      def visit_Arel_Nodes_Final(o, collector)
+        visit o.expr, collector
+        collector << ' FINAL'
+        collector
       end
 
       def visit_Arel_Nodes_Settings(o, collector)
@@ -40,6 +51,16 @@ module Arel
         collector << "USING "
         visit o.expr, collector
         collector
+      end
+
+      def visit_Arel_Nodes_Matches(o, collector)
+        op = o.case_sensitive ? " LIKE " : " ILIKE "
+        infix_value o, collector, op
+      end
+
+      def visit_Arel_Nodes_DoesNotMatch(o, collector)
+        op = o.case_sensitive ? " NOT LIKE " : " NOT ILIKE "
+        infix_value o, collector, op
       end
 
       def sanitize_as_setting_value(value)
