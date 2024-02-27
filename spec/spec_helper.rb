@@ -69,6 +69,7 @@ def clear_db
             end
 
   ActiveRecord::Base.connection.tables.each { |table| ActiveRecord::Base.connection.execute(pattern % table) }
+  ActiveRecord::Base.connection.drop_functions
 rescue ActiveRecord::NoDatabaseError
   # Ignored
 end

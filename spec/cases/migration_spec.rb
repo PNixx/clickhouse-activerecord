@@ -346,5 +346,25 @@ RSpec.describe 'Migration', :migrations do
         expect(current_schema['date'].sql_type).to eq('Date')
       end
     end
+
+    context 'function creation' do
+      context 'plain' do
+        it 'creates a function' do
+          migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'plain_function_creation')
+          quietly { ClickhouseActiverecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+
+          expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun'])
+        end
+      end
+
+      context 'dsl' do
+        it 'creates a function' do
+          migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_create_function')
+          quietly { ClickhouseActiverecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+
+          expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun'])
+        end
+      end
+    end
   end
 end

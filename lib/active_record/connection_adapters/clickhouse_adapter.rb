@@ -320,12 +320,23 @@ module ActiveRecord
         end
       end
 
+      def create_function(name, body)
+        fd = "CREATE FUNCTION #{apply_cluster(quote_table_name(name))} AS #{body}"
+        do_execute(fd, format: nil)
+      end
+
       # Drops a ClickHouse database.
       def drop_database(name) #:nodoc:
         sql = apply_cluster "DROP DATABASE IF EXISTS #{quote_table_name(name)}"
         log_with_debug(sql, adapter_name) do
           res = @connection.post("/?#{@config.except(:database).to_param}", sql)
           process_response(res)
+        end
+      end
+
+      def drop_functions
+        functions.each do |function|
+          drop_function(function)
         end
       end
 
@@ -346,6 +357,16 @@ module ActiveRecord
           distributed_table_name = options.delete(:with_distributed)
           drop_table(distributed_table_name, **options)
         end
+      end
+
+      def drop_function(name, options = {})
+        query = "DROP FUNCTION"
+        query = "#{query} IF EXISTS " if options[:if_exists]
+        query = "#{query} #{quote_table_name(name)}"
+        query = apply_cluster(query)
+        query = "#{query} SYNC" if options[:sync]
+
+        do_execute(query, format: nil)
       end
 
       def add_column(table_name, column_name, type, **options)
