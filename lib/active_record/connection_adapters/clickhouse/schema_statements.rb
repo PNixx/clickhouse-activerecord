@@ -6,8 +6,8 @@ module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module SchemaStatements
-        def execute(sql, name = nil)
-          do_execute(sql, name)
+        def execute(sql, name = nil, settings: {})
+          do_execute(sql, name, settings: settings)
         end
 
         def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil)
@@ -18,7 +18,7 @@ module ActiveRecord
 
         def exec_query(sql, name = nil, binds = [], prepare: false)
           result = do_execute(sql, name)
-          ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'])
+          ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'], result['meta'].map { |m| [m['name'], type_map.lookup(m['type'])] }.to_h)
         rescue ActiveRecord::ActiveRecordError => e
           raise e
         rescue StandardError => e
@@ -105,10 +105,20 @@ module ActiveRecord
         def process_response(res)
           case res.code.to_i
           when 200
-            res.body.presence && JSON.parse(res.body)
+            if res.body.to_s.include?("DB::Exception")
+              raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}"
+            else
+              res.body.presence && JSON.parse(res.body)
+            end
           else
-            raise ActiveRecord::ActiveRecordError,
-              "Response code: #{res.code}:\n#{res.body}"
+            case res.body
+              when /DB::Exception:.*\(UNKNOWN_DATABASE\)/
+                raise ActiveRecord::NoDatabaseError
+              when /DB::Exception:.*\(DATABASE_ALREADY_EXISTS\)/
+                raise ActiveRecord::DatabaseAlreadyExists
+              else
+                raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}"
+            end
           end
         rescue JSON::ParserError
           res.body

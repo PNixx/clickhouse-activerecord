@@ -125,7 +125,11 @@ module ActiveRecord
         end
 
         def current_database
-          ActiveRecord::Base.connection_db_config.database
+          if ActiveRecord::version >= Gem::Version.new('6.1')
+            ActiveRecord::Base.connection_db_config.database
+          else
+            ActiveRecord::Base.connection_config[:database]
+          end
         end
       end
     end

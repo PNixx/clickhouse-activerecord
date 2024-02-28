@@ -1,6 +1,8 @@
-module ClickhouseActiverecord
+module CoreExtensions
   module Arel
-    class Table < ::Arel::Table
+    module Table
+      attr_accessor :final
+
       def is_view
         type_caster.is_view
       end

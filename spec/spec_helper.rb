@@ -6,6 +6,8 @@ require 'active_record'
 require 'clickhouse-activerecord'
 require 'active_support/testing/stream'
 
+ClickhouseActiverecord.load
+
 FIXTURES_PATH = File.join(File.dirname(__FILE__), 'fixtures')
 CLUSTER_NAME = 'test'
 
@@ -53,7 +55,11 @@ def schema(model)
 end
 
 def clear_db
-  cluster = ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
+  if ActiveRecord::version >= Gem::Version.new('6.1')
+    cluster = ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
+  else
+    cluster = ActiveRecord::Base.connection_config[:cluster_name]
+  end
   pattern = if cluster
               normalized_cluster_name = cluster.start_with?('{') ? "'#{cluster}'" : cluster
 
@@ -63,6 +69,8 @@ def clear_db
             end
 
   ActiveRecord::Base.connection.tables.each { |table| ActiveRecord::Base.connection.execute(pattern % table) }
+rescue ActiveRecord::NoDatabaseError
+  # Ignored
 end
 
 def clear_consts
