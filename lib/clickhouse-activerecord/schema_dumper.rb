@@ -39,6 +39,11 @@ HEADER
       sorted_tables.each do |table_name|
         table(table_name, stream) unless ignored?(table_name)
       end
+
+      functions = @connection.functions
+      functions.each do |function|
+        function(function, stream)
+      end
     end
 
     def table(table, stream)
@@ -117,6 +122,13 @@ HEADER
           stream.puts
         end
       end
+    end
+
+    def function(function, stream)
+      stream.puts "  # FUNCTION: #{function}"
+      sql = @connection.show_create_function(function)
+      stream.puts "  # SQL: #{sql}" if sql
+      stream.puts "  create_function \"#{function}\", \"#{sql.gsub(/^CREATE FUNCTION (.*?) AS/, '').strip}\"" if sql
     end
 
     def format_options(options)
