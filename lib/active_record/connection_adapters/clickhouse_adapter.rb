@@ -264,7 +264,7 @@ module ActiveRecord
 
       # Create a new ClickHouse database.
       def create_database(name)
-        sql = apply_cluster "CREATE DATABASE #{quote_table_name(name)}"
+        sql = apply_cluster "CREATE DATABASE IF NOT EXISTS #{quote_table_name(name)}"
         log_with_debug(sql, adapter_name) do
           res = @connection.post("/?#{@connection_config.except(:database).to_param}", sql)
           process_response(res)
