@@ -267,7 +267,7 @@ module ActiveRecord
         sql = apply_cluster "CREATE DATABASE #{quote_table_name(name)}"
         log_with_debug(sql, adapter_name) do
           res = @connection.post("/?#{@connection_config.except(:database).to_param}", sql)
-          process_response(res)
+          process_response(res, DEFAULT_RESPONSE_FORMAT)
         end
       end
 
@@ -312,7 +312,7 @@ module ActiveRecord
         sql = apply_cluster "DROP DATABASE IF EXISTS #{quote_table_name(name)}"
         log_with_debug(sql, adapter_name) do
           res = @connection.post("/?#{@connection_config.except(:database).to_param}", sql)
-          process_response(res)
+          process_response(res, DEFAULT_RESPONSE_FORMAT)
         end
       end
 
