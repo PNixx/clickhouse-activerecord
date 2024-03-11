@@ -21,6 +21,16 @@ RSpec.describe 'Migration', :migrations do
       quietly { migration_context.up }
     end
 
+    context 'database creation' do
+      let(:db) { (0...8).map { (65 + rand(26)).chr }.join.downcase }
+
+      it 'create' do
+        model.connection.create_database(db)
+      end
+
+      after { model.connection.drop_database(db) }
+    end
+
     context 'table creation' do
       context 'plain' do
         let(:directory) { 'plain_table_creation' }
