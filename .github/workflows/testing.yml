@@ -17,14 +17,15 @@ jobs:
 
     strategy:
       fail-fast: true
+      max-parallel: 1
       matrix:
-        ruby-version: [ '3.0' ]
+        ruby-version: [ '2.7', '3.0', '3.2' ]
         clickhouse: [ '22.1' ]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Start ClickHouse (version - ${{ matrix.clickhouse }}) in Docker
+      - name: Start ClickHouse ${{ matrix.clickhouse }}
         uses: isbang/compose-action@v1.5.1
         env:
           CLICKHOUSE_VERSION: ${{ matrix.clickhouse }}
@@ -51,14 +52,15 @@ jobs:
 
     strategy:
       fail-fast: true
+      max-parallel: 1
       matrix:
-        ruby-version: [ '3.0' ]
+        ruby-version: [ '2.7', '3.0', '3.2' ]
         clickhouse: [ '22.1' ]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Start ClickHouse Cluster (version - ${{ matrix.clickhouse }}) in Docker
+      - name: Start ClickHouse Cluster ${{ matrix.clickhouse }}
         uses: isbang/compose-action@v1.5.1
         env:
           CLICKHOUSE_VERSION: ${{ matrix.clickhouse }}
