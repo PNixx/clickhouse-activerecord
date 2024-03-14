@@ -32,7 +32,7 @@ module CoreExtensions
         def delete_version(version)
           return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
 
-          im = Arel::InsertManager.new(arel_table)
+          im = ::Arel::InsertManager.new(arel_table)
           im.insert(arel_table[primary_key] => version.to_s, arel_table['active'] => 0)
           connection.insert(im, "#{self.class} Create Rollback Version", primary_key, version)
         end

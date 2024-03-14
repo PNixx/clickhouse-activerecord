@@ -3,17 +3,6 @@ module CoreExtensions
     module InternalMetadata
       module ClassMethods
 
-        def []=(key, value)
-          row = final.find_by(key: key)
-          if row.nil? || row.value != value
-            create!(key: key, value: value)
-          end
-        end
-
-        def [](key)
-          final.where(key: key).pluck(:value).first
-        end
-
         def create_table
           return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
           return if table_exists? || !enabled?
@@ -21,7 +10,7 @@ module CoreExtensions
           key_options = connection.internal_string_options_for_primary_key
           table_options = {
             id: false,
-            options: connection.adapter_name.downcase == 'clickhouse' ? 'ReplacingMergeTree(created_at) PARTITION BY key ORDER BY key' : '',
+            options: 'ReplacingMergeTree(created_at) PARTITION BY key ORDER BY key',
             if_not_exists: true
           }
           full_config = connection.instance_variable_get(:@config) || {}
@@ -39,6 +28,27 @@ module CoreExtensions
             t.string :value
             t.timestamps
           end
+        end
+
+        private
+
+        def update_entry(key, new_value)
+          return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+
+          create_entry(key, new_value)
+        end
+
+        def select_entry(key)
+          return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+
+          sm = ::Arel::SelectManager.new(arel_table)
+          sm.final! if connection.table_options(table_name)[:options] =~ /^ReplacingMergeTree/
+          sm.project(::Arel.star)
+          sm.where(arel_table[primary_key].eq(::Arel::Nodes::BindParam.new(key)))
+          sm.order(arel_table[primary_key].asc)
+          sm.limit = 1
+
+          connection.select_one(sm, "#{self.class} Load")
         end
       end
     end
