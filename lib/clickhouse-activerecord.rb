@@ -24,9 +24,9 @@ end
 
 module ClickhouseActiverecord
   def self.load
-    ActiveRecord::InternalMetadata.singleton_class.prepend(CoreExtensions::ActiveRecord::InternalMetadata::ClassMethods)
+    ActiveRecord::InternalMetadata.prepend(CoreExtensions::ActiveRecord::InternalMetadata::ClassMethods)
     ActiveRecord::Relation.prepend(CoreExtensions::ActiveRecord::Relation)
-    ActiveRecord::SchemaMigration.singleton_class.prepend(CoreExtensions::ActiveRecord::SchemaMigration::ClassMethods)
+    ActiveRecord::SchemaMigration.prepend(CoreExtensions::ActiveRecord::SchemaMigration::ClassMethods)
 
     Arel::Nodes::SelectCore.prepend(CoreExtensions::Arel::Nodes::SelectCore)
     Arel::Nodes::SelectStatement.prepend(CoreExtensions::Arel::Nodes::SelectStatement)

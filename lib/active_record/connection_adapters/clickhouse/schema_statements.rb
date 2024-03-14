@@ -35,13 +35,20 @@ module ActiveRecord
         # @link https://clickhouse.com/docs/en/sql-reference/statements/alter/update
         def exec_update(_sql, _name = nil, _binds = [])
           do_execute(_sql, _name, format: nil)
-          true
+          0
         end
 
         # @link https://clickhouse.com/docs/en/sql-reference/statements/delete
         def exec_delete(_sql, _name = nil, _binds = [])
-          do_execute(_sql, _name, format: nil)
-          true
+          log(_sql, "#{adapter_name} #{_name}") do
+            res = request(_sql)
+            begin
+              data = JSON.parse(res.header['x-clickhouse-summary'])
+              data['result_rows'].to_i
+            rescue JSONError
+              0
+            end
+          end
         end
 
         def tables(name = nil)
@@ -66,18 +73,14 @@ module ActiveRecord
 
         def do_system_execute(sql, name = nil)
           log_with_debug(sql, "#{adapter_name} #{name}") do
-            res = @connection.post("/?#{@connection_config.to_param}", "#{sql} FORMAT #{DEFAULT_RESPONSE_FORMAT}", 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
-
+            res = request(sql, DEFAULT_RESPONSE_FORMAT)
             process_response(res, DEFAULT_RESPONSE_FORMAT)
           end
         end
 
         def do_execute(sql, name = nil, format: DEFAULT_RESPONSE_FORMAT, settings: {})
           log(sql, "#{adapter_name} #{name}") do
-            formatted_sql = apply_format(sql, format)
-            request_params = @connection_config || {}
-            res = @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql, 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
-
+            res = request(sql, format, settings)
             process_response(res, format)
           end
         end
@@ -113,6 +116,17 @@ module ActiveRecord
         end
 
         private
+
+        # Make HTTP request to ClickHouse server
+        # @param [String] sql
+        # @param [String, nil] format
+        # @param [Hash] settings
+        # @return [Net::HTTPResponse]
+        def request(sql, format = nil, settings = {})
+          formatted_sql = apply_format(sql, format)
+          request_params = @connection_config || {}
+          @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql, 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
+        end
 
         def apply_format(sql, format)
           format ? "#{sql} FORMAT #{format}" : sql
@@ -170,8 +184,7 @@ module ActiveRecord
 
           return data unless data.empty?
 
-          raise ActiveRecord::StatementInvalid,
-            "Could not find table '#{table_name}'"
+          raise ActiveRecord::StatementInvalid, "Could not find table '#{table_name}'"
         end
         alias column_definitions table_structure
 

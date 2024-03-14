@@ -14,17 +14,17 @@
 
 ### Version 1.0.0 (Nov 29, 2023)
 
-* Full support Rails 7.1+
-* Full support primary or multiple databases
+ * Full support Rails 7.1+
+ * Full support primary or multiple databases
 
 ### Version 0.6.0 (Oct 19, 2023)
 
-* Added `Bool` column type instead `Uint8` (#78). Supports ClickHouse 22+ database only
-* Added `final` method (#81) (The `ar_internal_metadata` table needs to be deleted after a gem update)
-* Added `settings` method (#82)
-* Fixed convert aggregation type (#92)
-* Fixed raise error not database exist (#91)
-* Fixed internal metadata update (#84)
+ * Added `Bool` column type instead `Uint8` (#78). Supports ClickHouse 22+ database only
+ * Added `final` method (#81) (The `ar_internal_metadata` table needs to be deleted after a gem update)
+ * Added `settings` method (#82)
+ * Fixed convert aggregation type (#92)
+ * Fixed raise error not database exist (#91)
+ * Fixed internal metadata update (#84)
 
 ### Version 0.5.10 (Jun 22, 2022)
 

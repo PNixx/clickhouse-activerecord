@@ -73,10 +73,11 @@ module ActiveRecord
       def is_view=(value)
         @is_view = value
       end
-      #
-      # def arel_table # :nodoc:
-      #   @arel_table ||= Arel::Table.new(table_name, type_caster: type_caster)
-      # end
+
+      def _delete_record(constraints)
+        raise ActiveRecord::ActiveRecordError.new('Deleting a row is not possible without a primary key') unless self.primary_key
+        super
+      end
     end
   end
 

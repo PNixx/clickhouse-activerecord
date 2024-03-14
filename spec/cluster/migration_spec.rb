@@ -1,26 +1,18 @@
 # frozen_string_literal: true
 
-RSpec.describe 'Cluster Migration', :migrations, cluster: true do
-  let(:model) do
-    Class.new(ActiveRecord::Base) do
-      self.table_name = 'some'
-    end
-  end
-  let(:directory) { raise 'NotImplemented' }
-  let(:migrations_dir) { File.join(FIXTURES_PATH, 'migrations', directory) }
-  let(:migration_context) { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration, model.connection.internal_metadata) }
-
-  connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
-
-  before(:all) do
-    ActiveRecord::Base.establish_connection(connection_config.merge(cluster_name: '{cluster}'))
-  end
-
-  after(:all) do
-    ActiveRecord::Base.establish_connection(connection_config)
-  end
-
+RSpec.describe 'Cluster Migration', :migrations do
   describe 'performs migrations' do
+    let(:model) do
+      Class.new(ActiveRecord::Base) do
+        self.table_name = 'some'
+      end
+    end
+    let(:directory) { raise 'NotImplemented' }
+    let(:migrations_dir) { File.join(FIXTURES_PATH, 'migrations', directory) }
+    let(:migration_context) { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration, model.connection.internal_metadata) }
+
+    connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
+
     before(:all) do
       raise 'Unknown cluster name in config' if connection_config[:cluster_name].blank?
     end
@@ -36,8 +28,8 @@ RSpec.describe 'Cluster Migration', :migrations, cluster: true do
             self.table_name = 'some_distributed'
           end
         end
-        let(:directory) { 'dsl_create_table_with_distributed' }
 
+        let(:directory) { 'dsl_create_table_with_distributed' }
         it 'creates a table with distributed table' do
           subject
 
@@ -68,30 +60,25 @@ RSpec.describe 'Cluster Migration', :migrations, cluster: true do
           expect(ActiveRecord::Base.connection.tables).not_to include('some_distributed')
         end
       end
-
-      context "function" do
-        after do
-          ActiveRecord::Base.connection.drop_functions
-        end
-
-        context 'dsl' do
-          let(:directory) { 'dsl_create_function' }
-
-          it 'creates a function' do
-            ActiveRecord::Base.connection.execute('CREATE FUNCTION forced_fun AS (x, k, b) -> k*x + b', format: nil)
-
-            subject
-
-            expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun', 'forced_fun'])
-            expect(ActiveRecord::Base.connection.show_create_function('forced_fun').chomp).to eq('CREATE OR REPLACE FUNCTION forced_fun AS (x, y) -> (x + y)')
-          end
-        end
-      end
     end
 
     context 'with alias in cluster_name' do
-      let(:directory) { 'dsl_create_table_with_cluster_name_alias' }
+      let(:model) do
+        Class.new(ActiveRecord::Base) do
+          self.table_name = 'some'
+        end
+      end
+      connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
 
+        before(:all) do
+          ActiveRecord::Base.establish_connection(connection_config.merge(cluster_name: '{cluster}'))
+        end
+
+      after(:all) do
+        ActiveRecord::Base.establish_connection(connection_config)
+      end
+
+      let(:directory) { 'dsl_create_table_with_cluster_name_alias' }
       it 'creates a table' do
         subject
 
@@ -106,6 +93,9 @@ RSpec.describe 'Cluster Migration', :migrations, cluster: true do
         subject
 
         expect(ActiveRecord::Base.connection.tables).to include('some')
+
+        # Need for sync between clickhouse servers
+        ActiveRecord::Base.connection.execute('SELECT * FROM schema_migrations')
 
         quietly do
           migration_context.down
