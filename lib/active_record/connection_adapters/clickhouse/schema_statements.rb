@@ -57,6 +57,16 @@ module ActiveRecord
           result['data'].flatten
         end
 
+        def functions
+          result = do_system_execute("SELECT name FROM system.functions WHERE origin = 'SQLUserDefined'")
+          return [] if result.nil?
+          result['data'].flatten
+        end
+
+        def show_create_function(function)
+          do_execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'", format: nil)
+        end
+
         def table_options(table)
           sql = show_create_table(table)
           { options: sql.gsub(/^(?:.*?)(?:ENGINE = (.*?))?( AS SELECT .*?)?$/, '\\1').presence, as: sql.match(/^CREATE (?:.*?) AS (SELECT .*?)$/).try(:[], 1) }.compact
