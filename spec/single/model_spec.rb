@@ -180,6 +180,19 @@ RSpec.describe 'Model', :migrations do
       end
     end
 
+    describe 'decimal column type' do
+      let!(:record1) do
+        Model.create!(event_name: 'some event', decimal_value: BigDecimal('95891.74'))
+      end
+
+      # If converted to float, the value would be 9589174.000000001. This happened previously
+      # due to JSON parsing of numeric values to floats.
+      it 'keeps precision' do
+        decimal_value = Model.first.decimal_value
+        expect(decimal_value).to eq(BigDecimal('95891.74'))
+      end
+    end
+
     describe '#settings' do
       it 'works' do
         sql = Model.settings(optimize_read_in_order: 1, cast_keep_nullable: 1).to_sql
