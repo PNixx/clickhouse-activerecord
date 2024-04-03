@@ -269,6 +269,10 @@ RSpec.describe 'Migration', :migrations do
     end
 
     context 'function creation' do
+      after do
+        ActiveRecord::Base.connection.drop_functions
+      end
+
       context 'plain' do
         let(:directory) { 'plain_function_creation' }
         it 'creates a function' do

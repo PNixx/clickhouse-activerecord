@@ -21,7 +21,6 @@ module ClickhouseActiverecord
 
     def drop
       establish_master_connection
-      connection.drop_functions
       connection.drop_database @configuration.database
     end
 
