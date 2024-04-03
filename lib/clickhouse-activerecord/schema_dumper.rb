@@ -34,15 +34,14 @@ HEADER
     end
 
     def tables(stream)
-      sorted_tables = @connection.tables.sort {|a,b| @connection.show_create_table(a).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) ? 1 : a <=> b }
-
-      sorted_tables.each do |table_name|
-        table(table_name, stream) unless ignored?(table_name)
-      end
-
       functions = @connection.functions
       functions.each do |function|
         function(function, stream)
+      end
+      
+      sorted_tables = @connection.tables.sort {|a,b| @connection.show_create_table(a).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) ? 1 : a <=> b }
+      sorted_tables.each do |table_name|
+        table(table_name, stream) unless ignored?(table_name)
       end
     end
 

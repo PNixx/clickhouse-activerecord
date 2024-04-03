@@ -48,11 +48,12 @@ module ClickhouseActiverecord
 
       # put to file
       File.open(args.first, 'w:utf-8') do |file|
-        tables.each do |table|
-          file.puts table + ";\n\n"
-        end
         functions.each do |function|
           file.puts function + ";\n\n"
+        end
+        
+        tables.each do |table|
+          file.puts table + ";\n\n"
         end
       end
     end
