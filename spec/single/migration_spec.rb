@@ -267,5 +267,29 @@ RSpec.describe 'Migration', :migrations do
         expect(current_schema['date'].sql_type).to eq('Date')
       end
     end
+
+    context 'function creation' do
+      after do
+        ActiveRecord::Base.connection.drop_functions
+      end
+
+      context 'plain' do
+        let(:directory) { 'plain_function_creation' }
+        it 'creates a function' do
+          subject
+
+          expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun'])
+        end
+      end
+
+      context 'dsl' do
+        let(:directory) { 'dsl_create_function' }
+        it 'creates a function' do
+          subject
+
+          expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun'])
+        end
+      end
+    end
   end
 end

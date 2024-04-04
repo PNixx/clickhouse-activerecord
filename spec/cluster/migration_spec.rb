@@ -60,6 +60,22 @@ RSpec.describe 'Cluster Migration', :migrations do
           expect(ActiveRecord::Base.connection.tables).not_to include('some_distributed')
         end
       end
+
+      context "function" do
+        after do
+          ActiveRecord::Base.connection.drop_functions
+        end
+
+        context 'dsl' do
+          let(:directory) { 'dsl_create_function' }
+          
+          it 'creates a function' do
+            subject
+  
+            expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun'])
+          end
+        end
+      end
     end
 
     context 'with alias in cluster_name' do
