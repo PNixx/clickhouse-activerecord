@@ -57,7 +57,7 @@ namespace :clickhouse do
 
   desc 'Drops the database from DATABASE_URL or config/database.yml'
   task drop: [:load_config, 'db:check_protected_environments'] do
-    ActiveRecord::Tasks::DatabaseTasks.drop(ActiveRecord::Base.configurations["#{Rails.env}_clickhouse"])
+    ClickhouseActiverecord::Tasks.new(ActiveRecord::Base.configurations["#{Rails.env}_clickhouse"]).drop
   end
 
   desc 'Empty the database from DATABASE_URL or config/database.yml'

@@ -33,8 +33,13 @@ module ClickhouseActiverecord
 
     def structure_dump(*args)
       tables = connection.execute("SHOW TABLES FROM #{@configuration['database']}")['data'].flatten
+      functions = connection.execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined'")['data'].flatten
 
       File.open(args.first, 'w:utf-8') do |file|
+        functions.each do |function|
+          file.puts function + ";\n\n"
+        end
+        
         tables.each do |table|
           next if table.match(/\.inner/)
           file.puts connection.execute("SHOW CREATE TABLE #{table}")['data'].try(:first).try(:first).gsub("#{@configuration['database']}.", '') + ";\n\n"
