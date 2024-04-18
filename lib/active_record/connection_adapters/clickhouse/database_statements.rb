@@ -101,7 +101,7 @@ module ActiveRecord
         end
 
         def system_command?(sql)
-          /^system|optimize/i.match?(sql)
+          /^system|^optimize/i.match?(sql)
         end
 
         def format_specified?(sql)
