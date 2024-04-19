@@ -12,6 +12,7 @@ require 'active_record/connection_adapters/clickhouse/oid/big_integer'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
 require 'active_record/connection_adapters/clickhouse/oid/tuple'
+require 'active_record/connection_adapters/clickhouse/oid/uuid'
 
 require 'arel/nodes/final'
 require 'arel/nodes/settings'
@@ -83,6 +84,8 @@ module ActiveRecord
           register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
           register_class_with_limit m, %r(UInt128), Type::UnsignedInteger
           register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
+
+          m.register_type %r{uuid}i, Clickhouse::OID::Uuid.new
 
           m.register_type(%r(Array)) do |sql_type|
             Clickhouse::OID::Array.new(sql_type)

@@ -144,7 +144,7 @@ RSpec.describe 'Model', :migrations do
     describe 'boolean column type' do
       it 'returns boolean' do
         model.create!(event_name: 'some event', event_value: 1, date: date)
-        expect(model.first.enabled.class).to eq(FalseClass)
+        expect(model.first.enabled).to be_a(FalseClass)
       end
     end
 
@@ -156,6 +156,27 @@ RSpec.describe 'Model', :migrations do
         expect(model.count).to eq(2)
         expect(model.final.count).to eq(1)
         expect(model.final.where(date: '2023-07-21').to_sql).to eq('SELECT sample.* FROM sample FINAL WHERE sample.date = \'2023-07-21\'')
+      end
+    end
+
+    describe 'UUID column type' do
+      let(:random_uuid) { SecureRandom.uuid }
+      let!(:record1) do
+        model.create!(event_name: 'some event', event_value: 1, date: date, relation_uuid: random_uuid)
+      end
+
+      it 'is mapped to :uuid' do
+        type = model.columns_hash['relation_uuid'].type
+        expect(type).to eq(:uuid)
+      end
+
+      it 'accepts proper value' do
+        expect(record1.relation_uuid).to eq(random_uuid)
+      end
+
+      it 'does not accept invalid values' do
+        record1.relation_uuid = 'invalid-uuid'
+        expect(record1.relation_uuid).to be_nil
       end
     end
   end

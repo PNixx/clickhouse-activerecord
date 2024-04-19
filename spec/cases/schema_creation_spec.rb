@@ -15,13 +15,13 @@ RSpec.describe 'Schema creation', :migrations do
   describe 'add column' do
     it 'adds the specified column at the end of the table' do
       model.connection.add_column :sample, :location, :string
-      expect(model.columns.map(&:name)).to eq(%w[id event_name event_value enabled date datetime datetime64 location])
+      expect(model.columns.map(&:name)).to eq(%w[id event_name event_value enabled date datetime datetime64 relation_uuid location])
     end
 
     context 'with :after option' do
       it 'adds the specified column in the correct order' do
         model.connection.add_column :sample, :location, :string, after: 'event_name'
-        expect(model.columns.map(&:name)).to eq(%w[id event_name location event_value enabled date datetime datetime64])
+        expect(model.columns.map(&:name)).to eq(%w[id event_name location event_value enabled date datetime datetime64 relation_uuid])
       end
     end
 
