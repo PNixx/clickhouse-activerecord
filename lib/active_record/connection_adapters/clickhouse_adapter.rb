@@ -139,12 +139,16 @@ module ActiveRecord
       end
 
       # Initializes and connects a Clickhouse adapter.
-      def initialize(logger, connection_parameters, config, full_config)
+      def initialize(logger, connection_parameters, config)
         super(nil, logger)
         @connection_parameters = connection_parameters
         @config = config
-        @debug = full_config[:debug] || false
-        @full_config = full_config
+        @connection_config = {
+          user: @config[:username],
+          password: @config[:password],
+          database: @config[:database]
+        }.compact
+        @debug = @config[:debug] || false
 
         @prepared_statements = false
 
@@ -152,7 +156,7 @@ module ActiveRecord
       end
 
       def migrations_paths
-        @full_config[:migrations_paths] || 'db/migrate_clickhouse'
+        @config[:migrations_paths] || 'db/migrate_clickhouse'
       end
 
       def arel_visitor # :nodoc:
@@ -191,15 +195,15 @@ module ActiveRecord
       end
 
       def cluster
-        @full_config[:cluster_name]
+        @config[:cluster_name]
       end
 
       def replica
-        @full_config[:replica_name]
+        @config[:replica_name]
       end
 
       def use_default_replicated_merge_tree_params?
-        database_engine_atomic? && @full_config[:use_default_replicated_merge_tree_params]
+        database_engine_atomic? && @config[:use_default_replicated_merge_tree_params]
       end
 
       def use_replica?
@@ -207,13 +211,13 @@ module ActiveRecord
       end
 
       def replica_path(table)
-        "/clickhouse/tables/#{cluster}/#{@config[:database]}.#{table}"
+        "/clickhouse/tables/#{cluster}/#{@connection_config[:database]}.#{table}"
       end
 
       def database_engine_atomic?
         @database_engine_atomic ||=
           begin
-            current_database_engine = "select engine from system.databases where name = '#{@config[:database]}'"
+            current_database_engine = "select engine from system.databases where name = '#{@connection_config[:database]}'"
             res = select_one(current_database_engine)
             res&.dig('engine') == 'Atomic'
           end

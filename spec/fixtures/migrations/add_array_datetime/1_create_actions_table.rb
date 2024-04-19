@@ -5,6 +5,7 @@ class CreateActionsTable < ActiveRecord::Migration[5.0]
     create_table :actions, options: 'MergeTree ORDER BY date', force: true do |t|
       t.datetime :array_datetime, null: false, array: true
       t.string :array_string, null: false, array: true
+      t.integer :array_int, null: false, array: true
       t.date :date, null: false
     end
   end

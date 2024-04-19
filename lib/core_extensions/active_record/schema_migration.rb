@@ -37,7 +37,7 @@ module CoreExtensions
           options: 'ReplacingMergeTree(ver) ORDER BY (version)',
           if_not_exists: true
         }
-        full_config = connection.instance_variable_get(:@full_config) || {}
+        full_config = connection.instance_variable_get(:@config) || {}
         if full_config[:distributed_service_tables]
           table_options[:with_distributed] = table_name
           table_options[:sharding_key] = 'cityHash64(version)'

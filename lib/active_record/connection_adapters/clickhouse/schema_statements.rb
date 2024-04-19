@@ -8,7 +8,7 @@ module ActiveRecord
         def create_database(name)
           sql = apply_cluster "CREATE DATABASE #{quote_table_name(name)}"
           log_with_debug(sql, adapter_name) do
-            res = @connection.post("/?#{@config.except(:database).to_param}", sql)
+            res = @connection.post("/?#{@connection_config.except(:database).to_param}", sql)
             process_response(res)
           end
         end
@@ -17,7 +17,7 @@ module ActiveRecord
         def drop_database(name) #:nodoc:
           sql = apply_cluster "DROP DATABASE IF EXISTS #{quote_table_name(name)}"
           log_with_debug(sql, adapter_name) do
-            res = @connection.post("/?#{@config.except(:database).to_param}", sql)
+            res = @connection.post("/?#{@connection_config.except(:database).to_param}", sql)
             process_response(res)
           end
         end
@@ -32,7 +32,7 @@ module ActiveRecord
             sharding_key = options.delete(:sharding_key) || 'rand()'
             raise 'Set a cluster' unless cluster
 
-            distributed_options = "Distributed(#{cluster}, #{@config[:database]}, #{table_name}, #{sharding_key})"
+            distributed_options = "Distributed(#{cluster}, #{@connection_config[:database]}, #{table_name}, #{sharding_key})"
             create_table(distributed_table_name,
                          id: id,
                          primary_key: primary_key,

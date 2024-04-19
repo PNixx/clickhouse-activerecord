@@ -26,13 +26,9 @@ module CoreExtensions
             }
           end
 
-          if config.key?(:database)
-            database = config[:database]
-          else
-            raise ArgumentError, 'No database specified. Missing argument: database.'
-          end
+          raise ArgumentError, 'No database specified. Missing argument: database.' unless config.key?(:database)
 
-          ::ActiveRecord::ConnectionAdapters::ClickhouseAdapter.new(logger, connection, { user: config[:username], password: config[:password], database: database }.compact, config)
+          ::ActiveRecord::ConnectionAdapters::ClickhouseAdapter.new(logger, connection, config)
         end
 
         def is_view

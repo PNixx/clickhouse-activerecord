@@ -74,7 +74,7 @@ module ActiveRecord
 
         def do_system_execute(sql, name = nil)
           log_with_debug(sql, "#{adapter_name} #{name}") do
-            res = @connection.post("/?#{@config.to_param}", "#{sql} FORMAT JSONCompact", 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
+            res = @connection.post("/?#{@connection_config.to_param}", "#{sql} FORMAT JSONCompact", 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
 
             process_response(res)
           end
@@ -110,7 +110,7 @@ module ActiveRecord
         end
 
         def settings_params(settings = {})
-          request_params = @config || {}
+          request_params = @connection_config || {}
           block_settings = @block_settings || {}
           request_params.merge(block_settings)
                         .merge(settings)
