@@ -24,7 +24,7 @@ namespace :clickhouse do
     desc 'Load database schema'
     task load: :prepare_internal_metadata_table do
       simple = ENV['simple'] || ARGV.any? { |a| a.include?('--simple') } ? '_simple' : nil
-      ActiveRecord::SchemaMigration.drop_table
+      ActiveRecord::SchemaMigration.new(current_db_config).drop_table
       load(Rails.root.join("db/clickhouse_schema#{simple}.rb"))
     end
 

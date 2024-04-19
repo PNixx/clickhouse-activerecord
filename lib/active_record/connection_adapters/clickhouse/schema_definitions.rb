@@ -65,14 +65,8 @@ module ActiveRecord
         end
 
         def datetime(*args, **options)
-          kind = :datetime
-
-          if options[:precision]
-            kind = :datetime64
-            options[:value] = options[:precision]
-          end
-
-          args.each { |name| column(name, kind, **options.except(:precision)) }
+          kind = options[:precision] ? :datetime64 : :datetime
+          args.each { |name| column(name, kind, **options) }
         end
 
         def uuid(*args, **options)
