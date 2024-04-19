@@ -33,6 +33,8 @@ module ClickhouseActiverecord
     def structure_dump(*args)
       establish_master_connection
 
+      functions = connection.execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined'")['data'].flatten
+
       views, tables =
         connection.execute("SHOW TABLES FROM #{@configuration.database}")['data'].flatten.partition do |name|
           connection.show_create_table(name).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/)
@@ -40,6 +42,10 @@ module ClickhouseActiverecord
       sorted_tables = tables.sort + views.sort
 
       File.open(args.first, 'w:utf-8') do |file|
+        functions.each do |function|
+          file.puts function + ";\n\n"
+        end
+
         sorted_tables.each do |table|
           next if table.match(/\.inner/)
           next if %w[schema_migrations ar_internal_metadata].include?(table)

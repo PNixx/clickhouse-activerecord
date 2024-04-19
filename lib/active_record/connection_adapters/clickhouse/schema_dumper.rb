@@ -38,11 +38,15 @@ HEADER
         end
 
         def tables(stream)
+          functions = @connection.functions
+          functions.each do |function|
+            function(function, stream)
+          end
+
           sorted_tables =
             @connection.tables.sort do |a, b|
               @connection.show_create_table(a).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) ? 1 : a <=> b
             end
-
           sorted_tables.each do |table_name|
             table(table_name, stream) unless ignored?(table_name)
           end
@@ -131,6 +135,15 @@ HEADER
               self.table_name = nil
             end
           end
+        end
+
+        def function(function, stream)
+          stream.puts "  # FUNCTION: #{function}"
+          sql = @connection.show_create_function(function)
+          return unless sql
+
+          stream.puts "  # SQL: #{sql}"
+          stream.puts "  create_function \"#{function}\", \"#{sql.gsub(/^CREATE FUNCTION (.*?) AS/, '').strip}\""
         end
 
         def format_options(options)

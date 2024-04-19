@@ -122,6 +122,36 @@ module ActiveRecord
           change_column table_name, column_name, nil, default: extract_new_default_value(default_or_changes)
         end
 
+        def create_function(name, body)
+          execute "CREATE FUNCTION #{apply_cluster(quote_table_name(name))} AS #{body}"
+        end
+
+        def drop_functions
+          functions.each do |function|
+            drop_function(function)
+          end
+        end
+
+        def drop_function(name, options = {})
+          query = +'DROP FUNCTION'
+          query << ' IF EXISTS' if options[:if_exists]
+          query << " #{quote_table_name(name)}"
+          query = apply_cluster(query)
+          query << ' SYNC' if options[:sync]
+
+          execute(query)
+        end
+
+        def functions
+          result = do_system_execute("SELECT name FROM system.functions WHERE origin = 'SQLUserDefined'")
+          return [] if result.nil?
+          result['data'].flatten
+        end
+
+        def show_create_function(function)
+          execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'", format: nil)
+        end
+
         # Not indexes on clickhouse
         def indexes(_table_name, _name = nil)
           []

@@ -16,7 +16,7 @@ module ActiveRecord
         end
 
         def skip_format?
-          for_insert? || system_command? || format_specified?
+          for_insert? || system_command? || schema_command? || format_specified? || delete?
         end
 
         private
@@ -29,16 +29,16 @@ module ActiveRecord
           /^system|^optimize/i.match?(@sql)
         end
 
+        def schema_command?
+          /^create|^alter|^drop|^rename/i.match?(@sql)
+        end
+
         def format_specified?
           /format [a-z]+\z/i.match?(@sql)
         end
 
         def delete?
           /^delete from/i.match?(@sql)
-        end
-
-        def update?
-          /^alter table.+ update /i.match?(@sql)
         end
 
       end
