@@ -21,7 +21,7 @@ module ActiveRecord
         end
 
         def processed_response
-          ResponseProcessor.new(@response).process
+          ResponseProcessor.new(@response, @format).process
         end
 
       end

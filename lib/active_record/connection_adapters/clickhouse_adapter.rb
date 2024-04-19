@@ -28,7 +28,7 @@ module ActiveRecord
 
       ADAPTER_NAME = 'Clickhouse'
       USER_AGENT = "ClickHouse ActiveRecord #{ClickhouseActiverecord::VERSION}"
-      DEFAULT_FORMAT = 'JSONCompact'
+      DEFAULT_FORMAT = 'JSONCompactEachRowWithNamesAndTypes'
       NATIVE_DATABASE_TYPES = {
         string: { name: 'String' },
         integer: { name: 'UInt32' },
@@ -151,6 +151,7 @@ module ActiveRecord
           database: @config[:database]
         }.compact
         @debug = @config[:debug] || false
+        @response_format = @config[:format] || DEFAULT_FORMAT
 
         @prepared_statements = false
 

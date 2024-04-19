@@ -15,11 +15,17 @@ module ActiveRecord
           @block_settings = prev_settings
         end
 
+        def with_response_format(format)
+          prev_format = @response_format
+          @response_format = format
+          yield
+        ensure
+          @response_format = prev_format
+        end
+
         def execute(sql, name = nil, settings: {})
           log(sql, [adapter_name, name].compact.join(' ')) do
-            statement = Statement.new(sql)
-            statement.response = post_statement(statement, settings: settings)
-            statement.processed_response
+            raw_execute(sql, settings: settings)
           end
         end
 
@@ -71,9 +77,7 @@ module ActiveRecord
 
         def do_system_execute(sql, name = nil, except_params: [])
           log_with_debug(sql, [adapter_name, name].compact.join(' ')) do
-            statement = Statement.new(sql)
-            statement.response = post_statement(statement, except_params: except_params)
-            statement.processed_response
+            raw_execute(sql, except_params: except_params)
           end
         end
 
@@ -98,6 +102,12 @@ module ActiveRecord
 
           normalized_cluster_name = cluster.start_with?('{') ? "'#{cluster}'" : cluster
           "#{sql} ON CLUSTER #{normalized_cluster_name}"
+        end
+
+        def raw_execute(sql, settings: {}, except_params: [])
+          statement = Statement.new(sql)
+          statement.response = post_statement(statement, settings: settings, except_params: except_params)
+          statement.processed_response
         end
 
         def post_statement(statement, settings: {}, except_params: [])
