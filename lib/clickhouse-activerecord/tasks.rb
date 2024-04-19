@@ -5,12 +5,12 @@ module ClickhouseActiverecord
     delegate :connection, :establish_connection, to: ActiveRecord::Base
 
     def initialize(configuration)
-      @configuration = configuration.with_indifferent_access
+      @configuration = configuration
     end
 
     def create
       establish_master_connection
-      connection.create_database @configuration[:database]
+      connection.create_database @configuration.database
     rescue ActiveRecord::StatementInvalid => e
       if e.cause.to_s.include?('already exists')
         raise ActiveRecord::DatabaseAlreadyExists
@@ -21,7 +21,7 @@ module ClickhouseActiverecord
 
     def drop
       establish_master_connection
-      connection.drop_database @configuration[:database]
+      connection.drop_database @configuration.database
     end
 
     def purge
@@ -31,8 +31,10 @@ module ClickhouseActiverecord
     end
 
     def structure_dump(*args)
+      establish_master_connection
+
       views, tables =
-        connection.execute("SHOW TABLES FROM #{@configuration[:database]}")['data'].flatten.partition do |name|
+        connection.execute("SHOW TABLES FROM #{@configuration.database}")['data'].flatten.partition do |name|
           connection.show_create_table(name).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/)
         end
       sorted_tables = tables.sort + views.sort
@@ -40,13 +42,15 @@ module ClickhouseActiverecord
       File.open(args.first, 'w:utf-8') do |file|
         sorted_tables.each do |table|
           next if table.match(/\.inner/)
-          file.puts connection.execute("SHOW CREATE TABLE #{table}")['data'].try(:first).try(:first).gsub("#{@configuration[:database]}.", '') + ";\n\n"
+          next if %w[schema_migrations ar_internal_metadata].include?(table)
+
+          file.puts connection.show_create_table(table).gsub("#{@configuration.database}.", '') + ";\n\n"
         end
       end
     end
 
-    def structure_load(*args)
-      File.read(args.first)
+    def structure_load(path, *)
+      File.read(path)
           .split(";\n\n")
           .compact_blank
           .each do |sql|
