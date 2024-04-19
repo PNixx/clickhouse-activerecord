@@ -4,7 +4,7 @@ module CoreExtensions
   module ActiveRecord
     module InternalMetadata
       def create_table
-        return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+        return super unless connection.adapter_name == "Clickhouse"
 
         return if table_exists? || !enabled?
 
@@ -32,13 +32,13 @@ module CoreExtensions
       private
 
       def update_entry(key, new_value)
-        return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+        return super unless connection.adapter_name == "Clickhouse"
 
         create_entry(key, new_value)
       end
 
       def select_entry(key)
-        return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+        return super unless connection.adapter_name == "Clickhouse"
 
         sm = ::Arel::SelectManager.new(arel_table)
         sm.final! if connection.table_options(table_name)[:options] =~ /^ReplacingMergeTree/

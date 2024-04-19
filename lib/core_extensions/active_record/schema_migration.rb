@@ -4,7 +4,7 @@ module CoreExtensions
   module ActiveRecord
     module SchemaMigration
       def delete_version(version)
-        return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+        return super unless connection.adapter_name == "Clickhouse"
 
         im = ::Arel::InsertManager.new
         im.into arel_table
@@ -13,7 +13,7 @@ module CoreExtensions
       end
 
       def versions
-        return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+        return super unless connection.adapter_name == "Clickhouse"
 
         table = arel_table
         sm = ::Arel::SelectManager.new(table)
@@ -26,7 +26,7 @@ module CoreExtensions
       end
 
       def create_table
-        return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+        return super unless connection.adapter_name == "Clickhouse"
 
         return if table_exists?
 
@@ -52,7 +52,7 @@ module CoreExtensions
       end
 
       def all_versions
-        return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+        return super unless connection.adapter_name == "Clickhouse"
 
         final.where(active: 1).order(:version).pluck(:version)
       end

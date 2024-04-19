@@ -36,14 +36,14 @@ module CoreExtensions
         end
 
         def is_view
-          return false unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+          return false unless connection.adapter_name == "Clickhouse"
 
           @is_view || false
         end
 
         # @param [Boolean] value
         def is_view=(value)
-          raise NotImplementedError, "Only used by models backed by Clickhouse" unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+          raise NotImplementedError, "Only used by models backed by Clickhouse" unless connection.adapter_name == "Clickhouse"
 
           @is_view = value
         end

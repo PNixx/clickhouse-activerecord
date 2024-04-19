@@ -5,7 +5,7 @@ module CoreExtensions
     module Relation
 
       def reverse_order!
-        return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+        return super unless connection.adapter_name == "Clickhouse"
 
         orders = order_values.uniq.compact_blank
         return super unless orders.empty? && !primary_key
@@ -73,7 +73,7 @@ module CoreExtensions
       private
 
       def check_command!(cmd)
-        raise ::ActiveRecord::ActiveRecordError, "#{cmd} is a ClickHouse specific query clause" unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+        raise ::ActiveRecord::ActiveRecordError, "#{cmd} is a ClickHouse specific query clause" unless connection.adapter_name == "Clickhouse"
       end
 
       def build_arel(aliases = nil)
