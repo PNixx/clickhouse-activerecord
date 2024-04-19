@@ -4,15 +4,15 @@ module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       class SqlFormatter
-
-        def initialize(sql)
+        def initialize(sql, format:)
           @sql = sql
+          @format = format
         end
 
         def apply
           return @sql if skip_format?
 
-          "#{@sql} FORMAT #{ClickhouseAdapter::DEFAULT_FORMAT}"
+          "#{@sql} FORMAT #{@format}"
         end
 
         def skip_format?

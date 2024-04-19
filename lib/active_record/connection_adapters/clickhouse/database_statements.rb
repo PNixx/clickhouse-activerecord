@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'active_record/connection_adapters/clickhouse/response_processor'
-require 'active_record/connection_adapters/clickhouse/sql_formatter'
 require 'clickhouse-activerecord/version'
 
 module ActiveRecord
@@ -18,11 +16,10 @@ module ActiveRecord
         end
 
         def execute(sql, name = nil, settings: {})
-          log(sql, "#{adapter_name} #{name}") do
-            formatted_sql = apply_format(sql)
-            res = @connection.post("/?#{settings_params(settings)}", formatted_sql, 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
-
-            process_response(res)
+          log(sql, [adapter_name, name].compact.join(' ')) do
+            statement = Statement.new(sql)
+            statement.response = post_statement(statement, settings: settings)
+            statement.processed_response
           end
         end
 
@@ -72,11 +69,11 @@ module ActiveRecord
           true
         end
 
-        def do_system_execute(sql, name = nil)
-          log_with_debug(sql, "#{adapter_name} #{name}") do
-            res = @connection.post("/?#{@connection_config.to_param}", "#{sql} FORMAT JSONCompact", 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
-
-            process_response(res)
+        def do_system_execute(sql, name = nil, except_params: [])
+          log_with_debug(sql, [adapter_name, name].compact.join(' ')) do
+            statement = Statement.new(sql)
+            statement.response = post_statement(statement, except_params: except_params)
+            statement.processed_response
           end
         end
 
@@ -103,12 +100,10 @@ module ActiveRecord
           "#{sql} ON CLUSTER #{normalized_cluster_name}"
         end
 
-        def apply_format(sql)
-          SqlFormatter.new(sql).apply
-        end
-
-        def process_response(res)
-          ResponseProcessor.new(res).process
+        def post_statement(statement, settings: {}, except_params: [])
+          @connection.post("/?#{settings_params(settings, except: except_params)}",
+                           statement.formatted_sql,
+                           'User-Agent' => ClickhouseAdapter::USER_AGENT)
         end
 
         def log_with_debug(sql, name = nil)
@@ -117,11 +112,12 @@ module ActiveRecord
           log(sql, "#{name} (system)") { yield }
         end
 
-        def settings_params(settings = {})
+        def settings_params(settings = {}, except: [])
           request_params = @connection_config || {}
           block_settings = @block_settings || {}
           request_params.merge(block_settings)
                         .merge(settings)
+                        .except(*except)
                         .to_param
         end
       end

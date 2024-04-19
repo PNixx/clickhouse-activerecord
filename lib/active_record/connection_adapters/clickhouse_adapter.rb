@@ -6,6 +6,7 @@ require 'active_record/connection_adapters/clickhouse/schema_creation'
 require 'active_record/connection_adapters/clickhouse/schema_definitions'
 require 'active_record/connection_adapters/clickhouse/schema_dumper'
 require 'active_record/connection_adapters/clickhouse/schema_statements'
+require 'active_record/connection_adapters/clickhouse/statement'
 
 require 'active_record/connection_adapters/clickhouse/oid/array'
 require 'active_record/connection_adapters/clickhouse/oid/big_integer'
@@ -26,6 +27,7 @@ module ActiveRecord
     class ClickhouseAdapter < AbstractAdapter
 
       ADAPTER_NAME = 'Clickhouse'
+      USER_AGENT = "ClickHouse ActiveRecord #{ClickhouseActiverecord::VERSION}"
       DEFAULT_FORMAT = 'JSONCompact'
       NATIVE_DATABASE_TYPES = {
         string: { name: 'String' },
