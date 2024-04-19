@@ -80,6 +80,14 @@ module ActiveRecord
           end
         end
 
+        # Fix insert_all method
+        # https://github.com/PNixx/clickhouse-activerecord/issues/71#issuecomment-1923244983
+        def with_yaml_fallback(value) # :nodoc:
+          return value if value.is_a?(Array)
+
+          super
+        end
+
         protected
 
         def last_inserted_id(result)

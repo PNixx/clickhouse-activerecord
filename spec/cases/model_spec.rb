@@ -254,6 +254,17 @@ RSpec.describe 'Model', :migrations do
         expect(event.array_int).to eq([1, 2])
       end
 
+      it 'create with insert all' do
+        expect {
+          model.insert_all([{
+                              array_datetime: [1.day.ago, Time.now, '2022-12-06 15:22:49'],
+                              array_string: %w[asdf jkl],
+                              array_int: [1, 2],
+                              date: date
+                            }])
+        }.to change { model.count }
+      end
+
       it 'get record' do
         model.connection.insert("INSERT INTO #{model.table_name} (id, array_datetime, date) VALUES (1, '[''2022-12-06 15:22:49'',''2022-12-05 15:22:49'']', '2022-12-06')")
         expect(model.count).to eq(1)
