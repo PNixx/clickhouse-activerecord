@@ -34,6 +34,9 @@ module CoreExtensions
       def update_entry(key, new_value)
         return super unless connection.adapter_name == "Clickhouse"
 
+        existing = select_entry(key)
+        return if existing&.value == new_value
+
         create_entry(key, new_value)
       end
 

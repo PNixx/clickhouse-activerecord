@@ -20,7 +20,7 @@ namespace :clickhouse do
   end
 
   namespace :schema do
-    # TODO: not testing
+    # TODO: deprecated
     desc 'Load database schema'
     task load: :prepare_internal_metadata_table do
       simple = ENV['simple'] || ARGV.any? { |a| a.include?('--simple') } ? '_simple' : nil
@@ -28,6 +28,7 @@ namespace :clickhouse do
       load(Rails.root.join("db/clickhouse_schema#{simple}.rb"))
     end
 
+    # TODO: deprecated
     desc 'Dump database schema'
     task dump: :environment do |_t, args|
       simple = ENV['simple'] || args[:simple] || ARGV.any? { |a| a.include?('--simple') } ? '_simple' : nil
