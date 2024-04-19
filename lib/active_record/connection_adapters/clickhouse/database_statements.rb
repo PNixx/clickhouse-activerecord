@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'active_record/connection_adapters/clickhouse/response_processor'
 require 'active_record/connection_adapters/clickhouse/sql_formatter'
 require 'clickhouse-activerecord/version'
 
@@ -99,25 +100,7 @@ module ActiveRecord
         end
 
         def process_response(res)
-          case res.code.to_i
-          when 200
-            if res.body.to_s.include?("DB::Exception")
-              raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}"
-            else
-              res.body.presence && JSON.parse(res.body)
-            end
-          else
-            case res.body
-            when /DB::Exception:.*\(UNKNOWN_DATABASE\)/
-              raise ActiveRecord::NoDatabaseError
-            when /DB::Exception:.*\(DATABASE_ALREADY_EXISTS\)/
-              raise ActiveRecord::DatabaseAlreadyExists
-            else
-              raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}"
-            end
-          end
-        rescue JSON::ParserError
-          res.body
+          ResponseProcessor.new(res).process
         end
 
         def log_with_debug(sql, name = nil)
