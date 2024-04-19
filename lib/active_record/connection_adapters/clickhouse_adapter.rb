@@ -224,8 +224,20 @@ module ActiveRecord
         true
       end
 
+      def supports_update?
+        database_version >= Gem::Version.new('23.3')
+      end
+
+      def supports_delete?
+        database_version >= Gem::Version.new('23.3')
+      end
+
       def build_insert_sql(insert) # :nodoc:
         +"INSERT #{insert.into} #{insert.values_list}"
+      end
+
+      def get_database_version
+        Gem::Version.new(query_value('SELECT version()'))
       end
 
       private

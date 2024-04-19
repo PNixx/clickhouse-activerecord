@@ -22,6 +22,17 @@ module Arel # :nodoc: all
         maybe_visit o.settings, super
       end
 
+      def visit_Arel_Nodes_UpdateStatement(o, collector)
+        o = prepare_update_statement(o)
+
+        collector << 'ALTER TABLE '
+        collector = visit o.relation, collector
+        collect_nodes_for o.values, collector, ' UPDATE '
+        collect_nodes_for o.wheres, collector, ' WHERE ', ' AND '
+        collect_nodes_for o.orders, collector, ' ORDER BY '
+        maybe_visit o.limit, collector
+      end
+
       def visit_Arel_Nodes_Settings(o, collector)
         return collector if o.expr.empty?
 

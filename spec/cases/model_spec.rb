@@ -41,21 +41,76 @@ RSpec.describe 'Model', :migrations do
     describe '#update' do
       let(:record) { model.create!(event_name: 'some event', date: date) }
 
-      it 'raises an error' do
-        expect {
+      before do
+        model.connection.schema_cache.clear!
+      end
+
+      context 'when version is < 23.3' do
+        before do
+          allow(model.connection).to receive(:get_database_version).and_return(Gem::Version.new('23.2'))
+        end
+
+        it 'raises an error' do
+          expect {
+            record.update!(event_name: 'new event name')
+          }.to raise_error(ActiveRecord::ActiveRecordError, 'ClickHouse update is not supported')
+        end
+      end
+
+      context 'when version is >= 23.3' do
+        before do
+          allow(model.connection).to receive(:get_database_version).and_return(Gem::Version.new('23.3'))
+        end
+
+        it 'issues an ALTER TABLE...UPDATE statement' do
+          captured = []
+          allow(model.connection).to receive(:execute).and_wrap_original do |original_method, *args, **opts|
+            captured << args.first
+            original_method.call(*args, **opts) unless /^alter table/i.match?(args.first)
+          end
+
           record.update!(event_name: 'new event name')
-        }.to raise_error(ActiveRecord::ActiveRecordError, 'Clickhouse update is not supported')
+
+          expect(captured).to include(start_with("ALTER TABLE sample UPDATE event_name = 'new event name'"))
+        end
       end
     end
 
     describe '#destroy' do
       let(:record) { model.create!(event_name: 'some event', date: date) }
 
-      it 'raises an error' do
-        expect {
-          record.destroy!
-        }.to raise_error(ActiveRecord::ActiveRecordError, 'Clickhouse delete is not supported')
+      before do
+        model.connection.schema_cache.clear!
       end
+
+      context 'when version is < 23.3' do
+        before do
+          allow(model.connection).to receive(:get_database_version).and_return(Gem::Version.new('23.2'))
+        end
+
+        it 'raises an error' do
+          expect { model.where(event_name: 'some event').delete_all }.to raise_error(ActiveRecord::ActiveRecordError, 'ClickHouse delete is not supported')
+        end
+      end
+
+      context 'when version is >= 23.3' do
+        before do
+          allow(model.connection).to receive(:get_database_version).and_return(Gem::Version.new('23.3'))
+        end
+
+        it 'issues a DELETE statement' do
+          captured = []
+          allow(model.connection).to receive(:execute).and_wrap_original do |original_method, *args, **opts|
+            captured << args.first
+            original_method.call(*args, **opts) unless /^delete from/i.match?(args.first)
+          end
+
+          model.where(event_name: 'some event').delete_all
+
+          expect(captured).to include("DELETE FROM sample WHERE sample.event_name = 'some event'")
+        end
+      end
+
     end
 
     describe '#reverse_order!' do

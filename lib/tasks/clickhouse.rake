@@ -75,7 +75,7 @@ namespace :clickhouse do
   desc 'Migrate the clickhouse database'
   task migrate: %i[prepare_schema_migration_table prepare_internal_metadata_table] do
     Rake::Task['db:migrate:clickhouse'].execute
-    if File.exists? Rails.root.join('db/clickhouse_schema_simple.rb')
+    if File.exist? Rails.root.join('db/clickhouse_schema_simple.rb')
       Rake::Task['clickhouse:schema:dump'].execute(simple: true)
     end
   end
@@ -83,7 +83,7 @@ namespace :clickhouse do
   desc 'Rollback the clickhouse database'
   task rollback: %i[prepare_schema_migration_table prepare_internal_metadata_table] do
     Rake::Task['db:rollback:clickhouse'].execute
-    Rake::Task['clickhouse:schema:dump'].execute(simple: true) if File.exists?(Rails.root.join('db/clickhouse_schema_simple.rb'))
+    Rake::Task['clickhouse:schema:dump'].execute(simple: true) if File.exist?(Rails.root.join('db/clickhouse_schema_simple.rb'))
   end
 
   def current_db_config

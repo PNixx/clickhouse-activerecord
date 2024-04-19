@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'active_record/connection_adapters/clickhouse/sql_formatter'
 require 'clickhouse-activerecord/version'
 
 module ActiveRecord
@@ -54,12 +55,20 @@ module ActiveRecord
           true
         end
 
-        def exec_update(_sql, _name = nil, _binds = [])
-          raise ActiveRecord::ActiveRecordError, 'Clickhouse update is not supported'
+        # @link https://clickhouse.com/docs/en/sql-reference/statements/alter/update
+        def exec_update(sql, name = nil, _binds = [])
+          raise ActiveRecord::ActiveRecordError, 'ClickHouse update is not supported' unless supports_update?
+
+          execute(sql, name)
+          true
         end
 
-        def exec_delete(_sql, _name = nil, _binds = [])
-          raise ActiveRecord::ActiveRecordError, 'Clickhouse delete is not supported'
+        # @link https://clickhouse.com/docs/en/sql-reference/statements/delete
+        def exec_delete(sql, name = nil, _binds = [])
+          raise ActiveRecord::ActiveRecordError, 'ClickHouse delete is not supported' unless supports_delete?
+
+          execute(sql, name)
+          true
         end
 
         def do_system_execute(sql, name = nil)
@@ -85,27 +94,8 @@ module ActiveRecord
           "#{sql} ON CLUSTER #{normalized_cluster_name}"
         end
 
-        # TODO: Extract this whole thing info a separate FormatWrapper class
         def apply_format(sql)
-          return sql unless formattable?(sql)
-
-          "#{sql} FORMAT #{ClickhouseAdapter::DEFAULT_FORMAT}"
-        end
-
-        def formattable?(sql)
-          !for_insert?(sql) && !system_command?(sql) && !format_specified?(sql)
-        end
-
-        def for_insert?(sql)
-          /^insert into/i.match?(sql)
-        end
-
-        def system_command?(sql)
-          /^system|^optimize/i.match?(sql)
-        end
-
-        def format_specified?(sql)
-          /format [a-z]+\z/i.match?(sql)
+          SqlFormatter.new(sql).apply
         end
 
         def process_response(res)

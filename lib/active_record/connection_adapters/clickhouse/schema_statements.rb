@@ -71,7 +71,10 @@ module ActiveRecord
 
         def table_options(table)
           sql = show_create_table(table)
-          { options: sql.gsub(/^.*?(?:ENGINE = (.*?))?( AS SELECT .*?)?$/, '\\1').presence, as: sql.match(/^CREATE.*? AS (SELECT .*?)$/).try(:[], 1) }.compact
+          {
+            options: sql.gsub(/^.*?(?:ENGINE = (.*?))?( AS SELECT .*?)?$/, '\\1').presence,
+            as: sql.match(/^CREATE.*? AS (SELECT .*?)$/).try(:[], 1)
+          }.compact
         end
 
         def primary_key(table_name) #:nodoc:
@@ -92,9 +95,7 @@ module ActiveRecord
           td = create_table_definition(apply_cluster(table_name), **options)
           yield td if block_given?
 
-          if options[:force]
-            drop_table(table_name, **options, if_exists: true)
-          end
+          drop_table(table_name, **options, if_exists: true) if options[:force]
 
           execute schema_creation.accept td
         end
