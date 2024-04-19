@@ -10,7 +10,6 @@ require 'active_support/testing/stream'
 ClickhouseActiverecord.load
 
 FIXTURES_PATH = File.join(File.dirname(__FILE__), 'fixtures')
-CLUSTER_NAME = 'test'
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
@@ -34,16 +33,20 @@ RSpec.configure do |config|
     clear_db
     ActiveRecord::Base.connection.schema_cache.clear!
   end
+
+  config.filter_run_excluding cluster: !ENV.key?('CLICKHOUSE_CLUSTER')
 end
 
 ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(
   default: {
     adapter: 'clickhouse',
     host: 'localhost',
-    port: 8123,
-    database: 'test',
+    port: ENV.fetch('CLICKHOUSE_PORT', 8123),
+    database: ENV.fetch('CLICKHOUSE_DATABASE', 'test'),
     username: nil,
-    password: nil
+    password: nil,
+    use_metadata_table: !ENV['CLICKHOUSE_CLUSTER'],
+    cluster_name: ENV['CLICKHOUSE_CLUSTER'],
   },
   in_mem: {
     database: ':memory:',
@@ -63,12 +66,17 @@ def schema(model)
 end
 
 def clear_db
-  cluster = ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
+  cluster =
+    if ActiveRecord::version >= Gem::Version.new('6.1')
+      ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
+    else
+      ActiveRecord::Base.connection_config[:cluster_name]
+    end
   pattern =
     if cluster
       normalized_cluster_name = cluster.start_with?('{') ? "'#{cluster}'" : cluster
 
-      "DROP TABLE %s ON CLUSTER #{normalized_cluster_name}"
+      "DROP TABLE %s ON CLUSTER #{normalized_cluster_name} SYNC"
     else
       'DROP TABLE %s'
     end

@@ -57,7 +57,7 @@ if ActiveRecord.version >= Gem::Version.new('6.1')
     end
 
     describe 'internal metadata' do
-      it 'creates ar_internal_metadata correctly for Clickhouse' do
+      it 'creates ar_internal_metadata correctly for ClickHouse' do
         migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_sample_data')
         quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).migrate }
 

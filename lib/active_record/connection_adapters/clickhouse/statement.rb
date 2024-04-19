@@ -21,7 +21,22 @@ module ActiveRecord
         end
 
         def processed_response
+          return delete_result if delete?
+
           ResponseProcessor.new(@response, @format).process
+        end
+
+        private
+
+        def delete?
+          /^delete from/i.match?(@sql)
+        end
+
+        def delete_result
+          data = JSON.parse(@response.header['x-clickhouse-summary'])
+          data['result_rows'].to_i
+        rescue JSONError
+          0
         end
 
       end

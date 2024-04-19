@@ -137,7 +137,7 @@ RSpec.describe 'Model', :migrations do
 
           model.where(event_name: 'some event').delete_all
 
-          expect(captured).to include("DELETE FROM sample WHERE sample.event_name = 'some event'")
+          expect(captured).to include("DELETE FROM sample WHERE event_name = 'some event'")
         end
       end
 
@@ -176,17 +176,21 @@ RSpec.describe 'Model', :migrations do
         model.create!(event_name: 'some event', event_value: 1, date: date)
         expect(model.first.enabled).to be_a(FalseClass)
       end
+
+      it 'is mapped to :boolean' do
+        type = model.columns_hash['enabled'].type
+        expect(type).to eq(:boolean)
+      end
     end
 
-    describe 'final request' do
-      it 'issues a FINAL query' do
-        model.create!(date: date, event_name: '1')
-        model.create!(date: date, event_name: '1')
+    describe 'string column type as byte array' do
+      let(:bytes) { (0..255).to_a }
+      let!(:record1) { model.create!(event_name: 'some event', byte_array: bytes.pack('C*')) }
 
-        expect(model.count).to eq(2)
-        expect(model.final.count).to eq(1)
-        expect(model.final!.count).to eq(1)
-        expect(model.final.where(date: '2023-07-21').to_sql).to eq('SELECT sample.* FROM sample FINAL WHERE sample.date = \'2023-07-21\'')
+      it 'keeps all bytes' do
+        returned_byte_array = model.first.byte_array
+
+        expect(returned_byte_array.unpack('C*')).to eq(bytes)
       end
     end
 
@@ -208,6 +212,18 @@ RSpec.describe 'Model', :migrations do
       it 'does not accept invalid values' do
         record1.relation_uuid = 'invalid-uuid'
         expect(record1.relation_uuid).to be_nil
+      end
+    end
+
+    describe 'final request' do
+      it 'issues a FINAL query' do
+        model.create!(date: date, event_name: '1')
+        model.create!(date: date, event_name: '1')
+
+        expect(model.count).to eq(2)
+        expect(model.final.count).to eq(1)
+        expect(model.final!.count).to eq(1)
+        expect(model.final.where(date: '2023-07-21').to_sql).to eq('SELECT sample.* FROM sample FINAL WHERE sample.date = \'2023-07-21\'')
       end
     end
 

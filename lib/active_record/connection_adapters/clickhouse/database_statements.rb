@@ -64,7 +64,7 @@ module ActiveRecord
           raise ActiveRecord::ActiveRecordError, 'ClickHouse update is not supported' unless supports_update?
 
           execute(sql, name)
-          true
+          0
         end
 
         # @link https://clickhouse.com/docs/en/sql-reference/statements/delete
@@ -72,7 +72,6 @@ module ActiveRecord
           raise ActiveRecord::ActiveRecordError, 'ClickHouse delete is not supported' unless supports_delete?
 
           execute(sql, name)
-          true
         end
 
         def do_system_execute(sql, name = nil, except_params: [])

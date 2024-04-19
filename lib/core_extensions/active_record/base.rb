@@ -43,6 +43,12 @@ module CoreExtensions
 
           @is_view = value
         end
+
+        def _delete_record(constraints)
+          raise ActiveRecord::ActiveRecordError.new('Deleting a row is not possible without a primary key') unless primary_key
+
+          super
+        end
       end
     end
   end
