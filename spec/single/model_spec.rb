@@ -213,6 +213,11 @@ RSpec.describe 'Model', :migrations do
         record1.relation_uuid = 'invalid-uuid'
         expect(record1.relation_uuid).to be_nil
       end
+
+      it 'accepts non-canonical uuid' do
+        record1.relation_uuid = 'ABCD-0123-4567-89EF-dead-beef-0101-1010'
+        expect(record1.relation_uuid).to eq('abcd0123-4567-89ef-dead-beef01011010')
+      end
     end
 
     describe 'final request' do
