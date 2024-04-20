@@ -30,27 +30,20 @@ module ClickhouseActiverecord
       create
     end
 
-    def structure_dump(*args)
+    def structure_dump(path, *)
       establish_master_connection
 
       functions = connection.execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined'")['data'].flatten
+      table_defs = connection.execute("SHOW TABLES FROM #{@configuration.database}")['data']
+                     .flatten
+                     .reject { |name| /\.inner/.match?(name) || %w[schema_migrations ar_internal_metadata].include?(name) }
+                     .map { |name| connection.show_create_table(name).gsub("#{@configuration.database}.", '') }
+      views, tables = table_defs.partition { |sql| sql.match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) }
+      definitions = functions.sort + tables.sort + views.sort
 
-      views, tables =
-        connection.execute("SHOW TABLES FROM #{@configuration.database}")['data'].flatten.partition do |name|
-          connection.show_create_table(name).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/)
-        end
-      sorted_tables = tables.sort + views.sort
-
-      File.open(args.first, 'w:utf-8') do |file|
-        functions.each do |function|
-          file.puts function + ";\n\n"
-        end
-
-        sorted_tables.each do |table|
-          next if table.match(/\.inner/)
-          next if %w[schema_migrations ar_internal_metadata].include?(table)
-
-          file.puts connection.show_create_table(table).gsub("#{@configuration.database}.", '') + ";\n\n"
+      File.open(path, 'w:utf-8') do |file|
+        definitions.each do |sql|
+          file.puts "#{sql};\n\n"
         end
       end
     end
