@@ -4,6 +4,11 @@ module Arel # :nodoc: all
   module Visitors
     class Clickhouse < Arel::Visitors::ToSql
 
+      def compile(node, collector = Arel::Collectors::SQLString.new)
+        @delete_or_update = false
+        super
+      end
+
       def aggregate(name, o, collector)
         if o.expressions.first && o.expressions.first != '*' && !o.expressions.first.is_a?(String) && o.expressions.first.respond_to?(:relation) && o.expressions.first.relation&.is_view
           super("#{name.downcase}Merge", o, collector)
@@ -15,8 +20,16 @@ module Arel # :nodoc: all
       # https://clickhouse.com/docs/en/sql-reference/statements/delete
       # DELETE and UPDATE in ClickHouse working only without table name
       def visit_Arel_Attributes_Attribute(o, collector)
-        collector << quote_table_name(o.relation.table_alias || o.relation.name) << '.' unless collector.value.start_with?('DELETE FROM ') || collector.value.include?(' UPDATE ')
+        unless @delete_or_update
+          join_name  = o.relation.table_alias || o.relation.name
+          collector << quote_table_name(join_name) << '.'
+        end
         collector << quote_column_name(o.name)
+      end
+
+      def visit_Arel_Nodes_DeleteStatement(o, collector)
+        @delete_or_update = true
+        super
       end
 
       def visit_Arel_Nodes_Final(o, collector)
@@ -53,6 +66,7 @@ module Arel # :nodoc: all
       end
 
       def visit_Arel_Nodes_UpdateStatement(o, collector)
+        @delete_or_update = true
         o = prepare_update_statement(o)
 
         collector << 'ALTER TABLE '
