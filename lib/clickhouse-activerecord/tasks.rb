@@ -10,7 +10,7 @@ module ClickhouseActiverecord
 
     def create
       establish_master_connection
-      connection.create_database @configuration.database
+      connection.create_database @configuration[:database]
     rescue ActiveRecord::StatementInvalid => e
       if e.cause.to_s.include?('already exists')
         raise ActiveRecord::DatabaseAlreadyExists
@@ -21,7 +21,7 @@ module ClickhouseActiverecord
 
     def drop
       establish_master_connection
-      connection.drop_database @configuration.database
+      connection.drop_database @configuration[:database]
     end
 
     def purge
@@ -34,10 +34,10 @@ module ClickhouseActiverecord
       establish_master_connection
 
       functions = connection.execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined'")['data'].flatten
-      table_defs = connection.execute("SHOW TABLES FROM #{@configuration.database}")['data']
+      table_defs = connection.execute("SHOW TABLES FROM #{@configuration[:database]}")['data']
                      .flatten
                      .reject { |name| /\.inner/.match?(name) || %w[schema_migrations ar_internal_metadata].include?(name) }
-                     .map { |name| connection.show_create_table(name).gsub("#{@configuration.database}.", '') }
+                     .map { |name| connection.show_create_table(name).gsub("#{@configuration[:database]}.", '') }
       views, tables = table_defs.partition { |sql| sql.match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) }
       definitions = functions.sort + tables.sort + views.sort
 
