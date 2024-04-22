@@ -108,7 +108,7 @@ module ActiveRecord
 
         def visit_ChangeColumnDefinition(o)
           column = o.column
-          column.sql_type = type_to_sql(column.type, column.options)
+          column.sql_type = type_to_sql(column.type, **column.options)
           options = column_options(column)
 
           quoted_column_name = quote_column_name(o.name)
