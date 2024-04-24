@@ -37,7 +37,7 @@ module ClickhouseActiverecord
       table_defs = connection.execute("SHOW TABLES FROM #{@configuration[:database]}")['data']
                      .flatten
                      .reject { |name| /\.inner/.match?(name) || %w[schema_migrations ar_internal_metadata].include?(name) }
-                     .map { |name| connection.show_create_table(name).gsub("#{@configuration[:database]}.", '') }
+                     .map { |name| connection.show_create_table(name, single_line: false).gsub("#{@configuration[:database]}.", '') }
       views, tables = table_defs.partition { |sql| sql.match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) }
       definitions = functions.sort + tables.sort + views.sort
 
