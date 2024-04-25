@@ -12,3 +12,6 @@ services:
     volumes:
       - './clickhouse/single/config.xml:/etc/clickhouse-server/config.xml'
       - './clickhouse/users.xml:/etc/clickhouse-server/users.xml'
+    healthcheck:
+      test: bash -c "exec 6<> /dev/tcp/localhost/8123"
+      interval: 5s

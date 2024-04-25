@@ -94,6 +94,21 @@ module ActiveRecord
           args.each { |name| column(name, kind, **options.except(:limit)) }
         end
       end
+
+      class IndexDefinition
+        attr_reader :table, :name, :expression, :type, :granularity, :first, :after
+
+        def initialize(table, name, expression, type, granularity, first:, after:)
+          @table = table
+          @name = name
+          @expression = expression
+          @type = type
+          @granularity = granularity
+          @first = first
+          @after = after
+        end
+
+      end
     end
   end
 end

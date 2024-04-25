@@ -1,4 +1,3 @@
-# frozen_string_literal: true
 begin
   require "active_record/connection_adapters/deduplicable"
 rescue LoadError => e
@@ -93,6 +92,14 @@ module ActiveRecord
 
           statements = o.columns.map { |c| accept c }
           statements << accept(o.primary_keys) if o.primary_keys
+
+          if supports_indexes_in_create?
+            indexes = o.indexes.map do |expression, options|
+              accept(@conn.add_index_options(o.name, expression, **options))
+            end
+            statements.concat(indexes)
+          end
+
           create_sql << "(#{statements.join(', ')})" if statements.present?
           # Attach options for only table or materialized view without TO section
           add_table_options!(create_sql, o) if !o.view || o.view && o.materialized && !o.to
@@ -122,6 +129,19 @@ module ActiveRecord
           end
 
           change_column_sql
+        end
+
+        def visit_IndexDefinition(o, create = false)
+          sql = create ? ["ALTER TABLE #{quote_table_name(o.table)} ADD"] : []
+          sql << "INDEX #{quote_column_name(o.name)} (#{o.expression}) TYPE #{o.type} GRANULARITY #{o.granularity}"
+          sql << "FIRST #{quote_column_name(o.first)}" if o.first
+          sql << "AFTER #{quote_column_name(o.after)}" if o.after
+
+          sql.join(' ')
+        end
+
+        def visit_CreateIndexDefinition(o)
+          visit_IndexDefinition(o.index, true)
         end
 
         def current_database

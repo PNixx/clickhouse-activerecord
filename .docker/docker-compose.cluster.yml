@@ -15,6 +15,9 @@ services:
     volumes:
       - './clickhouse/cluster/server1_config.xml:/etc/clickhouse-server/config.xml'
       - './clickhouse/users.xml:/etc/clickhouse-server/users.xml'
+    healthcheck:
+      test: bash -c "exec 6<> /dev/tcp/localhost/8123"
+      interval: 5s
 
   clickhouse2:
     image: 'clickhouse/clickhouse-server:${CLICKHOUSE_VERSION-23.11-alpine}'
@@ -29,6 +32,9 @@ services:
     volumes:
       - './clickhouse/cluster/server2_config.xml:/etc/clickhouse-server/config.xml'
       - './clickhouse/users.xml:/etc/clickhouse-server/users.xml'
+    healthcheck:
+      test: bash -c "exec 6<> /dev/tcp/localhost/8123"
+      interval: 5s
 
   # Using Nginx as a cluster entrypoint and a round-robin load balancer for HTTP requests
   nginx:
@@ -39,3 +45,8 @@ services:
     volumes:
       - './nginx/local.conf:/etc/nginx/conf.d/local.conf'
     container_name: clickhouse-activerecord-nginx
+    depends_on:
+      clickhouse1:
+        condition: service_healthy
+      clickhouse2:
+        condition: service_healthy

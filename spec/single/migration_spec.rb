@@ -209,6 +209,24 @@ RSpec.describe 'Migration', :migrations do
             expect(ActiveRecord::Base.connection.tables).not_to include('some_view')
           end
         end
+
+        context 'with index' do
+          let(:directory) { 'dsl_create_table_with_index' }
+
+          it 'creates a table' do
+            quietly { migration_context.up(1) }
+
+            expect(ActiveRecord::Base.connection.show_create_table('some')).to include('INDEX idx (int1 * int2, date) TYPE minmax GRANULARITY 3')
+
+            quietly { migration_context.up(2) }
+
+            expect(ActiveRecord::Base.connection.show_create_table('some')).to_not include('INDEX idx')
+
+            quietly { migration_context.up(3) }
+
+            expect(ActiveRecord::Base.connection.show_create_table('some')).to include('INDEX idx2 int1 * int2 TYPE set(10) GRANULARITY 4')
+          end
+        end
       end
     end
 

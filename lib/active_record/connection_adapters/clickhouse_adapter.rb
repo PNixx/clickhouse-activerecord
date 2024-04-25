@@ -149,6 +149,10 @@ module ActiveRecord
         !native_database_types[type].nil?
       end
 
+      def supports_indexes_in_create?
+        true
+      end
+
       class << self
         def extract_limit(sql_type) # :nodoc:
           case sql_type
@@ -384,6 +388,11 @@ module ActiveRecord
 
       def change_column_default(table_name, column_name, default)
         change_column table_name, column_name, nil, {default: default}.compact
+      end
+
+      def remove_index(table_name, name)
+        query = apply_cluster("ALTER TABLE #{quote_table_name(table_name)}")
+        execute "#{query} DROP INDEX #{quote_column_name(name)}"
       end
 
       def cluster

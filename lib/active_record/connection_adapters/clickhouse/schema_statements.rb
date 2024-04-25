@@ -77,6 +77,19 @@ module ActiveRecord
           []
         end
 
+        def add_index_options(table_name, expression, **options)
+          options.assert_valid_keys(:name, :type, :granularity, :first, :after)
+
+          validate_index_length!(table_name, options[:name])
+
+          IndexDefinition.new(table_name, options[:name], expression, options[:type], options[:granularity], first: options[:first], after: options[:after])
+        end
+
+        def add_index(table_name, expression, **options)
+          index = add_index_options(apply_cluster(table_name), expression, **options)
+          execute schema_creation.accept(CreateIndexDefinition.new(index))
+        end
+
         def data_sources
           tables
         end
@@ -84,14 +97,14 @@ module ActiveRecord
         def do_system_execute(sql, name = nil)
           log_with_debug(sql, "#{adapter_name} #{name}") do
             res = request(sql, DEFAULT_RESPONSE_FORMAT)
-            process_response(res, DEFAULT_RESPONSE_FORMAT)
+            process_response(res, DEFAULT_RESPONSE_FORMAT, sql)
           end
         end
 
         def do_execute(sql, name = nil, format: DEFAULT_RESPONSE_FORMAT, settings: {})
           log(sql, "#{adapter_name} #{name}") do
             res = request(sql, format, settings)
-            process_response(res, format)
+            process_response(res, format, sql)
           end
         end
 
@@ -142,11 +155,11 @@ module ActiveRecord
           format ? "#{sql} FORMAT #{format}" : sql
         end
 
-        def process_response(res, format)
+        def process_response(res, format, sql = nil)
           case res.code.to_i
           when 200
             if res.body.to_s.include?("DB::Exception")
-              raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}"
+              raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}#{sql ? "\nQuery: #{sql}" : ''}"
             else
               format_body_response(res.body, format)
             end
