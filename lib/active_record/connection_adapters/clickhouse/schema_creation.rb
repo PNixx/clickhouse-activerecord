@@ -1,8 +1,6 @@
-# frozen_string_literal: true
-
 begin
   require "active_record/connection_adapters/deduplicable"
-rescue LoadError
+rescue LoadError => e
   # Rails < 6.1 does not have this file in this location, ignore
 end
 
@@ -11,7 +9,7 @@ require "active_record/connection_adapters/abstract/schema_creation"
 module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
-      class SchemaCreation < ConnectionAdapters::SchemaCreation # :nodoc:
+      class SchemaCreation < ConnectionAdapters::SchemaCreation# :nodoc:
 
         def visit_AddColumnDefinition(o)
           sql = +"ADD COLUMN #{accept(o.column)}"
@@ -20,11 +18,21 @@ module ActiveRecord
         end
 
         def add_column_options!(sql, options)
-          sql.gsub!(/\s+(.*)/, " \\1(#{options[:value]})") if options[:value]
-          sql.gsub!(/\s+(.*)/, " FixedString(#{options[:fixed_string]})") if options[:fixed_string]
-          sql.gsub!(/\s+(.*)/, ' Nullable(\1)') if options[:null] || options[:null].nil?
-          sql.gsub!(/\s+(.*)/, ' LowCardinality(\1)') if options[:low_cardinality]
-          sql.gsub!(/\s+(.*)/, ' Array(\1)') if options[:array]
+          if options[:value]
+            sql.gsub!(/\s+(.*)/, " \\1(#{options[:value]})")
+          end
+          if options[:fixed_string]
+            sql.gsub!(/\s+(.*)/, " FixedString(#{options[:fixed_string]})")
+          end
+          if options[:null] || options[:null].nil?
+            sql.gsub!(/\s+(.*)/, ' Nullable(\1)')
+          end
+          if options[:low_cardinality]
+            sql.gsub!(/\s+(.*)/, ' LowCardinality(\1)')
+          end
+          if options[:array]
+            sql.gsub!(/\s+(.*)/, ' Array(\1)')
+          end
           sql.gsub!(/(\sString)\(\d+\)/, '\1')
           sql << " DEFAULT #{quote_default_expression(options[:default], options[:column])}" if options_include_default?(options)
           sql
@@ -84,6 +92,14 @@ module ActiveRecord
 
           statements = o.columns.map { |c| accept c }
           statements << accept(o.primary_keys) if o.primary_keys
+
+          if supports_indexes_in_create?
+            indexes = o.indexes.map do |expression, options|
+              accept(@conn.add_index_options(o.name, expression, **options))
+            end
+            statements.concat(indexes)
+          end
+
           create_sql << "(#{statements.join(', ')})" if statements.present?
           # Attach options for only table or materialized view without TO section
           add_table_options!(create_sql, o) if !o.view || o.view && o.materialized && !o.to
@@ -113,6 +129,19 @@ module ActiveRecord
           end
 
           change_column_sql
+        end
+
+        def visit_IndexDefinition(o, create = false)
+          sql = create ? ["ALTER TABLE #{quote_table_name(o.table)} ADD"] : []
+          sql << "INDEX #{quote_column_name(o.name)} (#{o.expression}) TYPE #{o.type} GRANULARITY #{o.granularity}"
+          sql << "FIRST #{quote_column_name(o.first)}" if o.first
+          sql << "AFTER #{quote_column_name(o.after)}" if o.after
+
+          sql.join(' ')
+        end
+
+        def visit_CreateIndexDefinition(o)
+          visit_IndexDefinition(o.index, true)
         end
 
         def current_database

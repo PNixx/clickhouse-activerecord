@@ -68,10 +68,10 @@ RSpec.describe 'Cluster Migration', :migrations do
 
         context 'dsl' do
           let(:directory) { 'dsl_create_function' }
-          
+
           it 'creates a function' do
             subject
-  
+
             expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun'])
           end
         end
@@ -86,9 +86,9 @@ RSpec.describe 'Cluster Migration', :migrations do
       end
       connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
 
-        before(:all) do
-          ActiveRecord::Base.establish_connection(connection_config.merge(cluster_name: '{cluster}'))
-        end
+      before(:all) do
+        ActiveRecord::Base.establish_connection(connection_config.merge(cluster_name: '{cluster}'))
+      end
 
       after(:all) do
         ActiveRecord::Base.establish_connection(connection_config)
@@ -118,6 +118,24 @@ RSpec.describe 'Cluster Migration', :migrations do
         end
 
         expect(ActiveRecord::Base.connection.tables).not_to include('some')
+      end
+    end
+
+    context 'create table with index' do
+      let(:directory) { 'dsl_create_table_with_index' }
+
+      it 'creates a table' do
+
+        expect_any_instance_of(ActiveRecord::ConnectionAdapters::ClickhouseAdapter).to receive(:execute)
+           .with('ALTER TABLE some ON CLUSTER ' + connection_config[:cluster_name] + ' DROP INDEX idx')
+           .and_call_original
+        expect_any_instance_of(ActiveRecord::ConnectionAdapters::ClickhouseAdapter).to receive(:execute)
+           .with('ALTER TABLE some ON CLUSTER ' + connection_config[:cluster_name] + ' ADD INDEX idx2 (int1 * int2) TYPE set(10) GRANULARITY 4')
+           .and_call_original
+
+        subject
+
+        expect(ActiveRecord::Base.connection.show_create_table('some')).to include('INDEX idx2 int1 * int2 TYPE set(10) GRANULARITY 4')
       end
     end
   end
