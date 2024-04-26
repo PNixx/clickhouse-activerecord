@@ -21,7 +21,7 @@ namespace :clickhouse do
 
   namespace :schema do
     desc 'Load database schema'
-    task load: :prepare_internal_metadata_table do
+    task load: %i[prepare_schema_migration_table prepare_internal_metadata_table] do
       warn 'Warning: `rake clickhouse:schema:load` is deprecated! Use `rake db:schema:load:clickhouse` instead', uplevel: 1
       simple = ENV['simple'] || ARGV.any? { |a| a.include?('--simple') } ? '_simple' : nil
       ActiveRecord::Tasks::DatabaseTasks.migration_connection
