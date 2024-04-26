@@ -230,9 +230,9 @@ RSpec.describe 'Migration', :migrations do
           it 'add index if not exists' do
             subject
 
-            expect { ActiveRecord::Base.connection.add_index('some', 'int1 + int2', name: 'idx2', type: 'minmax') }.to raise_error(ActiveRecord::ActiveRecordError, include('already exists'))
+            expect { ActiveRecord::Base.connection.add_index('some', 'int1 + int2', name: 'idx2', type: 'minmax', granularity: 1) }.to raise_error(ActiveRecord::ActiveRecordError, include('already exists'))
 
-            ActiveRecord::Base.connection.add_index('some', 'int1 + int2', name: 'idx2', type: 'minmax', if_not_exists: true)
+            ActiveRecord::Base.connection.add_index('some', 'int1 + int2', name: 'idx2', type: 'minmax', granularity: 1, if_not_exists: true)
           end
 
           it 'drop index if exists' do

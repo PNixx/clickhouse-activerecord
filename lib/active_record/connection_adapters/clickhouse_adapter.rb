@@ -391,6 +391,7 @@ module ActiveRecord
       end
 
       # Adds index description to tables metadata
+      # @link https://clickhouse.com/docs/en/sql-reference/statements/alter/skipping-index
       def add_index(table_name, expression, **options)
         index = add_index_options(apply_cluster(table_name), expression, **options)
         execute schema_creation.accept(CreateIndexDefinition.new(index))
