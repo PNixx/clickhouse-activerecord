@@ -133,7 +133,11 @@ module ActiveRecord
 
         def visit_IndexDefinition(o, create = false)
           sql = create ? ["ALTER TABLE #{quote_table_name(o.table)} ADD"] : []
-          sql << "INDEX #{quote_column_name(o.name)} (#{o.expression}) TYPE #{o.type} GRANULARITY #{o.granularity}"
+          sql << "INDEX"
+          sql << "IF NOT EXISTS" if o.if_not_exists
+          sql << "IF EXISTS" if o.if_exists
+          sql << "#{quote_column_name(o.name)} (#{o.expression}) TYPE #{o.type}"
+          sql << "GRANULARITY #{o.granularity}" if o.granularity
           sql << "FIRST #{quote_column_name(o.first)}" if o.first
           sql << "AFTER #{quote_column_name(o.after)}" if o.after
 

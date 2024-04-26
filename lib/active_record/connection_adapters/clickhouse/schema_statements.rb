@@ -78,16 +78,11 @@ module ActiveRecord
         end
 
         def add_index_options(table_name, expression, **options)
-          options.assert_valid_keys(:name, :type, :granularity, :first, :after)
+          options.assert_valid_keys(:name, :type, :granularity, :first, :after, :if_not_exists, :if_exists)
 
           validate_index_length!(table_name, options[:name])
 
-          IndexDefinition.new(table_name, options[:name], expression, options[:type], options[:granularity], first: options[:first], after: options[:after])
-        end
-
-        def add_index(table_name, expression, **options)
-          index = add_index_options(apply_cluster(table_name), expression, **options)
-          execute schema_creation.accept(CreateIndexDefinition.new(index))
+          IndexDefinition.new(table_name, options[:name], expression, options[:type], options[:granularity], first: options[:first], after: options[:after], if_not_exists: options[:if_not_exists], if_exists: options[:if_exists])
         end
 
         def data_sources
