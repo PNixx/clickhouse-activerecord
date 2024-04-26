@@ -203,7 +203,7 @@ false`. The default integer is `UInt32`
 Example:
 
 ``` ruby
-class CreateDataItems < ActiveRecord::Migration
+class CreateDataItems < ActiveRecord::Migration[7.1]
   def change
     create_table "data_items", id: false, options: "VersionedCollapsingMergeTree(sign, version) PARTITION BY toYYYYMM(day) ORDER BY category", force: :cascade do |t|
       t.date "day", null: false
@@ -212,6 +212,18 @@ class CreateDataItems < ActiveRecord::Migration
       t.integer "sign", limit: 1, unsigned: false, default: -> { "CAST(1, 'Int8')" }, null: false
       t.integer "version", limit: 8, default: -> { "CAST(toUnixTimestamp(now()), 'UInt64')" }, null: false
     end
+    
+    create_table "with_index", id: false, options: 'MergeTree PARTITION BY toYYYYMM(date) ORDER BY (date)' do |t|
+      t.integer :int1, null: false
+      t.integer :int2, null: false
+      t.date :date, null: false
+
+      t.index '(int1 * int2, date)', name: 'idx', type: 'minmax', granularity: 3
+    end
+    
+    remove_index :some, 'idx'
+    
+    add_index :some, 'int1 * int2', name: 'idx2', type: 'set(10)', granularity: 4
   end
 end
 ```
