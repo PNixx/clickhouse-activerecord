@@ -11,6 +11,8 @@ module ClickhouseActiverecord
     def create
       establish_master_connection
       connection.create_database @configuration[:database]
+      internal_metadata.create_table
+      schema_migration.create_table
     rescue ActiveRecord::StatementInvalid => e
       if e.cause.to_s.include?('already exists')
         raise ActiveRecord::DatabaseAlreadyExists
