@@ -96,9 +96,9 @@ module ActiveRecord
       end
 
       class IndexDefinition
-        attr_reader :table, :name, :expression, :type, :granularity, :first, :after
+        attr_reader :table, :name, :expression, :type, :granularity, :first, :after, :if_exists, :if_not_exists
 
-        def initialize(table, name, expression, type, granularity, first:, after:)
+        def initialize(table, name, expression, type, granularity, first:, after:, if_exists:, if_not_exists:)
           @table = table
           @name = name
           @expression = expression
@@ -106,6 +106,8 @@ module ActiveRecord
           @granularity = granularity
           @first = first
           @after = after
+          @if_exists = if_exists
+          @if_not_exists = if_not_exists
         end
 
       end

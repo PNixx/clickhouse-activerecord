@@ -226,6 +226,38 @@ RSpec.describe 'Migration', :migrations do
 
             expect(ActiveRecord::Base.connection.show_create_table('some')).to include('INDEX idx2 int1 * int2 TYPE set(10) GRANULARITY 4')
           end
+
+          it 'add index if not exists' do
+            subject
+
+            expect { ActiveRecord::Base.connection.add_index('some', 'int1 + int2', name: 'idx2', type: 'minmax') }.to raise_error(ActiveRecord::ActiveRecordError, include('already exists'))
+
+            ActiveRecord::Base.connection.add_index('some', 'int1 + int2', name: 'idx2', type: 'minmax', if_not_exists: true)
+          end
+
+          it 'drop index if exists' do
+            subject
+
+            expect { ActiveRecord::Base.connection.remove_index('some', 'idx3') }.to raise_error(ActiveRecord::ActiveRecordError, include('Cannot find index'))
+
+            ActiveRecord::Base.connection.remove_index('some', 'idx2')
+          end
+
+          it 'rebuid index' do
+            subject
+
+            expect { ActiveRecord::Base.connection.rebuild_index('some', 'idx3') }.to raise_error(ActiveRecord::ActiveRecordError, include('Unknown index'))
+
+            expect { ActiveRecord::Base.connection.rebuild_index('some', 'idx3', true) }.to_not raise_error(ActiveRecord::ActiveRecordError)
+
+            ActiveRecord::Base.connection.rebuild_index('some', 'idx2')
+          end
+
+          it 'clear index' do
+            subject
+
+            ActiveRecord::Base.connection.clear_index('some', 'idx2')
+          end
         end
       end
     end

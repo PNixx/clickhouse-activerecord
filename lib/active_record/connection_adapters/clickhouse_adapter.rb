@@ -390,9 +390,36 @@ module ActiveRecord
         change_column table_name, column_name, nil, {default: default}.compact
       end
 
+      # Adds index description to tables metadata
+      def add_index(table_name, expression, **options)
+        index = add_index_options(apply_cluster(table_name), expression, **options)
+        execute schema_creation.accept(CreateIndexDefinition.new(index))
+      end
+
+      # Removes index description from tables metadata and deletes index files from disk
       def remove_index(table_name, name)
         query = apply_cluster("ALTER TABLE #{quote_table_name(table_name)}")
         execute "#{query} DROP INDEX #{quote_column_name(name)}"
+      end
+
+      # Rebuilds the secondary index name for the specified partition_name
+      def rebuild_index(table_name, name, if_exists: false, partition: nil)
+        query = [apply_cluster("ALTER TABLE #{quote_table_name(table_name)}")]
+        query << 'MATERIALIZE INDEX'
+        query << 'IF EXISTS' if if_exists
+        query << quote_column_name(name)
+        query << "IN PARTITION #{quote_column_name(partition)}" if partition
+        execute query.join(' ')
+      end
+
+      # Deletes the secondary index files from disk without removing description
+      def clear_index(table_name, name, if_exists: false, partition: nil)
+        query = [apply_cluster("ALTER TABLE #{quote_table_name(table_name)}")]
+        query << 'CLEAR INDEX'
+        query << 'IF EXISTS' if if_exists
+        query << quote_column_name(name)
+        query << "IN PARTITION #{quote_column_name(partition)}" if partition
+        execute query.join(' ')
       end
 
       def cluster
