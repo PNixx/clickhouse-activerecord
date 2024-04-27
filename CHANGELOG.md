@@ -1,3 +1,12 @@
+### Version 1.0.7 (Apr 27, 2024)
+
+* Support table indexes
+* Fix non-canonical UUID by [@PauloMiranda98](https://github.com/PauloMiranda98) in (#117)
+* Fix precision loss due to JSON float parsing by [@jenskdsgn](https://github.com/jenskdsgn) in (#129)
+* Support functions by [@felix-dumit](https://github.com/felix-dumit) in (#120)
+* Hotfix/rails71 change column by [@trumenov](https://github.com/trumenov) in (#132)
+* Fix DB tasks
+
 ### Version 1.0.5 (Mar 14, 2024)
 
 * GitHub workflows
