@@ -4,6 +4,10 @@ module ClickhouseActiverecord
   class Tasks
     delegate :connection, :establish_connection, to: ActiveRecord::Base
 
+    def self.using_database_configurations?
+      true
+    end
+
     def initialize(configuration)
       @configuration = configuration
     end
@@ -50,7 +54,7 @@ module ClickhouseActiverecord
         functions.each do |function|
           file.puts function + ";\n\n"
         end
-        
+
         tables.each do |table|
           file.puts table + ";\n\n"
         end
