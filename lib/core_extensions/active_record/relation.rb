@@ -70,6 +70,18 @@ module CoreExtensions
         @values.fetch(:final, nil)
       end
 
+      def group_by_grouping_sets(*grouping_sets)
+        raise ArgumentError, 'The method .group_by_grouping_sets() must contain arguments.' if grouping_sets.blank?
+
+        spawn.group_by_grouping_sets!(*grouping_sets)
+      end
+
+      def group_by_grouping_sets!(*grouping_sets) # :nodoc:
+        grouping_sets = grouping_sets.map { |set| arel_columns(set) }
+        self.group_values += [::Arel::Nodes::GroupingSets.new(grouping_sets)]
+        self
+      end
+
       private
 
       def check_command!(cmd)

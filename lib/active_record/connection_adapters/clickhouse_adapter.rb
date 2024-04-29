@@ -16,6 +16,7 @@ require 'active_record/connection_adapters/clickhouse/oid/tuple'
 require 'active_record/connection_adapters/clickhouse/oid/uuid'
 
 require 'arel/nodes/final'
+require 'arel/nodes/grouping_sets'
 require 'arel/nodes/settings'
 require 'arel/visitors/clickhouse'
 

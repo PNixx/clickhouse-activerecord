@@ -4,7 +4,10 @@ module CoreExtensions
   module ActiveRecord
     module Base
       module ClassMethods
-        delegate :final, :final!, :settings, :settings!, to: :all
+        delegate :final, :final!,
+                 :group_by_grouping_sets, :group_by_grouping_sets!,
+                 :settings, :settings!,
+                 to: :all
 
         # Establishes a connection to the database that's used by all Active Record objects
         def clickhouse_connection(config)
