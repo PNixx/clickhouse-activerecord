@@ -202,7 +202,7 @@ false`. The default integer is `UInt32`
 
 Example:
 
-``` ruby
+```ruby
 class CreateDataItems < ActiveRecord::Migration[7.1]
   def change
     create_table "data_items", id: false, options: "VersionedCollapsingMergeTree(sign, version) PARTITION BY toYYYYMM(day) ORDER BY category", force: :cascade do |t|
@@ -230,12 +230,22 @@ end
 
 Create table with custom column structure:
 
-``` ruby
-class CreateDataItems < ActiveRecord::Migration
+```ruby
+class CreateDataItems < ActiveRecord::Migration[7.1]
   def change
     create_table "data_items", id: false, options: "MergeTree PARTITION BY toYYYYMM(timestamp) ORDER BY timestamp", force: :cascade do |t|
       t.column "timestamp", "DateTime('UTC') CODEC(DoubleDelta, LZ4)"
     end
+  end
+end
+```
+
+Create Buffer table with connection database name:
+
+```ruby
+class CreateDataItems < ActiveRecord::Migration[7.1]
+  def change
+    create_table :some_buffers, as: :some, options: "Buffer(#{connection.database}, some, 1, 10, 60, 100, 10000, 10000000, 100000000)"
   end
 end
 ```

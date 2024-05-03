@@ -88,6 +88,7 @@ module ActiveRecord
           create_sql = +"CREATE#{table_modifier_in_create(o)} #{o.view ? "VIEW" : "TABLE"} "
           create_sql << "IF NOT EXISTS " if o.if_not_exists
           create_sql << "#{quote_table_name(o.name)} "
+          add_as_clause!(create_sql, o) if o.as && !o.view
           add_to_clause!(create_sql, o) if o.materialized
 
           statements = o.columns.map { |c| accept c }
@@ -103,7 +104,7 @@ module ActiveRecord
           create_sql << "(#{statements.join(', ')})" if statements.present?
           # Attach options for only table or materialized view without TO section
           add_table_options!(create_sql, o) if !o.view || o.view && o.materialized && !o.to
-          add_as_clause!(create_sql, o)
+          add_as_clause!(create_sql, o) if o.as && o.view
           create_sql
         end
 
