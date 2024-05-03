@@ -90,7 +90,9 @@ HEADER
           unless simple
             table_options = @connection.table_options(table)
             if table_options.present?
-              tbl.print ", #{format_options(table_options)}"
+              table_options = format_options(table_options)
+              table_options.gsub!(/Buffer\('[^']+'/, 'Buffer(\'#{connection.database}\'')
+              tbl.print ", #{table_options}"
             end
           end
 
@@ -138,7 +140,7 @@ HEADER
 
     def format_options(options)
       if options && options[:options]
-        options[:options] = options[:options].gsub(/^Replicated(.*?)\('[^']+',\s*'[^']+',?\s?([^\)]*)?\)/, "\\1(\\2)")
+        options[:options].gsub!(/^Replicated(.*?)\('[^']+',\s*'[^']+',?\s?([^\)]*)?\)/, "\\1(\\2)")
       end
       super
     end
