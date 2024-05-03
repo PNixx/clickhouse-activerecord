@@ -293,7 +293,7 @@ module ActiveRecord
         options = apply_replica(table_name, options)
         td = create_table_definition(apply_cluster(table_name), **options)
         block.call td if block_given?
-        td.column(:id, options[:id], null: false) if options[:id].present? && td[:id].blank?
+        td.column(:id, options[:id], null: false) if options[:id].present? && td[:id].blank? && options[:as].blank?
 
         if options[:force]
           drop_table(table_name, options.merge(if_exists: true))
@@ -429,6 +429,10 @@ module ActiveRecord
 
       def replica
         @config[:replica_name]
+      end
+
+      def database
+        @config[:database]
       end
 
       def use_default_replicated_merge_tree_params?

@@ -58,6 +58,15 @@ RSpec.describe 'Migration', :migrations do
           end
         end
 
+        context 'with buffer table' do
+          let(:directory) { 'dsl_table_buffer_creation' }
+          it 'creates a table' do
+            subject
+
+            expect(ActiveRecord::Base.connection.tables).to include('some_buffers')
+          end
+        end
+
         context 'with engine' do
           let(:directory) { 'dsl_table_with_engine_creation' }
           it 'creates a table' do
