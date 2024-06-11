@@ -12,6 +12,7 @@ class CreateSampleTable < ActiveRecord::Migration[5.0]
       t.string :byte_array, null: true
       t.uuid :relation_uuid
       t.decimal :decimal_value, precision: 38, scale: 16, null: true
+      t.json :json_value, null: false, default: {}
     end
   end
 end
