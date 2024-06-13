@@ -101,6 +101,23 @@ module ActiveRecord
           args.each { |name| column(name, :"Map(#{key_type}, #{value_type})", **options.except(:limit, :key_type, :value_type)) }
         end
       end
+
+      class IndexDefinition
+        attr_reader :table, :name, :expression, :type, :granularity, :first, :after, :if_exists, :if_not_exists
+
+        def initialize(table, name, expression, type, granularity, first:, after:, if_exists:, if_not_exists:)
+          @table = table
+          @name = name
+          @expression = expression
+          @type = type
+          @granularity = granularity
+          @first = first
+          @after = after
+          @if_exists = if_exists
+          @if_not_exists = if_not_exists
+        end
+
+      end
     end
   end
 end

@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  clickhouse:
+    image: 'clickhouse/clickhouse-server:${CLICKHOUSE_VERSION-23.11-alpine}'
+    container_name: 'clickhouse-activerecord-clickhouse-server'
+    ports:
+      - '18123:8123'
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - './clickhouse/single/config.xml:/etc/clickhouse-server/config.xml'
+      - './clickhouse/users.xml:/etc/clickhouse-server/users.xml'
+    healthcheck:
+      test: bash -c "exec 6<> /dev/tcp/localhost/8123"
+      interval: 5s

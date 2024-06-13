@@ -11,14 +11,20 @@ RSpec.describe 'Migration', :migrations do
     let(:migrations_dir) { File.join(FIXTURES_PATH, 'migrations', directory) }
     let(:migration_context) { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration, model.connection.internal_metadata) }
 
-    if ActiveRecord::version >= Gem::Version.new('6.1')
-      connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
-    else
-      connection_config = ActiveRecord::Base.connection_config
-    end
+    connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
 
     subject do
       quietly { migration_context.up }
+    end
+
+    context 'database creation' do
+      let(:db) { (0...8).map { (65 + rand(26)).chr }.join.downcase }
+
+      it 'create' do
+        model.connection.create_database(db)
+      end
+
+      after { model.connection.drop_database(db) }
     end
 
     context 'table creation' do
@@ -49,6 +55,15 @@ RSpec.describe 'Migration', :migrations do
             expect(current_schema.keys.count).to eq(1)
             expect(current_schema).to have_key('id')
             expect(current_schema['id'].sql_type).to eq('UInt32')
+          end
+        end
+
+        context 'with buffer table' do
+          let(:directory) { 'dsl_table_buffer_creation' }
+          it 'creates a table' do
+            subject
+
+            expect(ActiveRecord::Base.connection.tables).to include('some_buffers')
           end
         end
 
@@ -180,53 +195,6 @@ RSpec.describe 'Migration', :migrations do
           end
         end
 
-        context 'with distributed' do
-          let(:model_distributed) do
-            Class.new(ActiveRecord::Base) do
-              self.table_name = 'some_distributed'
-            end
-          end
-
-          before(:all) do
-            ActiveRecord::Base.establish_connection(connection_config.merge(cluster_name: CLUSTER_NAME))
-          end
-
-          after(:all) do
-            ActiveRecord::Base.establish_connection(connection_config)
-          end
-
-          let(:directory) { 'dsl_create_table_with_distributed' }
-          it 'creates a table with distributed table' do
-            subject
-
-            current_schema = schema(model)
-            current_schema_distributed = schema(model_distributed)
-
-            expect(current_schema.keys.count).to eq(1)
-            expect(current_schema_distributed.keys.count).to eq(1)
-
-            expect(current_schema).to have_key('date')
-            expect(current_schema_distributed).to have_key('date')
-
-            expect(current_schema['date'].sql_type).to eq('Date')
-            expect(current_schema_distributed['date'].sql_type).to eq('Date')
-          end
-
-          it 'drops a table with distributed table' do
-            subject
-
-            expect(ActiveRecord::Base.connection.tables).to include('some')
-            expect(ActiveRecord::Base.connection.tables).to include('some_distributed')
-
-            quietly do
-              migration_context.down
-            end
-
-            expect(ActiveRecord::Base.connection.tables).not_to include('some')
-            expect(ActiveRecord::Base.connection.tables).not_to include('some_distributed')
-          end
-        end
-
         context 'creates a view' do
           let(:directory) { 'dsl_create_view_with_to_section' }
           it 'creates a view' do
@@ -250,49 +218,55 @@ RSpec.describe 'Migration', :migrations do
             expect(ActiveRecord::Base.connection.tables).not_to include('some_view')
           end
         end
-      end
 
-      context 'with alias in cluster_name' do
-        let(:model) do
-          Class.new(ActiveRecord::Base) do
-            self.table_name = 'some'
-          end
-        end
-        if ActiveRecord::version >= Gem::Version.new('6.1')
-          connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
-        else
-          connection_config = ActiveRecord::Base.connection_config
-        end
+        context 'with index' do
+          let(:directory) { 'dsl_create_table_with_index' }
 
-        before(:all) do
-          ActiveRecord::Base.establish_connection(connection_config.merge(cluster_name: '{cluster}'))
-        end
+          it 'creates a table' do
+            quietly { migration_context.up(1) }
 
-        after(:all) do
-          ActiveRecord::Base.establish_connection(connection_config)
-        end
+            expect(ActiveRecord::Base.connection.show_create_table('some')).to include('INDEX idx (int1 * int2, date) TYPE minmax GRANULARITY 3')
 
-        let(:directory) { 'dsl_create_table_with_cluster_name_alias' }
-        it 'creates a table' do
-          subject
+            quietly { migration_context.up(2) }
 
-          current_schema = schema(model)
+            expect(ActiveRecord::Base.connection.show_create_table('some')).to_not include('INDEX idx')
 
-          expect(current_schema.keys.count).to eq(1)
-          expect(current_schema).to have_key('date')
-          expect(current_schema['date'].sql_type).to eq('Date')
-        end
+            quietly { migration_context.up(3) }
 
-        it 'drops a table' do
-          subject
-
-          expect(ActiveRecord::Base.connection.tables).to include('some')
-
-          quietly do
-            migration_context.down
+            expect(ActiveRecord::Base.connection.show_create_table('some')).to include('INDEX idx2 int1 * int2 TYPE set(10) GRANULARITY 4')
           end
 
-          expect(ActiveRecord::Base.connection.tables).not_to include('some')
+          it 'add index if not exists' do
+            subject
+
+            expect { ActiveRecord::Base.connection.add_index('some', 'int1 + int2', name: 'idx2', type: 'minmax', granularity: 1) }.to raise_error(ActiveRecord::ActiveRecordError, include('already exists'))
+
+            ActiveRecord::Base.connection.add_index('some', 'int1 + int2', name: 'idx2', type: 'minmax', granularity: 1, if_not_exists: true)
+          end
+
+          it 'drop index if exists' do
+            subject
+
+            expect { ActiveRecord::Base.connection.remove_index('some', 'idx3') }.to raise_error(ActiveRecord::ActiveRecordError, include('Cannot find index'))
+
+            ActiveRecord::Base.connection.remove_index('some', 'idx2')
+          end
+
+          it 'rebuid index' do
+            subject
+
+            expect { ActiveRecord::Base.connection.rebuild_index('some', 'idx3') }.to raise_error(ActiveRecord::ActiveRecordError, include('Unknown index'))
+
+            expect { ActiveRecord::Base.connection.rebuild_index('some', 'idx3', true) }.to_not raise_error(ActiveRecord::ActiveRecordError)
+
+            ActiveRecord::Base.connection.rebuild_index('some', 'idx2')
+          end
+
+          it 'clear index' do
+            subject
+
+            ActiveRecord::Base.connection.clear_index('some', 'idx2')
+          end
         end
       end
     end
@@ -350,6 +324,30 @@ RSpec.describe 'Migration', :migrations do
         expect(current_schema.keys.count).to eq(1)
         expect(current_schema).to have_key('date')
         expect(current_schema['date'].sql_type).to eq('Date')
+      end
+    end
+
+    context 'function creation' do
+      after do
+        ActiveRecord::Base.connection.drop_functions
+      end
+
+      context 'plain' do
+        let(:directory) { 'plain_function_creation' }
+        it 'creates a function' do
+          subject
+
+          expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun'])
+        end
+      end
+
+      context 'dsl' do
+        let(:directory) { 'dsl_create_function' }
+        it 'creates a function' do
+          subject
+
+          expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun'])
+        end
       end
     end
   end

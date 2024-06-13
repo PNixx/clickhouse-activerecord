@@ -6,6 +6,8 @@ module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module SchemaStatements
+        DEFAULT_RESPONSE_FORMAT = 'JSONCompactEachRowWithNamesAndTypes'.freeze
+
         def execute(sql, name = nil, settings: {})
           do_execute(sql, name, settings: settings)
         end
@@ -33,19 +35,36 @@ module ActiveRecord
         # @link https://clickhouse.com/docs/en/sql-reference/statements/alter/update
         def exec_update(_sql, _name = nil, _binds = [])
           do_execute(_sql, _name, format: nil)
-          true
+          0
         end
 
         # @link https://clickhouse.com/docs/en/sql-reference/statements/delete
         def exec_delete(_sql, _name = nil, _binds = [])
-          do_execute(_sql, _name, format: nil)
-          true
+          log(_sql, "#{adapter_name} #{_name}") do
+            res = request(_sql)
+            begin
+              data = JSON.parse(res.header['x-clickhouse-summary'])
+              data['result_rows'].to_i
+            rescue JSONError
+              0
+            end
+          end
         end
 
         def tables(name = nil)
           result = do_system_execute("SHOW TABLES WHERE name NOT LIKE '.inner_id.%'", name)
           return [] if result.nil?
           result['data'].flatten
+        end
+
+        def functions
+          result = do_system_execute("SELECT name FROM system.functions WHERE origin = 'SQLUserDefined'")
+          return [] if result.nil?
+          result['data'].flatten
+        end
+
+        def show_create_function(function)
+          do_execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'", format: nil)
         end
 
         def table_options(table)
@@ -58,25 +77,29 @@ module ActiveRecord
           []
         end
 
+        def add_index_options(table_name, expression, **options)
+          options.assert_valid_keys(:name, :type, :granularity, :first, :after, :if_not_exists, :if_exists)
+
+          validate_index_length!(table_name, options[:name])
+
+          IndexDefinition.new(table_name, options[:name], expression, options[:type], options[:granularity], first: options[:first], after: options[:after], if_not_exists: options[:if_not_exists], if_exists: options[:if_exists])
+        end
+
         def data_sources
           tables
         end
 
         def do_system_execute(sql, name = nil)
           log_with_debug(sql, "#{adapter_name} #{name}") do
-            res = @connection.post("/?#{@config.to_param}", "#{sql} FORMAT JSONCompact", 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
-
-            process_response(res)
+            res = request(sql, DEFAULT_RESPONSE_FORMAT)
+            process_response(res, DEFAULT_RESPONSE_FORMAT, sql)
           end
         end
 
-        def do_execute(sql, name = nil, format: 'JSONCompact', settings: {})
+        def do_execute(sql, name = nil, format: DEFAULT_RESPONSE_FORMAT, settings: {})
           log(sql, "#{adapter_name} #{name}") do
-            formatted_sql = apply_format(sql, format)
-            request_params = @config || {}
-            res = @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql, 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
-
-            process_response(res)
+            res = request(sql, format, settings)
+            process_response(res, format, sql)
           end
         end
 
@@ -96,23 +119,44 @@ module ActiveRecord
             if (duplicate = inserting.detect { |v| inserting.count(v) > 1 })
               raise "Duplicate migration #{duplicate}. Please renumber your migrations to resolve the conflict."
             end
-            do_execute(insert_versions_sql(inserting), nil, settings: {max_partitions_per_insert_block: [100, inserting.size].max})
+            do_execute(insert_versions_sql(inserting), nil, format: nil, settings: {max_partitions_per_insert_block: [100, inserting.size].max})
+          end
+        end
+
+        # Fix insert_all method
+        # https://github.com/PNixx/clickhouse-activerecord/issues/71#issuecomment-1923244983
+        def with_yaml_fallback(value) # :nodoc:
+          if value.is_a?(Array)
+            value
+          else
+            super
           end
         end
 
         private
 
+        # Make HTTP request to ClickHouse server
+        # @param [String] sql
+        # @param [String, nil] format
+        # @param [Hash] settings
+        # @return [Net::HTTPResponse]
+        def request(sql, format = nil, settings = {})
+          formatted_sql = apply_format(sql, format)
+          request_params = @connection_config || {}
+          @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql, 'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}")
+        end
+
         def apply_format(sql, format)
           format ? "#{sql} FORMAT #{format}" : sql
         end
 
-        def process_response(res)
+        def process_response(res, format, sql = nil)
           case res.code.to_i
           when 200
             if res.body.to_s.include?("DB::Exception")
-              raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}"
+              raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}#{sql ? "\nQuery: #{sql}" : ''}"
             else
-              res.body.presence && JSON.parse(res.body)
+              format_body_response(res.body, format)
             end
           else
             case res.body
@@ -158,8 +202,7 @@ module ActiveRecord
 
           return data unless data.empty?
 
-          raise ActiveRecord::StatementInvalid,
-            "Could not find table '#{table_name}'"
+          raise ActiveRecord::StatementInvalid, "Could not find table '#{table_name}'"
         end
         alias column_definitions table_structure
 
@@ -192,6 +235,44 @@ module ActiveRecord
 
         def has_default_function?(default_value, default) # :nodoc:
           !default_value && (%r{\w+\(.*\)} === default)
+        end
+
+        def format_body_response(body, format)
+          return body if body.blank?
+
+          case format
+          when 'JSONCompact'
+            format_from_json_compact(body)
+          when 'JSONCompactEachRowWithNamesAndTypes'
+            format_from_json_compact_each_row_with_names_and_types(body)
+          else
+            body
+          end
+        end
+
+        def format_from_json_compact(body)
+          parse_json_payload(body)
+        end
+
+        def format_from_json_compact_each_row_with_names_and_types(body)
+          rows = body.split("\n").map { |row| parse_json_payload(row) }
+          names, types, *data = rows
+
+          meta = names.zip(types).map do |name, type|
+            {
+              'name' => name,
+              'type' => type
+            }
+          end
+
+          {
+            'meta' => meta,
+            'data' => data
+          }
+        end
+
+        def parse_json_payload(payload)
+          JSON.parse(payload, decimal_class: BigDecimal)
         end
       end
     end

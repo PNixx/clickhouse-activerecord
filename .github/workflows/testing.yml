@@ -1,0 +1,77 @@
+name: Testing
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  tests_single:
+    name: Testing single server
+    runs-on: ubuntu-latest
+
+    env:
+      CLICKHOUSE_PORT: 18123
+      CLICKHOUSE_DATABASE: default
+
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        ruby-version: [ '2.7', '3.0', '3.2' ]
+        clickhouse: [ '22.1' ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start ClickHouse ${{ matrix.clickhouse }}
+        uses: isbang/compose-action@v1.5.1
+        env:
+          CLICKHOUSE_VERSION: ${{ matrix.clickhouse }}
+        with:
+          compose-file: '.docker/docker-compose.yml'
+          down-flags: '--volumes'
+
+      - name: Set up Ruby ${{ matrix.ruby-version }}
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+          bundler-cache: true
+
+      - run: bundle exec rspec spec/single
+
+  tests_cluster:
+    name: Testing cluster server
+    runs-on: ubuntu-latest
+
+    env:
+      CLICKHOUSE_PORT: 28123
+      CLICKHOUSE_DATABASE: default
+      CLICKHOUSE_CLUSTER: test_cluster
+
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        ruby-version: [ '2.7', '3.0', '3.2' ]
+        clickhouse: [ '22.1' ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start ClickHouse Cluster ${{ matrix.clickhouse }}
+        uses: isbang/compose-action@v1.5.1
+        env:
+          CLICKHOUSE_VERSION: ${{ matrix.clickhouse }}
+        with:
+          compose-file: '.docker/docker-compose.cluster.yml'
+          down-flags: '--volumes'
+
+      - name: Set up Ruby ${{ matrix.ruby-version }}
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+          bundler-cache: true
+
+      - run: bundle exec rspec spec/cluster

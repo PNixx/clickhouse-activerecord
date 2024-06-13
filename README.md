@@ -202,8 +202,8 @@ false`. The default integer is `UInt32`
 
 Example:
 
-``` ruby
-class CreateDataItems < ActiveRecord::Migration
+```ruby
+class CreateDataItems < ActiveRecord::Migration[7.1]
   def change
     create_table "data_items", id: false, options: "VersionedCollapsingMergeTree(sign, version) PARTITION BY toYYYYMM(day) ORDER BY category", force: :cascade do |t|
       t.date "day", null: false
@@ -212,9 +212,42 @@ class CreateDataItems < ActiveRecord::Migration
       t.integer "sign", limit: 1, unsigned: false, default: -> { "CAST(1, 'Int8')" }, null: false
       t.integer "version", limit: 8, default: -> { "CAST(toUnixTimestamp(now()), 'UInt64')" }, null: false
     end
+    
+    create_table "with_index", id: false, options: 'MergeTree PARTITION BY toYYYYMM(date) ORDER BY (date)' do |t|
+      t.integer :int1, null: false
+      t.integer :int2, null: false
+      t.date :date, null: false
+
+      t.index '(int1 * int2, date)', name: 'idx', type: 'minmax', granularity: 3
+    end
+    
+    remove_index :some, 'idx'
+    
+    add_index :some, 'int1 * int2', name: 'idx2', type: 'set(10)', granularity: 4
   end
 end
-      
+```
+
+Create table with custom column structure:
+
+```ruby
+class CreateDataItems < ActiveRecord::Migration[7.1]
+  def change
+    create_table "data_items", id: false, options: "MergeTree PARTITION BY toYYYYMM(timestamp) ORDER BY timestamp", force: :cascade do |t|
+      t.column "timestamp", "DateTime('UTC') CODEC(DoubleDelta, LZ4)"
+    end
+  end
+end
+```
+
+Create Buffer table with connection database name:
+
+```ruby
+class CreateDataItems < ActiveRecord::Migration[7.1]
+  def change
+    create_table :some_buffers, as: :some, options: "Buffer(#{connection.database}, some, 1, 10, 60, 100, 10000, 10000000, 100000000)"
+  end
+end
 ```
 
 
@@ -245,6 +278,12 @@ Donations to this project are going directly to [PNixx](https://github.com/PNixx
 After checking out the repo, run `bin/setup` to install dependencies. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
 
 To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+
+Testing github actions:
+
+```bash
+act
+```
 
 ## Contributing
 

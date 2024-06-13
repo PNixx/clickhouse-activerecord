@@ -34,8 +34,12 @@ HEADER
     end
 
     def tables(stream)
-      sorted_tables = @connection.tables.sort {|a,b| @connection.show_create_table(a).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) ? 1 : a <=> b }
+      functions = @connection.functions
+      functions.each do |function|
+        function(function, stream)
+      end
 
+      sorted_tables = @connection.tables.sort {|a,b| @connection.show_create_table(a).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) ? 1 : a <=> b }
       sorted_tables.each do |table_name|
         table(table_name, stream) unless ignored?(table_name)
       end
@@ -86,7 +90,9 @@ HEADER
           unless simple
             table_options = @connection.table_options(table)
             if table_options.present?
-              tbl.print ", #{format_options(table_options)}"
+              table_options = format_options(table_options)
+              table_options.gsub!(/Buffer\('[^']+'/, 'Buffer(\'#{connection.database}\'')
+              tbl.print ", #{table_options}"
             end
           end
 
@@ -104,7 +110,13 @@ HEADER
             end
           end
 
-          indexes_in_create(table, tbl)
+          indexes = sql.scan(/INDEX \S+ \S+ TYPE .*? GRANULARITY \d+/)
+          if indexes.any?
+            tbl.puts ''
+            indexes.flatten.map!(&:strip).each do |index|
+              tbl.puts "    t.index #{index_parts(index).join(', ')}"
+            end
+          end
 
           tbl.puts "  end"
           tbl.puts
@@ -119,9 +131,16 @@ HEADER
       end
     end
 
+    def function(function, stream)
+      stream.puts "  # FUNCTION: #{function}"
+      sql = @connection.show_create_function(function)
+      stream.puts "  # SQL: #{sql}" if sql
+      stream.puts "  create_function \"#{function}\", \"#{sql.gsub(/^CREATE FUNCTION (.*?) AS/, '').strip}\"" if sql
+    end
+
     def format_options(options)
       if options && options[:options]
-        options[:options] = options[:options].gsub(/^Replicated(.*?)\('[^']+',\s*'[^']+',?\s?([^\)]*)?\)/, "\\1(\\2)")
+        options[:options].gsub!(/^Replicated(.*?)\('[^']+',\s*'[^']+',?\s?([^\)]*)?\)/, "\\1(\\2)")
       end
       super
     end
@@ -159,6 +178,17 @@ HEADER
       end
 
       spec.merge(super).compact
+    end
+
+    def index_parts(index)
+      idx = index.match(/^INDEX (?<name>\S+) (?<expr>.*?) TYPE (?<type>.*?) GRANULARITY (?<granularity>\d+)$/)
+      index_parts = [
+        format_index_parts(idx['expr']),
+        "name: #{format_index_parts(idx['name'])}",
+        "type: #{format_index_parts(idx['type'])}",
+      ]
+      index_parts << "granularity: #{idx['granularity']}" if idx['granularity']
+      index_parts
     end
   end
 end

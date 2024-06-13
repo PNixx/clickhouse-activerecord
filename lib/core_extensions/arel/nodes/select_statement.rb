@@ -5,7 +5,7 @@ module CoreExtensions
         attr_accessor :settings
 
         def initialize(relation = nil)
-          super(relation)
+          super
           @settings = nil
         end
 

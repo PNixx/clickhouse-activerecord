@@ -17,44 +17,37 @@ require 'net/http'
 require 'openssl'
 
 module ActiveRecord
-  module ConnectionHandling # :nodoc:
-    def clickhouse_adapdated_class
-      ConnectionAdapters::ClickhouseAdapter
-    end
+  class Base
+    class << self
+      # Establishes a connection to the database that's used by all Active Record objects
+      def clickhouse_connection(config)
+        config = config.symbolize_keys
 
-    # Establishes a connection to the database that's used by all Active Record objects
-    def clickhouse_connection(config)
-      config = config.symbolize_keys
+        if config[:connection]
+          connection = {
+            connection: config[:connection]
+          }
+        else
+          port = config[:port] || 8123
+          connection = {
+            host: config[:host] || 'localhost',
+            port: port,
+            ssl: config[:ssl].present? ? config[:ssl] : port == 443,
+            sslca: config[:sslca],
+            read_timeout: config[:read_timeout],
+            write_timeout: config[:write_timeout],
+            keep_alive_timeout: config[:keep_alive_timeout]
+          }
+        end
 
-      if config[:connection]
-        connection = {
-          connection: config[:connection]
-        }
-      else
-        port = config[:port] || 8123
-        connection = {
-          host: config[:host] || 'localhost',
-          port: port,
-          ssl: config[:ssl].present? ? config[:ssl] : port == 443,
-          sslca: config[:sslca],
-          read_timeout: config[:read_timeout],
-          write_timeout: config[:write_timeout],
-          keep_alive_timeout: config[:keep_alive_timeout]
-        }
+        if config.key?(:database)
+          database = config[:database]
+        else
+          raise ArgumentError, 'No database specified. Missing argument: database.'
+        end
+
+        ConnectionAdapters::ClickhouseAdapter.new(logger, connection, config)
       end
-
-      if config.key?(:database)
-        database = config[:database]
-      else
-        raise ArgumentError, 'No database specified. Missing argument: database.'
-      end
-
-      clickhouse_adapdated_class.new(
-        logger,
-        connection,
-        { user: config[:username], password: config[:password], database: database }.compact,
-        config
-      )
     end
   end
 
@@ -81,10 +74,11 @@ module ActiveRecord
       def is_view=(value)
         @is_view = value
       end
-      #
-      # def arel_table # :nodoc:
-      #   @arel_table ||= Arel::Table.new(table_name, type_caster: type_caster)
-      # end
+
+      def _delete_record(constraints)
+        raise ActiveRecord::ActiveRecordError.new('Deleting a row is not possible without a primary key') unless self.primary_key
+        super
+      end
     end
   end
 
@@ -160,47 +154,15 @@ module ActiveRecord
 
       include Clickhouse::SchemaStatements
 
-      class << self
-        private
-
-        def initialize_type_map(m) # :nodoc:
-          super
-          register_class_with_limit m, %r(String), Type::String
-          register_class_with_limit m, 'Date',  Clickhouse::OID::Date
-          register_class_with_precision m, %r(datetime)i,  Clickhouse::OID::DateTime
-
-          register_class_with_limit m, %r(Int8), Type::Integer
-          register_class_with_limit m, %r(Int16), Type::Integer
-          register_class_with_limit m, %r(Int32), Type::Integer
-          register_class_with_limit m, %r(Int64), Type::Integer
-          register_class_with_limit m, %r(Int128), Type::Integer
-          register_class_with_limit m, %r(Int256), Type::Integer
-
-          register_class_with_limit m, %r(UInt8), Type::UnsignedInteger
-          register_class_with_limit m, %r(UInt16), Type::UnsignedInteger
-          register_class_with_limit m, %r(UInt32), Type::UnsignedInteger
-          register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
-          register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
-          # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
-          m.register_type(%r(Array)) do |sql_type|
-            Clickhouse::OID::Array.new(sql_type)
-          end
-
-          m.register_type(%r(Map)) do |sql_type|
-            Clickhouse::OID::Map.new(sql_type)
-          end
-        end
-      end
-
       TYPE_MAP = Type::TypeMap.new.tap { |m| initialize_type_map(m) }
 
       # Initializes and connects a Clickhouse adapter.
-      def initialize(logger, connection_parameters, config, full_config)
+      def initialize(logger, connection_parameters, config)
         super(nil, logger)
         @connection_parameters = connection_parameters
+        @connection_config = { user: config[:username], password: config[:password], database: config[:database] }.compact
+        @debug = config[:debug] || false
         @config = config
-        @debug = full_config[:debug] || false
-        @full_config = full_config
 
         @prepared_statements = false
 
@@ -208,7 +170,7 @@ module ActiveRecord
       end
 
       def migrations_paths
-        @full_config[:migrations_paths] || 'db/migrate_clickhouse'
+        @config[:migrations_paths] || 'db/migrate_clickhouse'
       end
 
       def arel_visitor # :nodoc:
@@ -225,6 +187,10 @@ module ActiveRecord
 
       def valid_type?(type)
         !native_database_types[type].nil?
+      end
+
+      def supports_indexes_in_create?
+        true
       end
 
       class << self
@@ -285,16 +251,16 @@ module ActiveRecord
           m.register_type(%r(Array)) do |sql_type|
             Clickhouse::OID::Array.new(sql_type)
           end
+
+          m.register_type(%r(Map)) do |sql_type|
+            Clickhouse::OID::Map.new(sql_type)
+          end
         end
       end
 
       # In Rails 7 used constant TYPE_MAP, we need redefine method
       def type_map
         @type_map ||= Type::TypeMap.new.tap { |m| ClickhouseAdapter.initialize_type_map(m) }
-      end
-
-      def extract_precision(sql_type)
-        $1.to_i if sql_type =~ /\((\d+)(,\s?\d+)?\)/
       end
 
       def quote(value)
@@ -349,8 +315,8 @@ module ActiveRecord
       def create_database(name)
         sql = apply_cluster "CREATE DATABASE #{quote_table_name(name)}"
         log_with_debug(sql, adapter_name) do
-          res = @connection.post("/?#{@config.except(:database).to_param}", sql)
-          process_response(res)
+          res = @connection.post("/?#{@connection_config.except(:database).to_param}", sql)
+          process_response(res, DEFAULT_RESPONSE_FORMAT)
         end
       end
 
@@ -371,7 +337,7 @@ module ActiveRecord
         options = apply_replica(table_name, options)
         td = create_table_definition(apply_cluster(table_name), **options)
         block.call td if block_given?
-        td.column(:id, options[:id], null: false) if options[:id].present? && td[:id].blank?
+        td.column(:id, options[:id], null: false) if options[:id].present? && td[:id].blank? && options[:as].blank?
 
         if options[:force]
           drop_table(table_name, options.merge(if_exists: true))
@@ -385,17 +351,28 @@ module ActiveRecord
           raise 'Set a cluster' unless cluster
 
           distributed_options =
-            "Distributed(#{cluster}, #{@config[:database]}, #{table_name}, #{sharding_key})"
+            "Distributed(#{cluster}, #{@connection_config[:database]}, #{table_name}, #{sharding_key})"
           create_table(distributed_table_name, **options.merge(options: distributed_options), &block)
         end
+      end
+
+      def create_function(name, body)
+        fd = "CREATE FUNCTION #{apply_cluster(quote_table_name(name))} AS #{body}"
+        do_execute(fd, format: nil)
       end
 
       # Drops a ClickHouse database.
       def drop_database(name) #:nodoc:
         sql = apply_cluster "DROP DATABASE IF EXISTS #{quote_table_name(name)}"
         log_with_debug(sql, adapter_name) do
-          res = @connection.post("/?#{@config.except(:database).to_param}", sql)
-          process_response(res)
+          res = @connection.post("/?#{@connection_config.except(:database).to_param}", sql)
+          process_response(res, DEFAULT_RESPONSE_FORMAT)
+        end
+      end
+
+      def drop_functions
+        functions.each do |function|
+          drop_function(function)
         end
       end
 
@@ -418,6 +395,16 @@ module ActiveRecord
         end
       end
 
+      def drop_function(name, options = {})
+        query = "DROP FUNCTION"
+        query = "#{query} IF EXISTS " if options[:if_exists]
+        query = "#{query} #{quote_table_name(name)}"
+        query = apply_cluster(query)
+        query = "#{query} SYNC" if options[:sync]
+
+        do_execute(query, format: nil)
+      end
+
       def add_column(table_name, column_name, type, **options)
         return if options[:if_not_exists] == true && column_exists?(table_name, column_name, type)
 
@@ -432,8 +419,8 @@ module ActiveRecord
         execute("ALTER TABLE #{quote_table_name(table_name)} #{remove_column_for_alter(table_name, column_name, type, **options)}", nil, settings: {wait_end_of_query: 1, send_progress_in_http_headers: 1})
       end
 
-      def change_column(table_name, column_name, type, options = {})
-        result = do_execute("ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, options)}", nil, settings: {wait_end_of_query: 1, send_progress_in_http_headers: 1})
+      def change_column(table_name, column_name, type, **options)
+        result = do_execute("ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, **options)}", nil, settings: {wait_end_of_query: 1, send_progress_in_http_headers: 1})
         raise "Error parse json response: #{result}" if result.presence && !result.is_a?(Hash)
       end
 
@@ -447,16 +434,53 @@ module ActiveRecord
         change_column table_name, column_name, nil, {default: default}.compact
       end
 
+      # Adds index description to tables metadata
+      # @link https://clickhouse.com/docs/en/sql-reference/statements/alter/skipping-index
+      def add_index(table_name, expression, **options)
+        index = add_index_options(apply_cluster(table_name), expression, **options)
+        execute schema_creation.accept(CreateIndexDefinition.new(index))
+      end
+
+      # Removes index description from tables metadata and deletes index files from disk
+      def remove_index(table_name, name)
+        query = apply_cluster("ALTER TABLE #{quote_table_name(table_name)}")
+        execute "#{query} DROP INDEX #{quote_column_name(name)}"
+      end
+
+      # Rebuilds the secondary index name for the specified partition_name
+      def rebuild_index(table_name, name, if_exists: false, partition: nil)
+        query = [apply_cluster("ALTER TABLE #{quote_table_name(table_name)}")]
+        query << 'MATERIALIZE INDEX'
+        query << 'IF EXISTS' if if_exists
+        query << quote_column_name(name)
+        query << "IN PARTITION #{quote_column_name(partition)}" if partition
+        execute query.join(' ')
+      end
+
+      # Deletes the secondary index files from disk without removing description
+      def clear_index(table_name, name, if_exists: false, partition: nil)
+        query = [apply_cluster("ALTER TABLE #{quote_table_name(table_name)}")]
+        query << 'CLEAR INDEX'
+        query << 'IF EXISTS' if if_exists
+        query << quote_column_name(name)
+        query << "IN PARTITION #{quote_column_name(partition)}" if partition
+        execute query.join(' ')
+      end
+
       def cluster
-        @full_config[:cluster_name]
+        @config[:cluster_name]
       end
 
       def replica
-        @full_config[:replica_name]
+        @config[:replica_name]
+      end
+
+      def database
+        @config[:database]
       end
 
       def use_default_replicated_merge_tree_params?
-        database_engine_atomic? && @full_config[:use_default_replicated_merge_tree_params]
+        database_engine_atomic? && @config[:use_default_replicated_merge_tree_params]
       end
 
       def use_replica?
@@ -464,11 +488,11 @@ module ActiveRecord
       end
 
       def replica_path(table)
-        "/clickhouse/tables/#{cluster}/#{@config[:database]}.#{table}"
+        "/clickhouse/tables/#{cluster}/#{@connection_config[:database]}.#{table}"
       end
 
       def database_engine_atomic?
-        current_database_engine = "select engine from system.databases where name = '#{@config[:database]}'"
+        current_database_engine = "select engine from system.databases where name = '#{@connection_config[:database]}'"
         res = select_one(current_database_engine)
         res['engine'] == 'Atomic' if res
       end
@@ -502,9 +526,9 @@ module ActiveRecord
         result
       end
 
-      def change_column_for_alter(table_name, column_name, type, options = {})
+      def change_column_for_alter(table_name, column_name, type, **options)
         td = create_table_definition(table_name)
-        cd = td.new_column_definition(column_name, type, options)
+        cd = td.new_column_definition(column_name, type, **options)
         schema_creation.accept(ChangeColumnDefinition.new(cd, column_name))
       end
 
