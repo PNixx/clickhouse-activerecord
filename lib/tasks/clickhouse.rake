@@ -37,6 +37,8 @@ namespace :clickhouse do
   end
 
   namespace :structure do
+    config = ActiveRecord::Base.configurations.configs_for(env_name: Rails.env, name: 'clickhouse')
+
     desc 'Load database structure'
     task load: ['db:check_protected_environments'] do
       ClickhouseActiverecord::Tasks.new(config).structure_load(Rails.root.join('db/clickhouse_structure.sql'))
@@ -84,9 +86,5 @@ namespace :clickhouse do
     if File.exist? "#{Rails.root}/db/clickhouse_schema_simple.rb"
       Rake::Task['clickhouse:schema:dump'].execute(simple: true)
     end
-  end
-
-  def config
-    ActiveRecord::Base.configurations.configs_for(env_name: Rails.env, name: 'clickhouse')
   end
 end
