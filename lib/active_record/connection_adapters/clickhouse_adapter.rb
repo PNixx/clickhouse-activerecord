@@ -100,6 +100,8 @@ module ActiveRecord
         boolean: { name: 'Bool' },
         uuid: { name: 'UUID' },
 
+        json: { name: 'Object(\'json\')' },
+
         enum8: { name: 'Enum8' },
         enum16: { name: 'Enum16' },
 
@@ -207,6 +209,7 @@ module ActiveRecord
 
           m.register_type %r(bool)i, ActiveModel::Type::Boolean.new
           m.register_type %r{uuid}i, Clickhouse::OID::Uuid.new
+          m.register_type %r{Object\('json'\)}i, Type::Json.new
           # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
           m.register_type(%r(Array)) do |sql_type|
             Clickhouse::OID::Array.new(sql_type)

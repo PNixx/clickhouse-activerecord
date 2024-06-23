@@ -199,6 +199,9 @@ false`. The default integer is `UInt32`
 | UInt64          |          0 to 18446744073709551615           |            5,6,7,8 |
 | UInt256         |                   0 to ...                   |                 8+ |
 | Array           |                     ...                      |                ... |
+| Json*           |                     ...                      |                ... |
+
+* **Note**: using the JSON type requires that `allow_experimental_object_type = 1` is [set in ClickHouse settings](https://clickhouse.com/docs/en/sql-reference/data-types/json).
 
 Example:
 
