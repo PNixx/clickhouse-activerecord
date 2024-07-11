@@ -93,6 +93,12 @@ module ActiveRecord
 
           args.each { |name| column(name, kind, **options.except(:limit)) }
         end
+
+        private
+
+        def valid_column_definition_options
+          super + [:array, :low_cardinality, :fixed_string, :value, :type]
+        end
       end
 
       class IndexDefinition
