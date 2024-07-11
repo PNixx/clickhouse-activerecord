@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class CreateActionsTable < ActiveRecord::Migration[5.0]
+class CreateActionsTable < ActiveRecord::Migration[7.1]
   def up
     create_table :actions, options: 'MergeTree ORDER BY date', force: true do |t|
       t.datetime :array_datetime, null: false, array: true

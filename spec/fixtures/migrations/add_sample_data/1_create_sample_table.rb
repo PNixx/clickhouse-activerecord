@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class CreateSampleTable < ActiveRecord::Migration[5.0]
+class CreateSampleTable < ActiveRecord::Migration[7.1]
   def up
     create_table :sample, options: 'ReplacingMergeTree PARTITION BY toYYYYMM(date) ORDER BY (event_name)' do |t|
       t.string :event_name, null: false

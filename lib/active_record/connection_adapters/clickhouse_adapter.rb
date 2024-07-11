@@ -296,7 +296,11 @@ module ActiveRecord
         options = apply_replica(table_name, options)
         td = create_table_definition(apply_cluster(table_name), **options)
         block.call td if block_given?
-        td.column(:id, options[:id], null: false) if options[:id].present? && td[:id].blank? && options[:as].blank?
+        # support old migration version: in 5.0 options id: :integer, but 7.1 options empty
+        # todo remove auto add id column in future
+        if (!options.key?(:id) || options[:id].present? && options[:id] != false) && td[:id].blank? && options[:as].blank?
+          td.column(:id, options[:id] || :integer, null: false)
+        end
 
         if options[:force]
           drop_table(table_name, options.merge(if_exists: true))
