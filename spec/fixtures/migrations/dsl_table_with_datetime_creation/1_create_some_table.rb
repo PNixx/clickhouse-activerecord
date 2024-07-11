@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class CreateSomeTable < ActiveRecord::Migration[5.0]
+class CreateSomeTable < ActiveRecord::Migration[7.1]
   def up
     create_table :some, id: false, force: true do |t|
       t.datetime :datetime, null: false
