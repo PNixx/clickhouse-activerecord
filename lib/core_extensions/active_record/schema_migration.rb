@@ -36,10 +36,16 @@ module CoreExtensions
         connection.insert(im, "#{self.class} Create Rollback Version", primary_key, version)
       end
 
-      def all_versions
+      def versions
         return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
 
-        final.where(active: 1).order(:version).pluck(:version)
+        sm = ::Arel::SelectManager.new(arel_table)
+        sm.final!
+        sm.project(arel_table[primary_key])
+        sm.order(arel_table[primary_key].asc)
+        sm.where([arel_table['active'].eq(1)])
+
+        connection.select_values(sm, "#{self.class} Load")
       end
     end
   end
