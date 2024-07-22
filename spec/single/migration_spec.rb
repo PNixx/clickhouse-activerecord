@@ -58,6 +58,19 @@ RSpec.describe 'Migration', :migrations do
           end
         end
 
+        context 'without id' do
+          let(:directory) { 'dsl_create_view_without_id' }
+          it 'creates a table' do
+            subject
+
+            current_schema = schema(model)
+
+            expect(current_schema.keys.count).to eq(1)
+            expect(current_schema).to_not have_key('id')
+            expect(current_schema['col'].sql_type).to eq('String')
+          end
+        end
+
         context 'with buffer table' do
           let(:directory) { 'dsl_table_buffer_creation' }
           it 'creates a table' do
