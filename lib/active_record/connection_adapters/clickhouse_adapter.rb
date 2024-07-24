@@ -8,6 +8,7 @@ require 'active_record/connection_adapters/clickhouse/oid/array'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
 require 'active_record/connection_adapters/clickhouse/oid/big_integer'
+require 'active_record/connection_adapters/clickhouse/oid/map'
 require 'active_record/connection_adapters/clickhouse/oid/uuid'
 require 'active_record/connection_adapters/clickhouse/schema_definitions'
 require 'active_record/connection_adapters/clickhouse/schema_creation'
@@ -211,6 +212,10 @@ module ActiveRecord
           m.register_type(%r(Array)) do |sql_type|
             Clickhouse::OID::Array.new(sql_type)
           end
+
+          m.register_type(%r(Map)) do |sql_type|
+            Clickhouse::OID::Map.new(sql_type)
+          end
         end
       end
 
@@ -223,6 +228,8 @@ module ActiveRecord
         case value
         when Array
           '[' + value.map { |v| quote(v) }.join(', ') + ']'
+        when Hash
+          '{' + value.map { |k, v| "#{quote(k)}: #{quote(v)}" }.join(', ') + '}'
         else
           super
         end

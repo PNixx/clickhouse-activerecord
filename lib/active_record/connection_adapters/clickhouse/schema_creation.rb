@@ -33,6 +33,9 @@ module ActiveRecord
           if options[:array]
             sql.gsub!(/\s+(.*)/, ' Array(\1)')
           end
+          if options[:map]
+            sql.gsub!(/\s+(.*)/, ' Map(String, \1)')
+          end
           sql.gsub!(/(\sString)\(\d+\)/, '\1')
           sql << " DEFAULT #{quote_default_expression(options[:default], options[:column])}" if options_include_default?(options)
           sql
