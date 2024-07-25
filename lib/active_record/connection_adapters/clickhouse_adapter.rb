@@ -229,7 +229,7 @@ module ActiveRecord
         when Array
           '[' + value.map { |v| quote(v) }.join(', ') + ']'
         when Hash
-          '{' + value.map { |k, v| "#{quote(k)}: #{quote(v)}" }.join(', ') + '}'
+          JSON.generate(value, quirks_mode: true)
         else
           super
         end
