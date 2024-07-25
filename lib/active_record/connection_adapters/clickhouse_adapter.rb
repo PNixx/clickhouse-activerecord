@@ -352,7 +352,7 @@ module ActiveRecord
       end
 
       def create_function(name, body)
-        fd = "CREATE FUNCTION #{apply_cluster(quote_table_name(name))} AS #{body}"
+        fd = "CREATE OR REPLACE FUNCTION #{apply_cluster(quote_table_name(name))} AS #{body}"
         do_execute(fd, format: nil)
       end
 
