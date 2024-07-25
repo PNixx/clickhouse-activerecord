@@ -50,7 +50,12 @@ HEADER
         unless simple
           stream.puts "  # TABLE: #{table}"
           sql = @connection.show_create_table(table)
-          stream.puts "  # SQL: #{sql.gsub(/ENGINE = Replicated(.*?)\('[^']+',\s*'[^']+',?\s?([^\)]*)?\)/, "ENGINE = \\1(\\2)")}" if sql
+
+          if sql
+            sql.gsub!(/\A(CREATE\s+[A-Z]+\s+)#{@connection.database}\./, "\\1")
+            sql.gsub!(/ENGINE = Replicated(.*?)\('[^']+',\s*'[^']+',?\s?([^\)]*)?\)/, "ENGINE = \\1(\\2)")
+            stream.puts "  # SQL: #{sql}"
+          end
           # super(table.gsub(/^\.inner\./, ''), stream)
 
           # detect view table
