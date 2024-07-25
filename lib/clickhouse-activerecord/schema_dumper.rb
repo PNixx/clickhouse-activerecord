@@ -52,7 +52,7 @@ HEADER
           sql = @connection.show_create_table(table)
 
           if sql
-            sql.gsub!(/\A(CREATE\s+[A-Z]+\s+)#{@connection.database}\./, "\\1")
+            sql.gsub!("#{@connection.database}.", "")
             sql.gsub!(/ENGINE = Replicated(.*?)\('[^']+',\s*'[^']+',?\s?([^\)]*)?\)/, "ENGINE = \\1(\\2)")
             stream.puts "  # SQL: #{sql}"
           end
