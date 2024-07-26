@@ -53,6 +53,8 @@ module ActiveRecord
                   DateTime.new.serialize(value)
                 when :date
                   Date.new.serialize(value)
+                when :string
+                  value.to_s
               else
                 super
               end
