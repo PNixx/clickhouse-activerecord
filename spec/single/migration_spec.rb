@@ -340,6 +340,21 @@ RSpec.describe 'Migration', :migrations do
       end
     end
 
+    describe 'alter column' do
+      let(:directory) { 'dsl_change_column' }
+      it 'alters the column' do
+        subject
+
+        current_schema = schema(model)
+
+        expect(current_schema.keys.count).to eq(2)
+        expect(current_schema).to have_key('id')
+        expect(current_schema).to have_key('col')
+        expect(current_schema['id'].sql_type).to eq('UInt32')
+        expect(current_schema['col'].sql_type).to eq('Int64')
+      end
+    end
+
     context 'function creation' do
       after do
         ActiveRecord::Base.connection.drop_functions
