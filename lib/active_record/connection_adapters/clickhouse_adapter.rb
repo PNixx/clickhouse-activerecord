@@ -133,6 +133,16 @@ module ActiveRecord
         connect
       end
 
+      # Savepoints are not supported, noop
+      def create_savepoint(name)
+      end
+
+      def exec_rollback_to_savepoint(name)
+      end
+
+      def release_savepoint(name)
+      end
+
       def migrations_paths
         @config[:migrations_paths] || 'db/migrate_clickhouse'
       end
