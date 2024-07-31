@@ -107,6 +107,14 @@ RSpec.describe 'Model', :migrations do
       end
     end
 
+    describe '#find_by' do
+      let!(:record) { Model.create!(id: 1, event_name: 'some event') }
+
+      it 'finds the record' do
+        expect(Model.find_by(id: 1, event_name: 'some event')).to eq(record)
+      end
+    end
+
     describe '#reverse_order!' do
       it 'blank' do
         expect(Model.all.reverse_order!.map(&:event_name)).to eq([])
