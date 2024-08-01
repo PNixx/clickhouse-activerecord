@@ -149,7 +149,15 @@ Structure load from `db/clickhouse_structure.sql` file:
     $ rake db:schema:dump  
     $ rake db:schema:load  
     $ rake db:structure:dump  
-    $ rake db:structure:load  
+    $ rake db:structure:load
+
+### RSpec
+
+For auto truncate tables before each test add to `spec/rails_helper.rb` file:
+
+```
+require 'clickhouse-activerecord/rspec'
+```
     
 ### Insert and select data
 
