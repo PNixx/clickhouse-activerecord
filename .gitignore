@@ -54,3 +54,4 @@ crashlytics.properties
 crashlytics-build.properties
 fabric.properties
 .rspec_status
+.tool-versions
