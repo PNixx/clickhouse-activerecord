@@ -18,9 +18,16 @@ module ActiveRecord
           true
         end
 
-        def internal_exec_query(sql, name = nil, binds = [], prepare: false, async: false)
+        def internal_exec_query(sql, name = nil, binds = [], prepare: false, async: false, allow_retry: false)
           result = do_execute(sql, name)
-          ActiveRecord::Result.new(result['meta'].map { |m| m['name'] }, result['data'], result['meta'].map { |m| [m['name'], type_map.lookup(m['type'])] }.to_h)
+          columns = result['meta'].map { |m| m['name'] }
+          types = {}
+          result['meta'].each_with_index do |m, i|
+            # need use column name and index after commit in 7.2:
+            # https://github.com/rails/rails/commit/24dbf7637b1d5cd6eb3d7100b8d0f6872c3fee3c
+            types[m['name']] = types[i] = type_map.lookup(m['type'])
+          end
+          ActiveRecord::Result.new(columns, result['data'], types)
         rescue ActiveRecord::ActiveRecordError => e
           raise e
         rescue StandardError => e

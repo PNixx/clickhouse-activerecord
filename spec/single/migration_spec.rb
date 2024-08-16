@@ -9,7 +9,7 @@ RSpec.describe 'Migration', :migrations do
     end
     let(:directory) { raise 'NotImplemented' }
     let(:migrations_dir) { File.join(FIXTURES_PATH, 'migrations', directory) }
-    let(:migration_context) { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration, model.connection.internal_metadata) }
+    let(:migration_context) { ActiveRecord::MigrationContext.new(migrations_dir) }
 
     connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
 
@@ -312,11 +312,11 @@ RSpec.describe 'Migration', :migrations do
     describe 'drop table sync' do
       it 'drops table' do
         migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'dsl_drop_table_sync')
-        quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up(1) }
+        quietly { ActiveRecord::MigrationContext.new(migrations_dir).up(1) }
 
         expect(ActiveRecord::Base.connection.tables).to include('some')
 
-        quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up(2) }
+        quietly { ActiveRecord::MigrationContext.new(migrations_dir).up(2) }
 
         expect(ActiveRecord::Base.connection.tables).not_to include('some')
       end

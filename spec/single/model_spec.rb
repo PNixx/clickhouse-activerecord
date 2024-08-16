@@ -21,7 +21,7 @@ RSpec.describe 'Model', :migrations do
 
     before do
       migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_sample_data')
-      quietly { ActiveRecord::MigrationContext.new(migrations_dir, Model.connection.schema_migration).up }
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
     end
 
     describe '#do_execute' do
@@ -277,7 +277,7 @@ RSpec.describe 'Model', :migrations do
 
     before do
       migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_array_datetime')
-      quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
     end
 
     describe '#create' do
@@ -333,7 +333,7 @@ RSpec.describe 'Model', :migrations do
 
     before do
       migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_map_datetime')
-      quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
     end
 
     describe '#create' do
