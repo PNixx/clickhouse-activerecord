@@ -9,7 +9,7 @@ RSpec.describe 'Cluster Migration', :migrations do
     end
     let(:directory) { raise 'NotImplemented' }
     let(:migrations_dir) { File.join(FIXTURES_PATH, 'migrations', directory) }
-    let(:migration_context) { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration, model.connection.internal_metadata) }
+    let(:migration_context) { ActiveRecord::MigrationContext.new(migrations_dir) }
 
     connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
 
