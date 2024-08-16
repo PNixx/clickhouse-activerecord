@@ -207,6 +207,7 @@ false`. The default integer is `UInt32`
 | UInt64          |          0 to 18446744073709551615           |            5,6,7,8 |
 | UInt256         |                   0 to ...                   |                 8+ |
 | Array           |                     ...                      |                ... |
+| Map             |                     ...                      |                ... |
 
 Example:
 

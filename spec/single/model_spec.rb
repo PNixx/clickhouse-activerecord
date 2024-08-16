@@ -269,7 +269,6 @@ RSpec.describe 'Model', :migrations do
   end
 
   context 'array' do
-
     let!(:model) do
       Class.new(ActiveRecord::Base) do
         self.table_name = 'actions'
@@ -321,6 +320,62 @@ RSpec.describe 'Model', :migrations do
         expect(event.array_datetime[0].is_a?(DateTime)).to be_truthy
         expect(event.array_datetime[0]).to eq('2022-12-06 15:22:49')
         expect(event.array_datetime[1]).to eq('2022-12-05 15:22:49')
+      end
+    end
+  end
+
+  context 'map' do
+    let!(:model) do
+      Class.new(ActiveRecord::Base) do
+        self.table_name = 'verbs'
+      end
+    end
+
+    before do
+      migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_map_datetime')
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration).up }
+    end
+
+    describe '#create' do
+      it 'creates a new record' do
+        expect {
+          model.create!(
+            map_datetime: {a: 1.day.ago, b: Time.now, c: '2022-12-06 15:22:49'},
+            map_string: {a: 'asdf', b: 'jkl' },
+            map_int: {a: 1, b: 2},
+            date: date
+          )
+        }.to change { model.count }
+        record = model.first
+        expect(record.map_datetime.is_a?(Hash)).to be_truthy
+        expect(record.map_datetime['a'].is_a?(DateTime)).to be_truthy
+        expect(record.map_string['a'].is_a?(String)).to be_truthy
+        expect(record.map_string).to eq({'a' => 'asdf', 'b' => 'jkl'})
+        expect(record.map_int.is_a?(Hash)).to be_truthy
+        expect(record.map_int).to eq({'a' => 1, 'b' => 2})
+      end
+
+      it 'create with insert all' do
+        expect {
+          model.insert_all([{
+            map_datetime: {a: 1.day.ago, b: Time.now, c: '2022-12-06 15:22:49'},
+            map_string: {a: 'asdf', b: 'jkl' },
+            map_int: {a: 1, b: 2},
+            date: date
+          }])
+        }.to change { model.count }
+      end
+
+      it 'get record' do
+        model.connection.insert("INSERT INTO #{model.table_name} (id, map_datetime, date) VALUES (1, {'a': '2022-12-05 15:22:49', 'b': '2022-12-06 15:22:49'}, '2022-12-06')")
+        expect(model.count).to eq(1)
+        record = model.first
+        expect(record.date.is_a?(Date)).to be_truthy
+        expect(record.date).to eq(Date.parse('2022-12-06'))
+        expect(record.map_datetime.is_a?(Hash)).to be_truthy
+        expect(record.map_datetime['a'].is_a?(DateTime)).to be_truthy
+        expect(record.map_datetime['a']).to eq(DateTime.parse('2022-12-05 15:22:49'))
+        expect(record.map_datetime['b']).to eq(DateTime.parse('2022-12-06 15:22:49'))
       end
     end
   end
