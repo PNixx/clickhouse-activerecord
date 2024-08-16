@@ -84,7 +84,10 @@ module ActiveRecord
 
   module ConnectionAdapters
     class ClickhouseColumn < Column
-
+      private
+      def deduplicated
+        self
+      end
     end
 
     class ClickhouseAdapter < AbstractAdapter

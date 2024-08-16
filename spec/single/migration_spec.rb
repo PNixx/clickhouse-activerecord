@@ -103,13 +103,15 @@ RSpec.describe 'Migration', :migrations do
 
               current_schema = schema(model)
 
-              expect(current_schema.keys.count).to eq(3)
+              expect(current_schema.keys.count).to eq(4)
               expect(current_schema).to have_key('id')
               expect(current_schema).to have_key('money')
               expect(current_schema).to have_key('balance')
               expect(current_schema['id'].sql_type).to eq('UInt32')
               expect(current_schema['money'].sql_type).to eq('Nullable(Decimal(16, 4))')
               expect(current_schema['balance'].sql_type).to eq('Decimal(32, 2)')
+              expect(current_schema['balance'].default).to eq(0.0)
+              expect(current_schema['paid'].default).to eq(1.15)
             end
           end
 
@@ -139,7 +141,11 @@ RSpec.describe 'Migration', :migrations do
               expect(current_schema).to have_key('datetime')
               expect(current_schema).to have_key('datetime64')
               expect(current_schema['datetime'].sql_type).to eq('DateTime')
+              expect(current_schema['datetime'].default).to be_nil
+              expect(current_schema['datetime'].default_function).to eq('now()')
               expect(current_schema['datetime64'].sql_type).to eq('Nullable(DateTime64(3))')
+              expect(current_schema['datetime64'].default).to be_nil
+              expect(current_schema['datetime64'].default_function).to eq('now64()')
             end
           end
 
@@ -156,6 +162,7 @@ RSpec.describe 'Migration', :migrations do
               expect(current_schema).to have_key('col3')
               expect(current_schema).to have_key('col4')
               expect(current_schema['col1'].sql_type).to eq('LowCardinality(String)')
+              expect(current_schema['col1'].default).to eq('col')
               expect(current_schema['col2'].sql_type).to eq('LowCardinality(Nullable(String))')
               expect(current_schema['col3'].sql_type).to eq('Array(LowCardinality(Nullable(String)))')
               expect(current_schema['col4'].sql_type).to eq('Map(String, LowCardinality(Nullable(String)))')
@@ -191,6 +198,7 @@ RSpec.describe 'Migration', :migrations do
               expect(current_schema).to have_key('enum16')
               expect(current_schema).to have_key('enum_nullable')
               expect(current_schema['enum8'].sql_type).to eq("Enum8('key1' = 1, 'key2' = 2)")
+              expect(current_schema['enum8'].default).to eq('key1')
               expect(current_schema['enum16'].sql_type).to eq("Enum16('key1' = 1, 'key2' = 2)")
               expect(current_schema['enum_nullable'].sql_type).to eq("Nullable(Enum8('key1' = 1, 'key2' = 2))")
             end

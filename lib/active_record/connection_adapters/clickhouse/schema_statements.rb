@@ -57,6 +57,12 @@ module ActiveRecord
           result['data'].flatten
         end
 
+        def views(name = nil)
+          result = do_system_execute("SHOW TABLES WHERE engine = 'View'", name)
+          return [] if result.nil?
+          result['data'].flatten
+        end
+
         def functions
           result = do_system_execute("SELECT name FROM system.functions WHERE origin = 'SQLUserDefined'")
           return [] if result.nil?
@@ -133,13 +139,6 @@ module ActiveRecord
           end
         end
 
-        def views(name = nil)
-          result = do_system_execute("SHOW TABLES WHERE engine = 'View'", name)
-
-          return [] if result.nil?
-          result['data'].flatten
-        end
-
         private
 
         # Make HTTP request to ClickHouse server
@@ -198,9 +197,9 @@ module ActiveRecord
         def new_column_from_field(table_name, field, _definitions)
           sql_type = field[1]
           type_metadata = fetch_type_metadata(sql_type)
-          default = field[3]
-          default_value = extract_value_from_default(default)
-          default_function = extract_default_function(default_value, default)
+          default_value = extract_value_from_default(field[3], field[2])
+          default_function = extract_default_function(field[3])
+          default_value = lookup_cast_type(sql_type).cast(default_value)
           ClickhouseColumn.new(field[0], default_value, type_metadata, field[1].include?('Nullable'), default_function)
         end
 
@@ -219,32 +218,22 @@ module ActiveRecord
         private
 
         # Extracts the value from a PostgreSQL column default definition.
-        def extract_value_from_default(default)
-          case default
-            # Quoted types
-          when /\Anow\(\)\z/m
-            nil
-            # Boolean types
-          when "true".freeze, "false".freeze
-            default
-            # Object identifier types
-          when "''"
-            ''
-          when /\A-?\d+\z/
-            $1
-          else
-            # Anything else is blank, some user type, or some function
-            # and we can't know the value of that, so return nil.
-            nil
-          end
+        def extract_value_from_default(default_expression, default_type)
+          return nil if default_type != 'DEFAULT' || default_expression.blank?
+          return nil if has_default_function?(default_expression)
+
+          # Convert string
+          return $1 if default_expression.match(/^'(.*?)'$/)
+
+          default_expression
         end
 
-        def extract_default_function(default_value, default) # :nodoc:
-          default if has_default_function?(default_value, default)
+        def extract_default_function(default) # :nodoc:
+          default if has_default_function?(default)
         end
 
-        def has_default_function?(default_value, default) # :nodoc:
-          !default_value && (%r{\w+\(.*\)} === default)
+        def has_default_function?(default) # :nodoc:
+          (%r{\w+\(.*\)} === default)
         end
 
         def format_body_response(body, format)
