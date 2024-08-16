@@ -168,6 +168,10 @@ HEADER
       (column.sql_type =~ /Array?\(/).nil? ? nil : true
     end
 
+    def schema_map(column)
+      (column.sql_type =~ /Map?\(/).nil? ? nil : true
+    end
+
     def schema_low_cardinality(column)
       (column.sql_type =~ /LowCardinality?\(/).nil? ? nil : true
     end
@@ -176,6 +180,7 @@ HEADER
       spec = {}
       spec[:unsigned] = schema_unsigned(column)
       spec[:array] = schema_array(column)
+      spec[:map] = schema_map(column)
       spec[:low_cardinality] = schema_low_cardinality(column)
       spec.merge(super).compact
     end

@@ -126,7 +126,7 @@ module ActiveRecord
         # Fix insert_all method
         # https://github.com/PNixx/clickhouse-activerecord/issues/71#issuecomment-1923244983
         def with_yaml_fallback(value) # :nodoc:
-          if value.is_a?(Array)
+          if value.is_a?(Array) || value.is_a?(Hash)
             value
           else
             super
