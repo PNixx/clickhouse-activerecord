@@ -10,6 +10,7 @@ require 'active_record/connection_adapters/clickhouse/oid/date_time'
 require 'active_record/connection_adapters/clickhouse/oid/big_integer'
 require 'active_record/connection_adapters/clickhouse/oid/map'
 require 'active_record/connection_adapters/clickhouse/oid/uuid'
+require 'active_record/connection_adapters/clickhouse/quoting'
 require 'active_record/connection_adapters/clickhouse/schema_definitions'
 require 'active_record/connection_adapters/clickhouse/schema_creation'
 require 'active_record/connection_adapters/clickhouse/schema_statements'
@@ -23,30 +24,11 @@ module ActiveRecord
       def clickhouse_connection(config)
         config = config.symbolize_keys
 
-        if config[:connection]
-          connection = {
-            connection: config[:connection]
-          }
-        else
-          port = config[:port] || 8123
-          connection = {
-            host: config[:host] || 'localhost',
-            port: port,
-            ssl: config[:ssl].present? ? config[:ssl] : port == 443,
-            sslca: config[:sslca],
-            read_timeout: config[:read_timeout],
-            write_timeout: config[:write_timeout],
-            keep_alive_timeout: config[:keep_alive_timeout]
-          }
-        end
-
-        if config.key?(:database)
-          database = config[:database]
-        else
+        unless config.key?(:database)
           raise ArgumentError, 'No database specified. Missing argument: database.'
         end
 
-        ConnectionAdapters::ClickhouseAdapter.new(logger, connection, config)
+        ConnectionAdapters::ClickhouseAdapter.new(config)
       end
     end
   end
@@ -83,6 +65,11 @@ module ActiveRecord
   end
 
   module ConnectionAdapters
+
+    if ActiveRecord::version >= Gem::Version.new('7.2')
+      register "clickhouse", "ActiveRecord::ConnectionAdapters::ClickhouseAdapter", "active_record/connection_adapters/clickhouse_adapter"
+    end
+
     class ClickhouseColumn < Column
       private
       def deduplicated
@@ -91,6 +78,8 @@ module ActiveRecord
     end
 
     class ClickhouseAdapter < AbstractAdapter
+      include Clickhouse::Quoting
+
       ADAPTER_NAME = 'Clickhouse'.freeze
       NATIVE_DATABASE_TYPES = {
         string: { name: 'String' },
@@ -125,12 +114,28 @@ module ActiveRecord
       include Clickhouse::SchemaStatements
 
       # Initializes and connects a Clickhouse adapter.
-      def initialize(logger, connection_parameters, config)
-        super(nil, logger)
-        @connection_parameters = connection_parameters
-        @connection_config = { user: config[:username], password: config[:password], database: config[:database] }.compact
-        @debug = config[:debug] || false
-        @config = config
+      def initialize(config_or_deprecated_connection, deprecated_logger = nil, deprecated_connection_options = nil, deprecated_config = nil)
+        super
+        if @config[:connection]
+          connection = {
+            connection: @config[:connection]
+          }
+        else
+          port = @config[:port] || 8123
+          connection = {
+            host: @config[:host] || 'localhost',
+            port: port,
+            ssl: @config[:ssl].present? ? @config[:ssl] : port == 443,
+            sslca: @config[:sslca],
+            read_timeout: @config[:read_timeout],
+            write_timeout: @config[:write_timeout],
+            keep_alive_timeout: @config[:keep_alive_timeout]
+          }
+        end
+        @connection_parameters = connection
+
+        @connection_config = { user: @config[:username], password: @config[:password], database: @config[:database] }.compact
+        @debug = @config[:debug] || false
 
         @prepared_statements = false
 
