@@ -116,6 +116,16 @@ module ActiveRecord
           end
         end
 
+        if ::ActiveRecord::version >= Gem::Version.new('7.2')
+          def schema_migration
+            pool.schema_migration
+          end
+
+          def migration_context
+            pool.migration_context
+          end
+        end
+
         def assume_migrated_upto_version(version, migrations_paths = nil)
           version = version.to_i
           sm_table = quote_table_name(schema_migration.table_name)

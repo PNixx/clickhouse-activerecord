@@ -14,6 +14,7 @@ RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = '.rspec_status'
   config.include ActiveSupport::Testing::Stream
+  config.raise_errors_for_deprecations!
 
   # Disable RSpec exposing methods globally on `Module` and `main`
   config.disable_monkey_patching!
@@ -41,7 +42,6 @@ ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(
     database: ENV['CLICKHOUSE_DATABASE'] || 'test',
     username: nil,
     password: nil,
-    use_metadata_table: false,
     cluster_name: ENV['CLICKHOUSE_CLUSTER'],
   }
 )

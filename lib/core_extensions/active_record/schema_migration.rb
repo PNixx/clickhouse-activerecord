@@ -50,7 +50,7 @@ module CoreExtensions
 
       def connection
         if ::ActiveRecord::version >= Gem::Version.new('7.2')
-          @pool.connection
+          @pool.lease_connection
         else
           super
         end
