@@ -4,7 +4,7 @@ module CoreExtensions
 
       def create_table
         return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
-        return if table_exists? || !enabled?
+        return if !enabled? || table_exists?
 
         key_options = connection.internal_string_options_for_primary_key
         table_options = {
@@ -31,14 +31,23 @@ module CoreExtensions
 
       private
 
-      def update_entry(key, new_value)
-        return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
-
-        create_entry(key, new_value)
+      def update_entry(connection_or_key, key_or_new_value, new_value = nil)
+        if ::ActiveRecord::version >= Gem::Version.new('7.2')
+          return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+          create_entry(connection_or_key, key_or_new_value, new_value)
+        else
+          return super(connection_or_key, key_or_new_value) unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+          create_entry(connection_or_key, key_or_new_value)
+        end
       end
 
-      def select_entry(key)
-        return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+      def select_entry(connection_or_key, key = nil)
+        if ::ActiveRecord::version >= Gem::Version.new('7.2')
+          return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+        else
+          key = connection_or_key
+          return super(key) unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+        end
 
         sm = ::Arel::SelectManager.new(arel_table)
         sm.final! if connection.table_options(table_name)[:options] =~ /^ReplacingMergeTree/
@@ -52,7 +61,7 @@ module CoreExtensions
 
       def connection
         if ::ActiveRecord::version >= Gem::Version.new('7.2')
-          @pool.connection
+          @pool.lease_connection
         else
           super
         end

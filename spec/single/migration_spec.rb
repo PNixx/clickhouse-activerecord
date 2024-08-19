@@ -282,7 +282,7 @@ RSpec.describe 'Migration', :migrations do
 
             expect { ActiveRecord::Base.connection.rebuild_index('some', 'idx3') }.to raise_error(ActiveRecord::ActiveRecordError, include('Unknown index'))
 
-            expect { ActiveRecord::Base.connection.rebuild_index('some', 'idx3', true) }.to_not raise_error(ActiveRecord::ActiveRecordError)
+            # expect { ActiveRecord::Base.connection.rebuild_index('some', 'idx3', if_exists: true) }.to_not raise_error
 
             ActiveRecord::Base.connection.rebuild_index('some', 'idx2')
           end

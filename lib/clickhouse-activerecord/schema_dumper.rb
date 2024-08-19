@@ -14,25 +14,6 @@ module ClickhouseActiverecord
 
     private
 
-    def header(stream)
-      stream.puts <<HEADER
-# This file is auto-generated from the current state of the database. Instead
-# of editing this file, please use the migrations feature of Active Record to
-# incrementally modify your database, and then regenerate this schema definition.
-#
-# This file is the source Rails uses to define your schema when running `rails
-# #{simple ? 'db' : 'clickhouse'}:schema:load`. When creating a new database, `rails #{simple ? 'db' : 'clickhouse'}:schema:load` tends to
-# be faster and is potentially less error prone than running all of your
-# migrations from scratch. Old migrations may fail to apply correctly if those
-# migrations use external dependencies or application code.
-#
-# It's strongly recommended that you check this file into your version control system.
-
-#{simple ? 'ActiveRecord' : 'ClickhouseActiverecord'}::Schema.define(#{define_params}) do
-
-HEADER
-    end
-
     def tables(stream)
       functions = @connection.functions
       functions.each do |function|
