@@ -401,16 +401,29 @@ RSpec.describe 'Model', :migrations do
             map_datetime: {a: 1.day.ago, b: Time.now, c: '2022-12-06 15:22:49'},
             map_string: {a: 'asdf', b: 'jkl' },
             map_int: {a: 1, b: 2},
+            map_array_datetime: {a: [1.day.ago], b: [Time.now, '2022-12-06 15:22:49']},
+            map_array_string: {a: ['str'], b: ['str1', 'str2']},
+            map_array_int: {a: [1], b: [1, 2, 3]},
             date: date
           )
-        }.to change { model.count }
+        }.to change { model.count }.by(1)
+
         record = model.first
-        expect(record.map_datetime.is_a?(Hash)).to be_truthy
-        expect(record.map_datetime['a'].is_a?(DateTime)).to be_truthy
-        expect(record.map_string['a'].is_a?(String)).to be_truthy
+        expect(record.map_datetime).to be_a Hash
+        expect(record.map_string).to be_a Hash
+        expect(record.map_int).to be_a Hash
+        expect(record.map_array_datetime).to be_a Hash
+        expect(record.map_array_string).to be_a Hash
+        expect(record.map_array_int).to be_a Hash
+
+        expect(record.map_datetime['a']).to be_a DateTime
+        expect(record.map_string['a']).to be_a String
         expect(record.map_string).to eq({'a' => 'asdf', 'b' => 'jkl'})
-        expect(record.map_int.is_a?(Hash)).to be_truthy
         expect(record.map_int).to eq({'a' => 1, 'b' => 2})
+
+        expect(record.map_array_datetime['b']).to be_a Array
+        expect(record.map_array_string['b']).to be_a Array
+        expect(record.map_array_int['b']).to be_a Array
       end
 
       it 'create with insert all' do
@@ -419,21 +432,28 @@ RSpec.describe 'Model', :migrations do
             map_datetime: {a: 1.day.ago, b: Time.now, c: '2022-12-06 15:22:49'},
             map_string: {a: 'asdf', b: 'jkl' },
             map_int: {a: 1, b: 2},
+            map_array_datetime: {a: [1.day.ago], b: [Time.now, '2022-12-06 15:22:49']},
+            map_array_string: {a: ['str'], b: ['str1', 'str2']},
+            map_array_int: {a: [1], b: [1, 2, 3]},
             date: date
           }])
-        }.to change { model.count }
+        }.to change { model.count }.by(1)
       end
 
       it 'get record' do
-        model.connection.insert("INSERT INTO #{model.table_name} (id, map_datetime, date) VALUES (1, {'a': '2022-12-05 15:22:49', 'b': '2022-12-06 15:22:49'}, '2022-12-06')")
+        model.connection.insert("INSERT INTO #{model.table_name} (id, map_datetime, map_array_datetime, date) VALUES (1, {'a': '2022-12-05 15:22:49', 'b': '2024-01-01 12:00:08'}, {'c': ['2022-12-05 15:22:49','2024-01-01 12:00:08']}, '2022-12-06')")
         expect(model.count).to eq(1)
         record = model.first
         expect(record.date.is_a?(Date)).to be_truthy
         expect(record.date).to eq(Date.parse('2022-12-06'))
-        expect(record.map_datetime.is_a?(Hash)).to be_truthy
+        expect(record.map_datetime).to be_a Hash
         expect(record.map_datetime['a'].is_a?(DateTime)).to be_truthy
         expect(record.map_datetime['a']).to eq(DateTime.parse('2022-12-05 15:22:49'))
-        expect(record.map_datetime['b']).to eq(DateTime.parse('2022-12-06 15:22:49'))
+        expect(record.map_datetime['b']).to eq(DateTime.parse('2024-01-01 12:00:08'))
+        expect(record.map_array_datetime).to be_a Hash
+        expect(record.map_array_datetime['c']).to be_a Array
+        expect(record.map_array_datetime['c'][0]).to eq(DateTime.parse('2022-12-05 15:22:49'))
+        expect(record.map_array_datetime['c'][1]).to eq(DateTime.parse('2024-01-01 12:00:08'))
       end
     end
   end
