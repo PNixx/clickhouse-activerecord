@@ -74,6 +74,14 @@ module Arel
         infix_value o, collector, op
       end
 
+      def visit_Arel_Nodes_Rows(o, collector)
+        if o.expr.is_a?(String)
+          collector << "ROWS #{o.expr}"
+        else
+          super
+        end
+      end
+
       def sanitize_as_setting_value(value)
         if value == :default
           'DEFAULT'

@@ -6,11 +6,11 @@ module ActiveRecord
 
         module ClassMethods # :nodoc:
           def quote_column_name(name)
-            name
+            name.to_s.include?('.') ? "`#{name}`" : name.to_s
           end
 
           def quote_table_name(name)
-            name
+            name.to_s
           end
         end
       end

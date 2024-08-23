@@ -47,7 +47,7 @@ module ActiveRecord
 
   module ModelSchema
     module ClassMethods
-      delegate :final, :final!, :settings, :settings!, to: :all
+      delegate :final, :final!, :settings, :settings!, :window, :window!, to: :all
 
       def is_view
         @is_view || false
