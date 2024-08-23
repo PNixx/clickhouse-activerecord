@@ -230,6 +230,18 @@ RSpec.describe 'Model', :migrations do
       end
     end
 
+    describe '#window' do
+      it 'works' do
+        sql = Model.window('x', order: 'date', partition: 'name', rows: 'UNBOUNDED PRECEDING').select('sum(event_value) OVER x').to_sql
+        expect(sql).to eq('SELECT sum(event_value) OVER x FROM sample WINDOW x AS (PARTITION BY name ORDER BY date ROWS UNBOUNDED PRECEDING)')
+      end
+
+      it 'empty' do
+        sql = Model.window('x').select('sum(event_value) OVER x').to_sql
+        expect(sql).to eq('SELECT sum(event_value) OVER x FROM sample WINDOW x AS ()')
+      end
+    end
+
     describe 'arel predicates' do
       describe '#matches' do
         it 'uses ilike for case insensitive matches' do

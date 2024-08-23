@@ -124,6 +124,10 @@ module ActiveRecord
           def migration_context
             pool.migration_context
           end
+
+          def internal_metadata
+            pool.internal_metadata
+          end
         end
 
         def assume_migrated_upto_version(version, migrations_paths = nil)
