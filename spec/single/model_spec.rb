@@ -10,10 +10,6 @@ RSpec.describe 'Model', :migrations do
     self.table_name = 'sample'
     has_many :joins, class_name: 'ModelJoin', primary_key: 'event_name'
   end
-  class ModelPk < ActiveRecord::Base
-    self.table_name = 'sample'
-    self.primary_key = 'event_name'
-  end
 
   let(:date) { Date.today }
 
@@ -22,6 +18,10 @@ RSpec.describe 'Model', :migrations do
     before do
       migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_sample_data')
       quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
+    end
+
+    it 'detect primary key' do
+      expect(Model.primary_key).to eq('event_name')
     end
 
     describe '#do_execute' do
@@ -80,19 +80,13 @@ RSpec.describe 'Model', :migrations do
 
       it 'update model with primary key' do
         expect {
-          ModelPk.first.update!(event_value: 2)
+          Model.first.update!(event_value: 2)
         }.to_not raise_error
       end
     end
 
     describe '#delete' do
       let!(:record) { Model.create!(event_name: 'some event', date: date) }
-
-      it 'model destroy' do
-        expect {
-          record.destroy!
-        }.to raise_error(ActiveRecord::ActiveRecordError, 'Deleting a row is not possible without a primary key')
-      end
 
       it 'scope' do
         expect {
@@ -102,16 +96,16 @@ RSpec.describe 'Model', :migrations do
 
       it 'destroy model with primary key' do
         expect {
-          ModelPk.first.destroy!
+          Model.first.destroy!
         }.to_not raise_error
       end
     end
 
     describe '#find_by' do
-      let!(:record) { Model.create!(id: 1, event_name: 'some event') }
+      let!(:record) { Model.create!(event_name: 'some event', date: Date.current, datetime: Time.now) }
 
       it 'finds the record' do
-        expect(Model.find_by(id: 1, event_name: 'some event')).to eq(record)
+        expect(Model.find_by(event_name: 'some event').attributes).to eq(record.attributes)
       end
     end
 
@@ -123,7 +117,8 @@ RSpec.describe 'Model', :migrations do
       it 'select' do
         Model.create!(event_name: 'some event 1', date: 1.day.ago)
         Model.create!(event_name: 'some event 2', date: 2.day.ago)
-        expect(Model.all.reverse_order!.map(&:event_name)).to eq(['some event 1', 'some event 2'])
+        expect(Model.all.reverse_order!.to_sql).to eq('SELECT sample.* FROM sample ORDER BY sample.event_name DESC')
+        expect(Model.all.reverse_order!.map(&:event_name)).to eq(['some event 2', 'some event 1'])
       end
     end
 
@@ -132,8 +127,8 @@ RSpec.describe 'Model', :migrations do
       let!(:record2) { Model.create!(event_name: 'some event', event_value: 3, date: date) }
 
       it 'integer' do
-        expect(Model.select(Arel.sql('sum(event_value) AS event_value')).first.event_value.class).to eq(Integer)
-        expect(Model.select(Arel.sql('sum(event_value) AS value')).first.attributes['value'].class).to eq(Integer)
+        expect(Model.select(Arel.sql('sum(event_value) AS event_value'))[0].event_value.class).to eq(Integer)
+        expect(Model.select(Arel.sql('sum(event_value) AS value'))[0].attributes['value'].class).to eq(Integer)
         expect(Model.pluck(Arel.sql('sum(event_value)')).first[0].class).to eq(Integer)
       end
     end
@@ -276,6 +271,37 @@ RSpec.describe 'Model', :migrations do
         expect(Model.final.count).to eq(1)
         expect(Model.final!.count).to eq(1)
         expect(Model.final.where(date: '2023-07-21').to_sql).to eq('SELECT sample.* FROM sample FINAL WHERE sample.date = \'2023-07-21\'')
+      end
+    end
+  end
+
+  context 'sample with id column' do
+    class ModelWithoutPrimaryKey < ActiveRecord::Base
+      self.table_name = 'sample_without_key'
+    end
+
+    before do
+      migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_sample_data_without_primary_key')
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
+    end
+
+    it 'detect primary key' do
+      expect(ModelWithoutPrimaryKey.primary_key).to eq(nil)
+    end
+
+    describe '#delete' do
+      let!(:record) { ModelWithoutPrimaryKey.create!(event_name: 'some event', date: date) }
+
+      it 'model destroy' do
+        expect {
+          record.destroy!
+        }.to raise_error(ActiveRecord::ActiveRecordError, 'Deleting a row is not possible without a primary key')
+      end
+
+      it 'scope' do
+        expect {
+          ModelWithoutPrimaryKey.where(event_name: 'some event').delete_all
+        }.to_not raise_error
       end
     end
   end

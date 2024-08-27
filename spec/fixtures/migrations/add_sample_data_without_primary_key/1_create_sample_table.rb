@@ -2,7 +2,7 @@
 
 class CreateSampleTable < ActiveRecord::Migration[7.1]
   def up
-    create_table :sample, id: false, options: 'ReplacingMergeTree PARTITION BY toYYYYMM(date) ORDER BY (event_name)' do |t|
+    create_table :sample_without_key, id: false, options: 'Log' do |t|
       t.string :event_name, null: false
       t.integer :event_value
       t.boolean :enabled, null: false, default: false
