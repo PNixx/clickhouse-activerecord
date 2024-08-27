@@ -279,6 +279,10 @@ module ActiveRecord
       def primary_keys(table_name)
         structure = do_system_execute("SHOW COLUMNS FROM `#{table_name}`")
         structure['data'].select {|m| m[3]&.include?('PRI') }.pluck(0)
+      rescue ActiveRecord::ActiveRecordError => e
+        pk = table_structure(table_name).first
+        return ['id'] if pk.present? && pk[0] == 'id'
+        []
       end
 
       def create_schema_dumper(options) # :nodoc:
