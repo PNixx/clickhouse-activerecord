@@ -10,6 +10,11 @@ RSpec.describe 'Model', :migrations do
     self.table_name = 'sample'
     has_many :joins, class_name: 'ModelJoin', primary_key: 'event_name'
   end
+  class ModelPk < ActiveRecord::Base
+    self.table_name = 'sample'
+    self.primary_key = 'event_name'
+  end
+  IS_NEW_CLICKHOUSE_SERVER = Model.connection.server_version.to_f >= 23.4
 
   let(:date) { Date.today }
 
@@ -20,8 +25,10 @@ RSpec.describe 'Model', :migrations do
       quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
     end
 
-    it 'detect primary key' do
-      expect(Model.primary_key).to eq('event_name')
+    if IS_NEW_CLICKHOUSE_SERVER
+      it "detect primary key" do
+        expect(Model.primary_key).to eq('event_name')
+      end
     end
 
     describe '#do_execute' do
@@ -80,7 +87,11 @@ RSpec.describe 'Model', :migrations do
 
       it 'update model with primary key' do
         expect {
-          Model.first.update!(event_value: 2)
+          if IS_NEW_CLICKHOUSE_SERVER
+            Model.first.update!(event_value: 2)
+          else
+            ModelPk.first.update!(event_value: 2)
+          end
         }.to_not raise_error
       end
     end
@@ -96,7 +107,11 @@ RSpec.describe 'Model', :migrations do
 
       it 'destroy model with primary key' do
         expect {
-          Model.first.destroy!
+          if IS_NEW_CLICKHOUSE_SERVER
+            Model.first.destroy!
+          else
+            ModelPk.first.destroy!
+          end
         }.to_not raise_error
       end
     end
@@ -117,8 +132,13 @@ RSpec.describe 'Model', :migrations do
       it 'select' do
         Model.create!(event_name: 'some event 1', date: 1.day.ago)
         Model.create!(event_name: 'some event 2', date: 2.day.ago)
-        expect(Model.all.reverse_order!.to_sql).to eq('SELECT sample.* FROM sample ORDER BY sample.event_name DESC')
-        expect(Model.all.reverse_order!.map(&:event_name)).to eq(['some event 2', 'some event 1'])
+        if IS_NEW_CLICKHOUSE_SERVER
+          expect(Model.all.reverse_order!.to_sql).to eq('SELECT sample.* FROM sample ORDER BY sample.event_name DESC')
+          expect(Model.all.reverse_order!.map(&:event_name)).to eq(['some event 2', 'some event 1'])
+        else
+          expect(Model.all.reverse_order!.to_sql).to eq('SELECT sample.* FROM sample ORDER BY sample.date DESC')
+          expect(Model.all.reverse_order!.map(&:event_name)).to eq(['some event 1', 'some event 2'])
+        end
       end
     end
 

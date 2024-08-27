@@ -142,6 +142,11 @@ module ActiveRecord
         connect
       end
 
+      # Return ClickHouse server version
+      def server_version
+        @server_version ||= do_system_execute('SELECT version()')['data'][0][0]
+      end
+
       # Savepoints are not supported, noop
       def create_savepoint(name)
       end
@@ -277,9 +282,11 @@ module ActiveRecord
       # SCHEMA STATEMENTS ========================================
 
       def primary_keys(table_name)
-        structure = do_system_execute("SHOW COLUMNS FROM `#{table_name}`")
-        structure['data'].select {|m| m[3]&.include?('PRI') }.pluck(0)
-      rescue ActiveRecord::ActiveRecordError => e
+        if server_version.to_f >= 23.4
+          structure = do_system_execute("SHOW COLUMNS FROM `#{table_name}`")
+          return structure['data'].select {|m| m[3]&.include?('PRI') }.pluck(0)
+        end
+
         pk = table_structure(table_name).first
         return ['id'] if pk.present? && pk[0] == 'id'
         []
