@@ -66,12 +66,7 @@ def schema(model)
 end
 
 def clear_db
-  cluster =
-    if ActiveRecord::version >= Gem::Version.new('6.1')
-      ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
-    else
-      ActiveRecord::Base.connection_config[:cluster_name]
-    end
+  cluster = ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
   pattern =
     if cluster
       normalized_cluster_name = cluster.start_with?('{') ? "'#{cluster}'" : cluster

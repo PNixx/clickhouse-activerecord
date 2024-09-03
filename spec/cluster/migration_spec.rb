@@ -10,12 +10,7 @@ RSpec.describe 'Cluster Migration', :migrations, cluster: true do
   let(:migrations_dir) { File.join(FIXTURES_PATH, 'migrations', directory) }
   let(:migration_context) { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration, model.connection.internal_metadata) }
 
-  connection_config =
-    if ActiveRecord::version >= Gem::Version.new('6.1')
-      ActiveRecord::Base.connection_db_config.configuration_hash
-    else
-      ActiveRecord::Base.connection_config
-    end
+  connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
 
   before(:all) do
     ActiveRecord::Base.establish_connection(connection_config.merge(cluster_name: '{cluster}'))

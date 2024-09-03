@@ -11,12 +11,7 @@ RSpec.describe 'Migration', :migrations do
     let(:migrations_dir) { File.join(FIXTURES_PATH, 'migrations', directory) }
     let(:migration_context) { ActiveRecord::MigrationContext.new(migrations_dir, model.connection.schema_migration) }
 
-    connection_config =
-      if ActiveRecord::version >= Gem::Version.new('6.1')
-         ActiveRecord::Base.connection_db_config.configuration_hash
-      else
-        ActiveRecord::Base.connection_config
-      end
+    connection_config = ActiveRecord::Base.connection_db_config.configuration_hash
 
     subject do
       quietly { migration_context.up }

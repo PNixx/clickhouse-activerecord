@@ -66,80 +66,67 @@ module ActiveRecord
       include Clickhouse::Quoting
       include Clickhouse::SchemaStatements
 
-      init_type_map_definition =
-        lambda { |m|
-          super(m)
+      def self.initialize_type_map(m)
+        super(m)
 
-          register_class_with_limit m, %r(String), Type::String
-          register_class_with_limit m, 'Date', Clickhouse::OID::Date
-          register_class_with_precision m, %r(datetime)i,  Clickhouse::OID::DateTime
+        register_class_with_limit m, %r(String), Type::String
+        register_class_with_limit m, 'Date', Clickhouse::OID::Date
+        register_class_with_precision m, %r(datetime)i,  Clickhouse::OID::DateTime
 
-          register_class_with_limit m, %r(Int8), Type::Integer
-          register_class_with_limit m, %r(Int16), Type::Integer
-          register_class_with_limit m, %r(Int32), Type::Integer
-          register_class_with_limit m, %r(Int64), Type::Integer
-          register_class_with_limit m, %r(Int128), Type::Integer
-          register_class_with_limit m, %r(Int256), Type::Integer
+        register_class_with_limit m, %r(Int8), Type::Integer
+        register_class_with_limit m, %r(Int16), Type::Integer
+        register_class_with_limit m, %r(Int32), Type::Integer
+        register_class_with_limit m, %r(Int64), Type::Integer
+        register_class_with_limit m, %r(Int128), Type::Integer
+        register_class_with_limit m, %r(Int256), Type::Integer
 
-          register_class_with_limit m, %r(UInt8), Type::UnsignedInteger
-          register_class_with_limit m, %r(UInt16), Type::UnsignedInteger
-          register_class_with_limit m, %r(UInt32), Type::UnsignedInteger
-          register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
-          register_class_with_limit m, %r(UInt128), Type::UnsignedInteger
-          register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
+        register_class_with_limit m, %r(UInt8), Type::UnsignedInteger
+        register_class_with_limit m, %r(UInt16), Type::UnsignedInteger
+        register_class_with_limit m, %r(UInt32), Type::UnsignedInteger
+        register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
+        register_class_with_limit m, %r(UInt128), Type::UnsignedInteger
+        register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
 
-          m.register_type %r(bool)i, ActiveModel::Type::Boolean.new
-          m.register_type %r{uuid}i, Clickhouse::OID::Uuid.new
+        m.register_type %r(bool)i, ActiveModel::Type::Boolean.new
+        m.register_type %r{uuid}i, Clickhouse::OID::Uuid.new
 
-          m.register_type(%r(Array)) do |sql_type|
-            Clickhouse::OID::Array.new(sql_type)
-          end
-
-          m.register_type(%r(Tuple)) do |sql_type|
-            schema = Clickhouse::OID::Tuple.parse_schema(sql_type)
-                                           .transform_values { |type| m.fetch(type) }
-            Clickhouse::OID::Tuple.new(schema)
-          end
-        }
-
-      extract_limit_def =
-        lambda { |sql_type|
-          case sql_type
-            when /(Nullable)?\(?String\)?/
-              super('String')
-            when /(?:Nullable)?\(?U?Int(\d+)\)?/
-              $1.to_i / 8
-            else
-              super(sql_type)
-          end
-        }
-
-      extract_scale_def =
-        lambda { |sql_type|
-          case sql_type
-            when /\((\d+)\)/
-              0
-            when /\((\d+)(,\s?(\d+))\)/
-              $3.to_i
-          end
-        }
-
-      extract_precision_def = ->(sql_type) { $1.to_i if sql_type =~ /\((\d+)(,\s?\d+)?\)/ }
-
-      if ActiveRecord.version < Gem::Version.new('7')
-        define_method :initialize_type_map, &init_type_map_definition
-        define_method :extract_limit, &extract_limit_def
-        define_method :extract_scale, &extract_scale_def
-        define_method :extract_precision, &extract_precision_def
-      else
-        define_singleton_method :initialize_type_map, &init_type_map_definition
-        define_singleton_method :extract_limit, &extract_limit_def
-        define_singleton_method :extract_scale, &extract_scale_def
-        define_singleton_method :extract_precision, &extract_precision_def
-
-        def initialize_type_map(m)
-          self.class.initialize_type_map(m)
+        m.register_type(%r(Array)) do |sql_type|
+          Clickhouse::OID::Array.new(sql_type)
         end
+
+        m.register_type(%r(Tuple)) do |sql_type|
+          schema = Clickhouse::OID::Tuple.parse_schema(sql_type)
+                                         .transform_values { |type| m.fetch(type) }
+          Clickhouse::OID::Tuple.new(schema)
+        end
+      end
+
+      def self.extract_limit(sql_type)
+        case sql_type
+        when /(Nullable)?\(?String\)?/
+          super('String')
+        when /(?:Nullable)?\(?U?Int(\d+)\)?/
+          $1.to_i / 8
+        else
+          super(sql_type)
+        end
+      end
+
+      def self.extract_scale(sql_type)
+        case sql_type
+        when /\((\d+)\)/
+          0
+        when /\((\d+)(,\s?(\d+))\)/
+          $3.to_i
+        end
+      end
+
+      def self.extract_precision(sql_type)
+        $1.to_i if sql_type =~ /\((\d+)(,\s?\d+)?\)/
+      end
+
+      def initialize_type_map(m)
+        self.class.initialize_type_map(m)
       end
 
       # Initializes and connects a Clickhouse adapter.
@@ -179,24 +166,14 @@ module ActiveRecord
       # Quoting time without microseconds
       def quoted_date(value)
         if value.acts_like?(:time)
-          default_timezone =
-            if ActiveRecord.version >= Gem::Version.new('7')
-              ActiveRecord.default_timezone
-            else
-              ActiveRecord::Base.default_timezone
-            end
-          zone_conversion_method = default_timezone == :utc ? :getutc : :getlocal
+          zone_conversion_method = ActiveRecord.default_timezone == :utc ? :getutc : :getlocal
 
           if value.respond_to?(zone_conversion_method)
             value = value.send(zone_conversion_method)
           end
         end
 
-        if ActiveRecord.version < Gem::Version.new('7')
-          value.to_s(:db)
-        else
-          value.to_fs(:db)
-        end
+        value.to_fs(:db)
       end
 
       def cluster

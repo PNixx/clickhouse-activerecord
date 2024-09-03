@@ -9,8 +9,6 @@ module CoreExtensions
         def initialize(cores = [::Arel::Nodes::SelectCore.new])
           @settings = nil
 
-          return super if ::ActiveRecord.version < Gem::Version.new('7')
-
           relation = (cores unless cores.is_a?(Array) && cores.all? { |c| c.is_a?(::Arel::Nodes::SelectCore) })
           super(relation)
         end

@@ -228,11 +228,7 @@ module ActiveRecord
           default_value    = extract_value_from_default(raw_default)
           default_function = extract_default_function(default_value, raw_default)
 
-          if ActiveRecord.version >= Gem::Version.new('6.1')
-            Column.new(field['name'], default_value, type_metadata, field['type'].include?('Nullable'), default_function, comment: field['comment'])
-          else
-            Column.new(field['name'], default_value, type_metadata, field['type'].include?('Nullable'), table_name, default_function, comment: field['comment'])
-          end
+          Column.new(field['name'], default_value, type_metadata, field['type'].include?('Nullable'), default_function, comment: field['comment'])
         end
 
         # Extracts the value from a Clickhouse column raw_default definition.
