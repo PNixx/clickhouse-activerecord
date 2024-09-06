@@ -6,20 +6,18 @@ module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module SchemaStatements
-        DEFAULT_RESPONSE_FORMAT = 'JSONCompactEachRowWithNamesAndTypes'.freeze
-
         DB_EXCEPTION_REGEXP = /\ACode:\s+\d+\.\s+DB::Exception:/.freeze
 
-        def execute(sql, name = nil, format: DEFAULT_RESPONSE_FORMAT, settings: {})
+        def execute(sql, name = nil, settings: {})
           log(sql, "#{adapter_name} #{name}") do
-            res = request(sql, format, settings)
-            process_response(res, format, sql)
+            res = request(sql, settings)
+            process_response(res, sql)
           end
         end
 
         def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil, returning: nil)
-          new_sql = sql.dup.sub(/ (DEFAULT )?VALUES/, " VALUES")
-          execute(new_sql, name, format: nil)
+          new_sql = sql.sub(/ (DEFAULT )?VALUES/, " VALUES")
+          execute(new_sql, name)
           true
         end
 
@@ -40,20 +38,20 @@ module ActiveRecord
         end
 
         def exec_insert_all(sql, name)
-          execute(sql, name, format: nil)
+          execute(sql, name)
           true
         end
 
         # @link https://clickhouse.com/docs/en/sql-reference/statements/alter/update
-        def exec_update(_sql, _name = nil, _binds = [])
-          execute(_sql, _name, format: nil)
+        def exec_update(sql, name = nil, _binds = [])
+          execute(sql, name)
           0
         end
 
         # @link https://clickhouse.com/docs/en/sql-reference/statements/delete
-        def exec_delete(_sql, _name = nil, _binds = [])
-          log(_sql, "#{adapter_name} #{_name}") do
-            res = request(_sql)
+        def exec_delete(sql, name = nil, _binds = [])
+          log(sql, "#{adapter_name} #{name}") do
+            res = request(sql)
             begin
               data = JSON.parse(res.header['x-clickhouse-summary'])
               data['result_rows'].to_i
@@ -88,7 +86,7 @@ module ActiveRecord
         end
 
         def show_create_function(function)
-          execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'", format: nil).sub(/\ACREATE FUNCTION/, 'CREATE OR REPLACE FUNCTION')
+          execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'").sub(/\ACREATE FUNCTION/, 'CREATE OR REPLACE FUNCTION')
         end
 
         def table_options(table)
@@ -115,8 +113,8 @@ module ActiveRecord
 
         def do_system_execute(sql, name = nil)
           log_with_debug(sql, "#{adapter_name} #{name}") do
-            res = request(sql, DEFAULT_RESPONSE_FORMAT)
-            process_response(res, DEFAULT_RESPONSE_FORMAT, sql)
+            res = request(sql)
+            process_response(res, sql)
           end
         end
 
@@ -150,7 +148,7 @@ module ActiveRecord
             if (duplicate = inserting.detect { |v| inserting.count(v) > 1 })
               raise "Duplicate migration #{duplicate}. Please renumber your migrations to resolve the conflict."
             end
-            execute(insert_versions_sql(inserting), nil, format: nil, settings: {max_partitions_per_insert_block: [100, inserting.size].max})
+            execute(insert_versions_sql(inserting), nil, settings: {max_partitions_per_insert_block: [100, inserting.size].max})
           end
         end
 
@@ -168,11 +166,10 @@ module ActiveRecord
 
         # Make HTTP request to ClickHouse server
         # @param [String] sql
-        # @param [String, nil] format
         # @param [Hash] settings
         # @return [Net::HTTPResponse]
-        def request(sql, format = nil, settings = {})
-          formatted_sql = apply_format(sql, format)
+        def request(sql, settings = {})
+          formatted_sql = apply_format(sql)
           request_params = @connection_config || {}
           @lock.synchronize do
             @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql, {
@@ -182,11 +179,21 @@ module ActiveRecord
           end
         end
 
-        def apply_format(sql, format)
-          format ? "#{sql} FORMAT #{format}" : sql
+        def apply_format(sql)
+          return sql unless formattable?(sql)
+
+          "#{sql} FORMAT #{ClickhouseAdapter::DEFAULT_RESPONSE_FORMAT}"
         end
 
-        def process_response(res, format, sql = nil)
+        def formattable?(sql)
+          !for_insert?(sql)
+        end
+
+        def for_insert?(sql)
+          /^insert into/i.match?(sql)
+        end
+
+        def process_response(res, sql = nil)
           case res.code.to_i
           when 200
             body = res.body
@@ -194,7 +201,7 @@ module ActiveRecord
             if body.include?("DB::Exception") && body.match?(DB_EXCEPTION_REGEXP)
               raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}#{sql ? "\nQuery: #{sql}" : ''}"
             else
-              format_body_response(res.body, format)
+              format_body_response(res.body)
             end
           else
             case res.body
@@ -265,17 +272,10 @@ module ActiveRecord
           (%r{\w+\(.*\)} === default)
         end
 
-        def format_body_response(body, format)
+        def format_body_response(body)
           return body if body.blank?
 
-          case format
-          when 'JSONCompact'
-            format_from_json_compact(body)
-          when 'JSONCompactEachRowWithNamesAndTypes'
-            format_from_json_compact_each_row_with_names_and_types(body)
-          else
-            body
-          end
+          format_from_json_compact_each_row_with_names_and_types(body)
         end
 
         def format_from_json_compact(body)
