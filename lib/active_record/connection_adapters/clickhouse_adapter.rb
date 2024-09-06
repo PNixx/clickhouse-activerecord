@@ -321,7 +321,7 @@ module ActiveRecord
           drop_table(table_name, options.merge(if_exists: true))
         end
 
-        do_execute(schema_creation.accept(td), format: nil)
+        execute(schema_creation.accept(td), format: nil)
       end
 
       def create_table(table_name, **options, &block)
@@ -338,7 +338,7 @@ module ActiveRecord
           drop_table(table_name, options.merge(if_exists: true))
         end
 
-        do_execute(schema_creation.accept(td), format: nil)
+        execute(schema_creation.accept(td), format: nil)
 
         if options[:with_distributed]
           distributed_table_name = options.delete(:with_distributed)
@@ -353,7 +353,7 @@ module ActiveRecord
 
       def create_function(name, body)
         fd = "CREATE FUNCTION #{apply_cluster(quote_table_name(name))} AS #{body}"
-        do_execute(fd, format: nil)
+        execute(fd, format: nil)
       end
 
       # Drops a ClickHouse database.
@@ -372,7 +372,7 @@ module ActiveRecord
       end
 
       def rename_table(table_name, new_name)
-        do_execute apply_cluster "RENAME TABLE #{quote_table_name(table_name)} TO #{quote_table_name(new_name)}"
+        execute apply_cluster "RENAME TABLE #{quote_table_name(table_name)} TO #{quote_table_name(new_name)}"
       end
 
       def drop_table(table_name, options = {}) # :nodoc:
@@ -382,7 +382,7 @@ module ActiveRecord
         query = apply_cluster(query)
         query = "#{query} SYNC" if options[:sync]
 
-        do_execute(query)
+        execute(query)
 
         if options[:with_distributed]
           distributed_table_name = options.delete(:with_distributed)
@@ -397,7 +397,7 @@ module ActiveRecord
         query = apply_cluster(query)
         query = "#{query} SYNC" if options[:sync]
 
-        do_execute(query, format: nil)
+        execute(query, format: nil)
       end
 
       def add_column(table_name, column_name, type, **options)
@@ -415,7 +415,7 @@ module ActiveRecord
       end
 
       def change_column(table_name, column_name, type, **options)
-        result = do_execute("ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, **options)}", nil, settings: {wait_end_of_query: 1, send_progress_in_http_headers: 1})
+        result = execute("ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, **options)}", nil, settings: {wait_end_of_query: 1, send_progress_in_http_headers: 1})
         raise "Error parse json response: #{result}" if result.presence && !result.is_a?(Hash)
       end
 

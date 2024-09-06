@@ -8,18 +8,21 @@ module ActiveRecord
       module SchemaStatements
         DEFAULT_RESPONSE_FORMAT = 'JSONCompactEachRowWithNamesAndTypes'.freeze
 
-        def execute(sql, name = nil, settings: {})
-          do_execute(sql, name, settings: settings)
+        def execute(sql, name = nil, format: DEFAULT_RESPONSE_FORMAT, settings: {})
+          log(sql, "#{adapter_name} #{name}") do
+            res = request(sql, format, settings)
+            process_response(res, format, sql)
+          end
         end
 
         def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil, returning: nil)
           new_sql = sql.dup.sub(/ (DEFAULT )?VALUES/, " VALUES")
-          do_execute(new_sql, name, format: nil)
+          execute(new_sql, name, format: nil)
           true
         end
 
         def internal_exec_query(sql, name = nil, binds = [], prepare: false, async: false, allow_retry: false)
-          result = do_execute(sql, name)
+          result = execute(sql, name)
           columns = result['meta'].map { |m| m['name'] }
           types = {}
           result['meta'].each_with_index do |m, i|
@@ -35,13 +38,13 @@ module ActiveRecord
         end
 
         def exec_insert_all(sql, name)
-          do_execute(sql, name, format: nil)
+          execute(sql, name, format: nil)
           true
         end
 
         # @link https://clickhouse.com/docs/en/sql-reference/statements/alter/update
         def exec_update(_sql, _name = nil, _binds = [])
-          do_execute(_sql, _name, format: nil)
+          execute(_sql, _name, format: nil)
           0
         end
 
@@ -77,7 +80,7 @@ module ActiveRecord
         end
 
         def show_create_function(function)
-          do_execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'", format: nil)
+          execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'", format: nil)
         end
 
         def table_options(table)
@@ -106,13 +109,6 @@ module ActiveRecord
           log_with_debug(sql, "#{adapter_name} #{name}") do
             res = request(sql, DEFAULT_RESPONSE_FORMAT)
             process_response(res, DEFAULT_RESPONSE_FORMAT, sql)
-          end
-        end
-
-        def do_execute(sql, name = nil, format: DEFAULT_RESPONSE_FORMAT, settings: {})
-          log(sql, "#{adapter_name} #{name}") do
-            res = request(sql, format, settings)
-            process_response(res, format, sql)
           end
         end
 
@@ -146,7 +142,7 @@ module ActiveRecord
             if (duplicate = inserting.detect { |v| inserting.count(v) > 1 })
               raise "Duplicate migration #{duplicate}. Please renumber your migrations to resolve the conflict."
             end
-            do_execute(insert_versions_sql(inserting), nil, format: nil, settings: {max_partitions_per_insert_block: [100, inserting.size].max})
+            execute(insert_versions_sql(inserting), nil, format: nil, settings: {max_partitions_per_insert_block: [100, inserting.size].max})
           end
         end
 
