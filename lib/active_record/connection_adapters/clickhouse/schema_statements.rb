@@ -178,17 +178,7 @@ module ActiveRecord
         end
 
         def apply_format(sql)
-          return sql unless formattable?(sql)
-
-          "#{sql} FORMAT #{ClickhouseAdapter::DEFAULT_RESPONSE_FORMAT}"
-        end
-
-        def formattable?(sql)
-          !for_insert?(sql)
-        end
-
-        def for_insert?(sql)
-          /^insert into/i.match?(sql)
+          FormatManager.new(sql).apply
         end
 
         def process_response(res, sql = nil)
