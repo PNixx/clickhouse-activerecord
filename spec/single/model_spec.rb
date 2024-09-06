@@ -86,6 +86,16 @@ RSpec.describe 'Model', :migrations do
           expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
         end
       end
+
+      context 'with nil format' do
+        it 'omits the FORMAT clause' do
+          result =
+            Model.connection.with_response_format(nil) do
+              Model.connection.execute('SELECT 1 AS t')
+            end
+          expect(result.chomp).to eq('1')
+        end
+      end
     end
 
     describe '#create' do
