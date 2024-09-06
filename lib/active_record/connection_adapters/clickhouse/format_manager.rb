@@ -11,7 +11,7 @@ module ActiveRecord
         end
 
         def apply
-          return @sql if skip_format?
+          return @sql if skip_format? || @format.blank?
 
           "#{@sql} FORMAT #{@format}"
         end

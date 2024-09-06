@@ -11,9 +11,9 @@ module ActiveRecord
         attr_reader :format
         attr_writer :response
 
-        def initialize(sql, format: nil)
+        def initialize(sql, format:)
           @sql = sql
-          @format = format || ClickhouseAdapter::DEFAULT_RESPONSE_FORMAT
+          @format = format
         end
 
         def formatted_sql
