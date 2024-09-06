@@ -10,13 +10,20 @@ module ActiveRecord
 
         def with_settings(**settings)
           @block_settings ||= {}
-          prev_settings   = @block_settings
+          prev_settings = @block_settings
           @block_settings.merge! settings
           yield
         ensure
           @block_settings = prev_settings
         end
 
+        # Request a specific format for the duration of the provided block
+        # @param [String] format
+        #
+        # @example Specify CSVWithNamesAndTypes format
+        #   with_response_format('CSVWithNamesAndTypes') do
+        #     Table.connection.execute('SELECT * FROM table')
+        #   end
         def with_response_format(format)
           prev_format = @response_format
           @response_format = format
@@ -25,9 +32,20 @@ module ActiveRecord
           @response_format = prev_format
         end
 
-        def execute(sql, name = nil, settings: {})
-          log(sql, [adapter_name, name].compact.join(' ')) do
-            raw_execute(sql, settings: settings)
+        def execute(sql, name = nil, format: nil, settings: {})
+          if format
+            ActiveRecord.deprecator.warn(<<~MSG.squish)
+              Passing `format` to `execute` is deprecated and will be removed in an upcoming release.
+              Please wrap `execute` in `with_response_format` instead.
+            MSG
+          end
+
+          format ||= @response_format
+          format ||= ClickhouseAdapter::DEFAULT_RESPONSE_FORMAT
+          with_response_format(format) do
+            log(sql, [adapter_name, name].compact.join(' ')) do
+              raw_execute(sql, settings: settings)
+            end
           end
         end
 
