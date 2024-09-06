@@ -81,6 +81,7 @@ module ActiveRecord
       include Clickhouse::Quoting
 
       ADAPTER_NAME = 'Clickhouse'.freeze
+      DEFAULT_RESPONSE_FORMAT = 'JSONCompactEachRowWithNamesAndTypes'.freeze
       NATIVE_DATABASE_TYPES = {
         string: { name: 'String' },
         integer: { name: 'UInt32' },
@@ -321,7 +322,7 @@ module ActiveRecord
           drop_table(table_name, options.merge(if_exists: true))
         end
 
-        execute(schema_creation.accept(td), format: nil)
+        execute(schema_creation.accept(td))
       end
 
       def create_table(table_name, **options, &block)
@@ -338,7 +339,7 @@ module ActiveRecord
           drop_table(table_name, options.merge(if_exists: true))
         end
 
-        execute(schema_creation.accept(td), format: nil)
+        execute(schema_creation.accept(td))
 
         if options[:with_distributed]
           distributed_table_name = options.delete(:with_distributed)
@@ -353,7 +354,7 @@ module ActiveRecord
 
       def create_function(name, body)
         fd = "CREATE FUNCTION #{apply_cluster(quote_table_name(name))} AS #{body}"
-        execute(fd, format: nil)
+        execute(fd)
       end
 
       # Drops a ClickHouse database.
@@ -397,7 +398,7 @@ module ActiveRecord
         query = apply_cluster(query)
         query = "#{query} SYNC" if options[:sync]
 
-        execute(query, format: nil)
+        execute(query)
       end
 
       def add_column(table_name, column_name, type, **options)

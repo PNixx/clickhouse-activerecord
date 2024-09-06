@@ -65,8 +65,6 @@ module ClickhouseActiverecord
       File.read(args.first).split(";\n\n").each do |sql|
         if sql.gsub(/[a-z]/i, '').blank?
           next
-        elsif sql =~ /^INSERT INTO/
-          connection.execute(sql, nil, format: nil)
         else
           connection.execute(sql)
         end
