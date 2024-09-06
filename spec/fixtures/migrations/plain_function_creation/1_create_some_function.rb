@@ -10,6 +10,6 @@ class CreateSomeFunction < ActiveRecord::Migration[7.1]
     sql = <<~SQL
       CREATE FUNCTION addFun AS (x,y) -> x + y
     SQL
-    do_execute(sql, format: nil)
+    execute(sql, format: nil)
   end
 end

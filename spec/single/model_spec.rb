@@ -36,16 +36,16 @@ RSpec.describe 'Model', :migrations do
       expect(Model.first.event_name).to eq('DB::Exception')
     end
 
-    describe '#do_execute' do
+    describe '#execute' do
       it 'returns formatted result' do
-        result = Model.connection.do_execute('SELECT 1 AS t')
+        result = Model.connection.execute('SELECT 1 AS t')
         expect(result['data']).to eq([[1]])
         expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
       end
 
       context 'with JSONCompact format' do
         it 'returns formatted result' do
-          result = Model.connection.do_execute('SELECT 1 AS t', format: 'JSONCompact')
+          result = Model.connection.execute('SELECT 1 AS t', format: 'JSONCompact')
           expect(result['data']).to eq([[1]])
           expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
         end
@@ -53,7 +53,7 @@ RSpec.describe 'Model', :migrations do
 
       context 'with JSONCompactEachRowWithNamesAndTypes format' do
         it 'returns formatted result' do
-          result = Model.connection.do_execute('SELECT 1 AS t', format: 'JSONCompactEachRowWithNamesAndTypes')
+          result = Model.connection.execute('SELECT 1 AS t', format: 'JSONCompactEachRowWithNamesAndTypes')
           expect(result['data']).to eq([[1]])
           expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
         end
