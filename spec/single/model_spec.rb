@@ -44,6 +44,36 @@ RSpec.describe 'Model', :migrations do
       end
     end
 
+    describe '#with_response_format' do
+      it 'returns formatted result' do
+        result = Model.connection.execute('SELECT 1 AS t')
+        expect(result['data']).to eq([[1]])
+        expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+      end
+
+      context 'with JSONCompact format' do
+        it 'returns formatted result' do
+          result =
+            Model.connection.with_response_format('JSONCompact') do
+              Model.connection.execute('SELECT 1 AS t')
+            end
+          expect(result['data']).to eq([[1]])
+          expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+        end
+      end
+
+      context 'with JSONCompactEachRowWithNamesAndTypes format' do
+        it 'returns formatted result' do
+          result =
+            Model.connection.with_response_format('JSONCompactEachRowWithNamesAndTypes') do
+              Model.connection.execute('SELECT 1 AS t')
+            end
+          expect(result['data']).to eq([[1]])
+          expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+        end
+      end
+    end
+
     describe '#create' do
       it 'creates a new record' do
         expect {
