@@ -66,9 +66,9 @@ module ClickhouseActiverecord
         if sql.gsub(/[a-z]/i, '').blank?
           next
         elsif sql =~ /^INSERT INTO/
-          connection.do_execute(sql, nil, format: nil)
+          connection.execute(sql, nil, format: nil)
         elsif sql =~ /^CREATE .*?FUNCTION/
-          connection.do_execute(sql, nil, format: nil)
+          connection.execute(sql, nil, format: nil)
         else
           connection.execute(sql)
         end
