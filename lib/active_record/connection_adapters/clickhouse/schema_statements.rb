@@ -17,13 +17,21 @@ module ActiveRecord
           @block_settings = prev_settings
         end
 
-        # Request a specific format for the duration of the provided block
+        # Request a specific format for the duration of the provided block.
+        # Pass `nil` to explicitly send the SQL statement without a `FORMAT` clause.
         # @param [String] format
         #
         # @example Specify CSVWithNamesAndTypes format
         #   with_response_format('CSVWithNamesAndTypes') do
         #     Table.connection.execute('SELECT * FROM table')
         #   end
+        #   # sends and executes "SELECT * FROM table FORMAT CSVWithNamesAndTypes"
+        #
+        # @example Specify no format
+        #  with_response_format(nil) do
+        #    Table.connection.execute('SELECT * FROM table')
+        #   end
+        #   # sends and executes "SELECT * FROM table"
         def with_response_format(format)
           prev_format = @response_format
           @response_format = format
@@ -32,16 +40,16 @@ module ActiveRecord
           @response_format = prev_format
         end
 
-        def execute(sql, name = nil, format: nil, settings: {})
-          if format
+        def execute(sql, name = nil, format: :deprecated, settings: {})
+          if format == :deprecated
+            format = @response_format
+          else
             ActiveRecord.deprecator.warn(<<~MSG.squish)
               Passing `format` to `execute` is deprecated and will be removed in an upcoming release.
               Please wrap `execute` in `with_response_format` instead.
             MSG
           end
 
-          format ||= @response_format
-          format ||= ClickhouseAdapter::DEFAULT_RESPONSE_FORMAT
           with_response_format(format) do
             log(sql, [adapter_name, name].compact.join(' ')) do
               raw_execute(sql, settings: settings)
@@ -85,7 +93,7 @@ module ActiveRecord
         # @link https://clickhouse.com/docs/en/sql-reference/statements/delete
         def exec_delete(sql, name = nil, _binds = [])
           log(sql, "#{adapter_name} #{name}") do
-            statement = Statement.new(sql)
+            statement = Statement.new(sql, format: @response_format)
             res = request(statement)
             begin
               data = JSON.parse(res.header['x-clickhouse-summary'])
@@ -247,7 +255,7 @@ module ActiveRecord
         end
 
         def raw_execute(sql, settings: {}, except_params: [])
-          statement = Statement.new(sql)
+          statement = Statement.new(sql, format: @response_format)
           statement.response = request(statement, settings: settings, except_params: except_params)
           statement.processed_response
         end
