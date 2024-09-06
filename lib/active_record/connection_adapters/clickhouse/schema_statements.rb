@@ -160,6 +160,14 @@ module ActiveRecord
           end
         end
 
+        def do_execute(sql, name = nil, format: DEFAULT_RESPONSE_FORMAT, settings: {})
+          ActiveRecord.deprecator.warn(<<~MSG.squish)
+            `do_execute` is deprecated and will be removed in an upcoming release.
+            Please use `execute` instead.
+          MSG
+          execute(sql, name, format: format, settings: settings)
+        end
+
         if ::ActiveRecord::version >= Gem::Version.new('7.2')
           def schema_migration
             pool.schema_migration
