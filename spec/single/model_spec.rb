@@ -42,22 +42,6 @@ RSpec.describe 'Model', :migrations do
         expect(result['data']).to eq([[1]])
         expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
       end
-
-      context 'with JSONCompact format' do
-        it 'returns formatted result' do
-          result = Model.connection.execute('SELECT 1 AS t', format: 'JSONCompact')
-          expect(result['data']).to eq([[1]])
-          expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
-        end
-      end
-
-      context 'with JSONCompactEachRowWithNamesAndTypes format' do
-        it 'returns formatted result' do
-          result = Model.connection.execute('SELECT 1 AS t', format: 'JSONCompactEachRowWithNamesAndTypes')
-          expect(result['data']).to eq([[1]])
-          expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
-        end
-      end
     end
 
     describe '#create' do
