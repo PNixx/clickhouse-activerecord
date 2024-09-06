@@ -17,10 +17,17 @@ module ActiveRecord
           @block_settings = prev_settings
         end
 
+        def with_response_format(format)
+          prev_format = @response_format
+          @response_format = format
+          yield
+        ensure
+          @response_format = prev_format
+        end
+
         def execute(sql, name = nil, settings: {})
-          log(sql, "#{adapter_name} #{name}") do
-            res = request(sql, settings)
-            process_response(res, sql)
+          log(sql, [adapter_name, name].compact.join(' ')) do
+            raw_execute(sql, settings: settings)
           end
         end
 
@@ -60,11 +67,12 @@ module ActiveRecord
         # @link https://clickhouse.com/docs/en/sql-reference/statements/delete
         def exec_delete(sql, name = nil, _binds = [])
           log(sql, "#{adapter_name} #{name}") do
-            res = request(sql)
+            statement = Statement.new(sql)
+            res = request(statement)
             begin
               data = JSON.parse(res.header['x-clickhouse-summary'])
               data['result_rows'].to_i
-            rescue JSONError
+            rescue JSON::ParserError
               0
             end
           end
@@ -120,10 +128,9 @@ module ActiveRecord
           tables
         end
 
-        def do_system_execute(sql, name = nil)
-          log_with_debug(sql, "#{adapter_name} #{name}") do
-            res = request(sql)
-            process_response(res, sql)
+        def do_system_execute(sql, name = nil, except_params: [])
+          log_with_debug(sql, [adapter_name, name].compact.join(' ')) do
+            raw_execute(sql, except_params: except_params)
           end
         end
 
@@ -171,55 +178,19 @@ module ActiveRecord
           end
         end
 
+        protected
+
+        def table_structure(table_name)
+          result = do_system_execute("DESCRIBE TABLE `#{table_name}`", table_name)
+          data = result['data']
+
+          return data unless data.empty?
+
+          raise ActiveRecord::StatementInvalid, "Could not find table '#{table_name}'"
+        end
+        alias column_definitions table_structure
+
         private
-
-        # Make HTTP request to ClickHouse server
-        # @param [String] sql
-        # @param [Hash] settings
-        # @return [Net::HTTPResponse]
-        def request(sql, settings = {})
-          formatted_sql = apply_format(sql)
-          request_params = @connection_config || {}
-          @lock.synchronize do
-            @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql, {
-              'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}",
-              'Content-Type' => 'application/x-www-form-urlencoded',
-            })
-          end
-        end
-
-        def apply_format(sql)
-          FormatManager.new(sql).apply
-        end
-
-        def process_response(res, sql = nil)
-          case res.code.to_i
-          when 200
-            body = res.body
-
-            if body.include?("DB::Exception") && body.match?(DB_EXCEPTION_REGEXP)
-              raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}#{sql ? "\nQuery: #{sql}" : ''}"
-            else
-              format_body_response(res.body)
-            end
-          else
-            case res.body
-              when /DB::Exception:.*\(UNKNOWN_DATABASE\)/
-                raise ActiveRecord::NoDatabaseError
-              when /DB::Exception:.*\(DATABASE_ALREADY_EXISTS\)/
-                raise ActiveRecord::DatabaseAlreadyExists
-              else
-                raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}"
-            end
-          end
-        rescue JSON::ParserError
-          res.body
-        end
-
-        def log_with_debug(sql, name = nil)
-          return yield unless @debug
-          log(sql, "#{name} (system)") { yield }
-        end
 
         def schema_creation
           Clickhouse::SchemaCreation.new(self)
@@ -237,20 +208,6 @@ module ActiveRecord
           default_value = lookup_cast_type(sql_type).cast(default_value)
           Clickhouse::Column.new(field[0], default_value, type_metadata, field[1].include?('Nullable'), default_function, codec: field[5].presence)
         end
-
-        protected
-
-        def table_structure(table_name)
-          result = do_system_execute("DESCRIBE TABLE `#{table_name}`", table_name)
-          data = result['data']
-
-          return data unless data.empty?
-
-          raise ActiveRecord::StatementInvalid, "Could not find table '#{table_name}'"
-        end
-        alias column_definitions table_structure
-
-        private
 
         # Extracts the value from a PostgreSQL column default definition.
         def extract_value_from_default(default_expression, default_type)
@@ -271,42 +228,35 @@ module ActiveRecord
           (%r{\w+\(.*\)} === default)
         end
 
-        def format_body_response(body)
-          return body if body.blank?
-
-          format_from_json_compact_each_row_with_names_and_types(body)
+        def raw_execute(sql, settings: {}, except_params: [])
+          statement = Statement.new(sql)
+          statement.response = request(statement, settings: settings, except_params: except_params)
+          statement.processed_response
         end
 
-        def format_from_json_compact(body)
-          parse_json_payload(body)
+        # Make HTTP request to ClickHouse server
+        # @param [ActiveRecord::ConnectionAdapters::Clickhouse::Statement] statement
+        # @param [Hash] settings
+        # @param [Array] except_params
+        # @return [Net::HTTPResponse]
+        def request(statement, settings: {}, except_params: [])
+          @connection.post("/?#{settings_params(settings, except: except_params)}",
+                           statement.formatted_sql,
+                           'Content-Type' => 'application/x-www-form-urlencoded',
+                           'User-Agent' => ClickhouseAdapter::USER_AGENT)
         end
 
-        def format_from_json_compact_each_row_with_names_and_types(body)
-          rows = body.split("\n").map { |row| parse_json_payload(row) }
-          names, types, *data = rows
-
-          meta = names.zip(types).map do |name, type|
-            {
-              'name' => name,
-              'type' => type
-            }
-          end
-
-          {
-            'meta' => meta,
-            'data' => data
-          }
+        def log_with_debug(sql, name = nil)
+          return yield unless @debug
+          log(sql, "#{name} (system)") { yield }
         end
 
-        def parse_json_payload(payload)
-          JSON.parse(payload, decimal_class: BigDecimal)
-        end
-
-        def settings_params(settings = {})
-          request_params = @config || {}
+        def settings_params(settings = {}, except: [])
+          request_params = @connection_config || {}
           block_settings = @block_settings || {}
           request_params.merge(block_settings)
                         .merge(settings)
+                        .except(*except)
                         .to_param
         end
       end

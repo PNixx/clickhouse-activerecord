@@ -17,6 +17,7 @@ require 'active_record/connection_adapters/clickhouse/format_manager'
 require 'active_record/connection_adapters/clickhouse/quoting'
 require 'active_record/connection_adapters/clickhouse/schema_creation'
 require 'active_record/connection_adapters/clickhouse/schema_statements'
+require 'active_record/connection_adapters/clickhouse/statement'
 require 'active_record/connection_adapters/clickhouse/table_definition'
 require 'net/http'
 require 'openssl'
@@ -84,6 +85,7 @@ module ActiveRecord
 
       ADAPTER_NAME = 'Clickhouse'.freeze
       DEFAULT_RESPONSE_FORMAT = 'JSONCompactEachRowWithNamesAndTypes'.freeze
+      USER_AGENT = "ClickHouse ActiveRecord #{ClickhouseActiverecord::VERSION}"
       NATIVE_DATABASE_TYPES = {
         string: { name: 'String' },
         integer: { name: 'UInt32' },
@@ -139,6 +141,7 @@ module ActiveRecord
 
         @connection_config = { user: @config[:username], password: @config[:password], database: @config[:database] }.compact
         @debug = @config[:debug] || false
+        @response_format = @config[:format] || DEFAULT_RESPONSE_FORMAT
 
         @prepared_statements = false
 
@@ -147,7 +150,7 @@ module ActiveRecord
 
       # Return ClickHouse server version
       def server_version
-        @server_version ||= do_system_execute('SELECT version()')['data'][0][0]
+        @server_version ||= select_value('SELECT version()')
       end
 
       # Savepoints are not supported, noop
@@ -312,10 +315,7 @@ module ActiveRecord
       # Create a new ClickHouse database.
       def create_database(name)
         sql = apply_cluster "CREATE DATABASE #{quote_table_name(name)}"
-        log_with_debug(sql, adapter_name) do
-          res = @connection.post("/?#{@connection_config.except(:database).to_param}", sql)
-          process_response(res, DEFAULT_RESPONSE_FORMAT)
-        end
+        do_system_execute sql, adapter_name, except_params: [:database]
       end
 
       def create_view(table_name, request_settings: {}, **options)
@@ -366,10 +366,7 @@ module ActiveRecord
       # Drops a ClickHouse database.
       def drop_database(name) #:nodoc:
         sql = apply_cluster "DROP DATABASE IF EXISTS #{quote_table_name(name)}"
-        log_with_debug(sql, adapter_name) do
-          res = @connection.post("/?#{@connection_config.except(:database).to_param}", sql)
-          process_response(res, DEFAULT_RESPONSE_FORMAT)
-        end
+        do_system_execute sql, adapter_name, except_params: [:database]
       end
 
       def drop_functions
