@@ -8,6 +8,15 @@ module ActiveRecord
       module SchemaStatements
         DB_EXCEPTION_REGEXP = /\ACode:\s+\d+\.\s+DB::Exception:/.freeze
 
+        def with_settings(**settings)
+          @block_settings ||= {}
+          prev_settings   = @block_settings
+          @block_settings.merge! settings
+          yield
+        ensure
+          @block_settings = prev_settings
+        end
+
         def execute(sql, name = nil, settings: {})
           log(sql, "#{adapter_name} #{name}") do
             res = request(sql, settings)
@@ -291,6 +300,14 @@ module ActiveRecord
 
         def parse_json_payload(payload)
           JSON.parse(payload, decimal_class: BigDecimal)
+        end
+
+        def settings_params(settings = {})
+          request_params = @config || {}
+          block_settings = @block_settings || {}
+          request_params.merge(block_settings)
+                        .merge(settings)
+                        .to_param
         end
       end
     end
