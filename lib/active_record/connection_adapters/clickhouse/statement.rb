@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'active_record/connection_adapters/clickhouse/response_processor'
-require 'active_record/connection_adapters/clickhouse/format_manager'
+require 'active_record/connection_adapters/clickhouse/statement/format_manager'
+require 'active_record/connection_adapters/clickhouse/statement/response_processor'
 
 module ActiveRecord
   module ConnectionAdapters
