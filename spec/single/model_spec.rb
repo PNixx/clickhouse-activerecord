@@ -31,16 +31,41 @@ RSpec.describe 'Model', :migrations do
       end
     end
 
-    describe '#do_execute' do
+    describe '#execute' do
       it 'returns formatted result' do
-        result = Model.connection.do_execute('SELECT 1 AS t')
+        result = Model.connection.execute('SELECT 1 AS t')
+        expect(result['data']).to eq([[1]])
+        expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+      end
+
+      context 'when a different format is passed as a keyword' do
+        it 'prints a deprecation warning' do
+          expect(ActiveRecord.deprecator).to receive(:warn).with(/Passing `format` to `execute` is deprecated/)
+          Model.connection.execute('SELECT 1 AS t', format: 'JSONCompact')
+        end
+
+        it 'still works' do
+          allow(ActiveRecord.deprecator).to receive(:warn)
+          result = Model.connection.execute('SELECT 1 AS t', format: 'JSONCompact')
+          expect(result['data']).to eq([[1]])
+          expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+        end
+      end
+    end
+
+    describe '#with_response_format' do
+      it 'returns formatted result' do
+        result = Model.connection.execute('SELECT 1 AS t')
         expect(result['data']).to eq([[1]])
         expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
       end
 
       context 'with JSONCompact format' do
         it 'returns formatted result' do
-          result = Model.connection.do_execute('SELECT 1 AS t', format: 'JSONCompact')
+          result =
+            Model.connection.with_response_format('JSONCompact') do
+              Model.connection.execute('SELECT 1 AS t')
+            end
           expect(result['data']).to eq([[1]])
           expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
         end
@@ -48,9 +73,22 @@ RSpec.describe 'Model', :migrations do
 
       context 'with JSONCompactEachRowWithNamesAndTypes format' do
         it 'returns formatted result' do
-          result = Model.connection.do_execute('SELECT 1 AS t', format: 'JSONCompactEachRowWithNamesAndTypes')
+          result =
+            Model.connection.with_response_format('JSONCompactEachRowWithNamesAndTypes') do
+              Model.connection.execute('SELECT 1 AS t')
+            end
           expect(result['data']).to eq([[1]])
           expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+        end
+      end
+
+      context 'with nil format' do
+        it 'omits the FORMAT clause' do
+          result =
+            Model.connection.with_response_format(nil) do
+              Model.connection.execute('SELECT 1 AS t')
+            end
+          expect(result.chomp).to eq('1')
         end
       end
     end
