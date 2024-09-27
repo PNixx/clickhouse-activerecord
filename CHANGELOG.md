@@ -1,3 +1,15 @@
+### Version 1.1.2 (Aug 27, 2024)
+* 🎉 Support for rails 7.2 #156
+* Add method `views` for getting table `View` list in #152
+* Add support for Map datatype in #144
+* Add support window named functions
+* Fix schema dumper default values for number
+* Normalize table name in schema dump in #148
+* Noop savepoint functionality in #150
+* Fix `#find_by` in #153
+* Add RSpec configure
+* Fix detect model primary key
+
 ### Version 1.0.7 (Apr 27, 2024)
 
 * Support table indexes

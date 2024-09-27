@@ -54,16 +54,11 @@ module ClickhouseActiverecord
             tbl.print ', materialized: true' if match && match[1].presence
           end
 
-          case pk
-          when String
-            tbl.print ", primary_key: #{pk.inspect}" unless pk == "id"
-            pkcol = columns.detect { |c| c.name == pk }
-            pkcolspec = column_spec_for_primary_key(pkcol)
-            if pkcolspec.present?
-              tbl.print ", #{format_colspec(pkcolspec)}"
+          if (id = columns.detect { |c| c.name == 'id' })
+            spec = column_spec_for_primary_key(id)
+            if spec.present?
+              tbl.print ", #{format_colspec(spec)}"
             end
-          when Array
-            tbl.print ", primary_key: #{pk.inspect}"
           else
             tbl.print ", id: false"
           end
