@@ -112,7 +112,7 @@ module ClickhouseActiverecord
       stream.puts "  # FUNCTION: #{function}"
       sql = @connection.show_create_function(function)
       stream.puts "  # SQL: #{sql}" if sql
-      stream.puts "  create_function \"#{function}\", \"#{sql.gsub(/^CREATE FUNCTION (.*?) AS/, '').strip}\"" if sql
+      stream.puts "  create_function \"#{function}\", \"#{sql.gsub(/^CREATE FUNCTION (.*?) AS/, '').strip}\", force: true" if sql
     end
 
     def format_options(options)
