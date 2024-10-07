@@ -7,15 +7,16 @@ module ActiveRecord
         class Map < Type::Value # :nodoc:
 
           def initialize(sql_type)
-            @subtype = case sql_type
-                       when /U?Int\d+/
-                         :integer
-                       when /DateTime/
-                         :datetime
-                       when /Date/
-                         :date
-                       else
-                         :string
+            case sql_type
+            when /U?Int(\d+)/
+              @subtype = :integer
+              @limit = bits_to_limit(Regexp.last_match(1)&.to_i)
+            when /DateTime/
+              @subtype = :datetime
+            when /Date/
+              @subtype = :date
+            else
+              @subtype = :string
             end
           end
 
@@ -62,6 +63,19 @@ module ActiveRecord
               else
                 super
               end
+            end
+          end
+
+          private
+
+          def bits_to_limit(bits)
+            case bits
+            when 8   then 1
+            when 16  then 2
+            when 32  then 4
+            when 64  then 8
+            when 128 then 16
+            when 256 then 32
             end
           end
 
