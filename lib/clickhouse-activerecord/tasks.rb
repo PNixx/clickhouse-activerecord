@@ -53,6 +53,8 @@ module ClickhouseActiverecord
           next
         elsif sql =~ /^INSERT INTO/
           connection.do_execute(sql, nil, format: nil)
+        elsif sql =~ /^CREATE .*?FUNCTION/
+          connection.do_execute(sql, nil, format: nil)
         else
           connection.execute(sql)
         end
