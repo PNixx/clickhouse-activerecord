@@ -40,8 +40,8 @@ ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(
     host: 'localhost',
     port: ENV['CLICKHOUSE_PORT'] || 8123,
     database: ENV['CLICKHOUSE_DATABASE'] || 'test',
-    username: nil,
-    password: nil,
+    username: ENV['CLICKHOUSE_USER'],
+    password: ENV['CLICKHOUSE_PASSWORD'],
     cluster_name: ENV['CLICKHOUSE_CLUSTER'],
   }
 )

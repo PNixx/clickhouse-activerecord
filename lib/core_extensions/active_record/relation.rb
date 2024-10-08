@@ -81,6 +81,15 @@ module CoreExtensions
         self
       end
 
+      def limit_by(*opts)
+        spawn.limit_by!(*opts)
+      end
+
+      def limit_by!(*opts)
+        @values[:limit_by] = *opts
+        self
+      end
+
       private
 
       def check_command(cmd)
@@ -95,6 +104,7 @@ module CoreExtensions
         end
 
         arel.final! if @values[:final].present?
+        arel.limit_by(*@values[:limit_by]) if @values[:limit_by].present?
         arel.settings(@values[:settings]) if @values[:settings].present?
         arel.using(@values[:using]) if @values[:using].present?
         arel.windows(@values[:windows]) if @values[:windows].present?
