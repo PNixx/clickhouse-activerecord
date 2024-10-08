@@ -1,4 +1,4 @@
-module Arel
+module Arel # :nodoc: all
   module Nodes
     class LimitBy < Arel::Nodes::Unary
       attr_reader :column
