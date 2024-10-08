@@ -81,10 +81,19 @@ module CoreExtensions
         self
       end
 
+      # The LIMIT BY clause permit to improve deduplication based on a unique key, it has better performances than
+      # the GROUP BY clause
+      #
+      #   users = User.limit_by(1, id)
+      #   # SELECT users.* FROM users LIMIT 1 BY id
+      #
+      # An <tt>ActiveRecord::ActiveRecordError</tt> will be reaised if database is not Clickhouse.
+      # @param [Array] opts
       def limit_by(*opts)
         spawn.limit_by!(*opts)
       end
 
+      # @param [Array] opts
       def limit_by!(*opts)
         @values[:limit_by] = *opts
         self
