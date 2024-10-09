@@ -33,7 +33,10 @@ module ActiveRecord
           if options[:array]
             sql.gsub!(/\s+(.*)/, ' Array(\1)')
           end
-          if options[:map]
+          if options[:map] == :array
+            sql.gsub!(/\s+(.*)/, ' Map(String, Array(\1))')
+          end
+          if options[:map] == true
             sql.gsub!(/\s+(.*)/, ' Map(String, \1)')
           end
           sql.gsub!(/(\sString)\(\d+\)/, '\1')

@@ -145,6 +145,10 @@ module ClickhouseActiverecord
     end
 
     def schema_map(column)
+      if column.sql_type =~ /Map\(([^,]+),\s*(Array)\)/
+        return :array
+      end
+
       (column.sql_type =~ /Map?\(/).nil? ? nil : true
     end
 
@@ -157,6 +161,9 @@ module ClickhouseActiverecord
       spec[:unsigned] = schema_unsigned(column)
       spec[:array] = schema_array(column)
       spec[:map] = schema_map(column)
+      if spec[:map] == :array
+        spec[:array] = nil
+      end
       spec[:low_cardinality] = schema_low_cardinality(column)
       spec.merge(super).compact
     end
