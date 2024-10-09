@@ -70,9 +70,12 @@ RSpec.describe 'Cluster Migration', :migrations do
           let(:directory) { 'dsl_create_function' }
 
           it 'creates a function' do
+            ActiveRecord::Base.connection.do_execute('CREATE FUNCTION forced_fun AS (x, k, b) -> k*x + b', format: nil)
+
             subject
 
-            expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun'])
+            expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun', 'forced_fun'])
+            expect(ActiveRecord::Base.connection.show_create_function('forced_fun').chomp).to eq('CREATE FUNCTION forced_fun AS (x, y) -> (x + y)')
           end
         end
       end
