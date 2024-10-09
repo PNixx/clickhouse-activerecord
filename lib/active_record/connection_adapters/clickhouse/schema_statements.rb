@@ -8,6 +8,8 @@ module ActiveRecord
       module SchemaStatements
         DEFAULT_RESPONSE_FORMAT = 'JSONCompactEachRowWithNamesAndTypes'.freeze
 
+        DB_EXCEPTION_REGEXP = /\ACode: \d.+\. DB::Exception:/.freeze
+
         def execute(sql, name = nil, settings: {})
           do_execute(sql, name, settings: settings)
         end
@@ -183,7 +185,9 @@ module ActiveRecord
         def process_response(res, format, sql = nil)
           case res.code.to_i
           when 200
-            if res.body.to_s.include?("DB::Exception")
+            body = res.body
+
+            if body.include?("DB::Exception") && body.match?(DB_EXCEPTION_REGEXP)
               raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}#{sql ? "\nQuery: #{sql}" : ''}"
             else
               format_body_response(res.body, format)
