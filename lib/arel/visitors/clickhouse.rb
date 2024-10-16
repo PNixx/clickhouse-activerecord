@@ -25,6 +25,7 @@ module Arel
       end
 
       def visit_Arel_Nodes_SelectOptions(o, collector)
+        maybe_visit o.limit_by, collector
         maybe_visit o.settings, super
       end
 
@@ -66,6 +67,11 @@ module Arel
       def visit_Arel_Nodes_Using o, collector
         collector << "USING "
         visit o.expr, collector
+        collector
+      end
+
+      def visit_Arel_Nodes_LimitBy(o, collector)
+        collector << "LIMIT #{o.expr} BY #{o.column}"
         collector
       end
 

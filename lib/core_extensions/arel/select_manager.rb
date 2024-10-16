@@ -29,6 +29,11 @@ module CoreExtensions
         @ctx.source.right.last.right = ::Arel::Nodes::Using.new(::Arel.sql(exprs.join(',')))
         self
       end
+
+      def limit_by(*exprs)
+        @ast.limit_by = ::Arel::Nodes::LimitBy.new(*exprs)
+        self
+      end
     end
   end
 end
