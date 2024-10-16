@@ -5,6 +5,7 @@ require 'arel/nodes/final'
 require 'arel/nodes/grouping_sets'
 require 'arel/nodes/settings'
 require 'arel/nodes/using'
+require 'arel/nodes/limit_by'
 require 'active_record/connection_adapters/clickhouse/oid/array'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
@@ -52,6 +53,7 @@ module ActiveRecord
                :group_by_grouping_sets, :group_by_grouping_sets!,
                :settings, :settings!,
                :window, :window!,
+               :limit_by, :limit_by!,
                to: :all
 
       def is_view
