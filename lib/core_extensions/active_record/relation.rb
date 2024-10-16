@@ -47,6 +47,33 @@ module CoreExtensions
         self
       end
 
+      # GROUPING SETS allows you to specify multiple groupings in the GROUP BY clause.
+      # Whereas GROUP BY CUBE generates all possible groupings, GROUP BY GROUPING SETS generates only the specified groupings.
+      # For example:
+      #
+      #   users = User.group_by_grouping_sets([], [:name], [:name, :age]).select(:name, :age, 'count(*)')
+      #   # SELECT name, age, count(*) FROM users GROUP BY GROUPING SETS ( (), (name), (name, age) )
+      #
+      # which is generally equivalent to:
+      #   # SELECT NULL, NULL, count(*) FROM users
+      #   # UNION ALL
+      #   # SELECT name, NULL, count(*) FROM users GROUP BY name
+      #   # UNION ALL
+      #   # SELECT name, age, count(*) FROM users GROUP BY name, age
+      #
+      # Raises <tt>ArgumentError</tt> if no grouping sets are specified are provided.
+      def group_by_grouping_sets(*grouping_sets)
+        raise ArgumentError, 'The method .group_by_grouping_sets() must contain arguments.' if grouping_sets.blank?
+
+        spawn.group_by_grouping_sets!(*grouping_sets)
+      end
+
+      def group_by_grouping_sets!(*grouping_sets) # :nodoc:
+        grouping_sets = grouping_sets.map { |set| arel_columns(set) }
+        self.group_values += [::Arel::Nodes::GroupingSets.new(grouping_sets)]
+        self
+      end
+
       # The USING clause specifies one or more columns to join, which establishes the equality of these columns. For example:
       #
       #   users = User.joins(:joins).using(:event_name, :date)

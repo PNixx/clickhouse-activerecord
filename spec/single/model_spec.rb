@@ -305,6 +305,37 @@ RSpec.describe 'Model', :migrations do
         expect(sql).to eq('SELECT sample.* FROM sample LIMIT 1 BY event_name LIMIT 1')
       end
     end
+
+    describe '#group_by_grouping_sets' do
+      it 'raises an error with no arguments' do
+        expect { Model.group_by_grouping_sets }.to raise_error(ArgumentError, 'The method .group_by_grouping_sets() must contain arguments.')
+      end
+
+      it 'works with the empty grouping set' do
+        sql = Model.group_by_grouping_sets([]).to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample GROUP BY GROUPING SETS ( (  ) )')
+      end
+
+      it 'accepts strings' do
+        sql = Model.group_by_grouping_sets(%w[foo bar], %w[baz]).to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample GROUP BY GROUPING SETS ( ( foo, bar ), ( baz ) )')
+      end
+
+      it 'accepts symbols' do
+        sql = Model.group_by_grouping_sets(%i[foo bar], %i[baz]).to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample GROUP BY GROUPING SETS ( ( foo, bar ), ( baz ) )')
+      end
+
+      it 'accepts Arel nodes' do
+        sql = Model.group_by_grouping_sets([Model.arel_table[:foo], Model.arel_table[:bar]], [Model.arel_table[:baz]]).to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample GROUP BY GROUPING SETS ( ( sample.foo, sample.bar ), ( sample.baz ) )')
+      end
+
+      it 'accepts mixed arguments' do
+        sql = Model.group_by_grouping_sets(['foo', :bar], [Model.arel_table[:baz]]).to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample GROUP BY GROUPING SETS ( ( foo, bar ), ( sample.baz ) )')
+      end
+    end
   end
 
   context 'sample with id column' do

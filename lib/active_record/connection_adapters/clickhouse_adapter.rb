@@ -2,6 +2,7 @@
 
 require 'arel/visitors/clickhouse'
 require 'arel/nodes/final'
+require 'arel/nodes/grouping_sets'
 require 'arel/nodes/settings'
 require 'arel/nodes/using'
 require 'arel/nodes/limit_by'
@@ -48,7 +49,12 @@ module ActiveRecord
 
   module ModelSchema
     module ClassMethods
-      delegate :final, :final!, :settings, :settings!, :window, :window!, :limit_by, :limit_by!, to: :all
+      delegate :final, :final!,
+               :group_by_grouping_sets, :group_by_grouping_sets!,
+               :settings, :settings!,
+               :window, :window!,
+               :limit_by, :limit_by!,
+               to: :all
 
       def is_view
         @is_view || false
@@ -352,8 +358,8 @@ module ActiveRecord
         end
       end
 
-      def create_function(name, body)
-        fd = "CREATE FUNCTION #{apply_cluster(quote_table_name(name))} AS #{body}"
+      def create_function(name, body, **options)
+        fd = "CREATE#{' OR REPLACE' if options[:force]} FUNCTION #{apply_cluster(quote_table_name(name))} AS #{body}"
         do_execute(fd, format: nil)
       end
 

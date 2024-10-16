@@ -46,6 +46,11 @@ module Arel
         collector
       end
 
+      def visit_Arel_Nodes_GroupingSets(o, collector)
+        collector << 'GROUPING SETS '
+        grouping_array_or_grouping_element(o.expr, collector)
+      end
+
       def visit_Arel_Nodes_Settings(o, collector)
         return collector if o.expr.empty?
 
@@ -99,6 +104,25 @@ module Arel
       def sanitize_as_setting_name(value)
         return value if Arel::Nodes::SqlLiteral === value
         @connection.sanitize_as_setting_name(value)
+      end
+
+      private
+
+      # Utilized by GroupingSet, Cube & RollUp visitors to
+      # handle grouping aggregation semantics
+      def grouping_array_or_grouping_element(o, collector)
+        if o.is_a? Array
+          collector << '( '
+          o.each_with_index do |el, i|
+            collector << ', ' if i > 0
+            grouping_array_or_grouping_element el, collector
+          end
+          collector << ' )'
+        elsif o.respond_to? :expr
+          visit o.expr, collector
+        else
+          visit o, collector
+        end
       end
 
     end
