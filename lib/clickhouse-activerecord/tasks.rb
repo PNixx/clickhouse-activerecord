@@ -52,7 +52,7 @@ module ClickhouseActiverecord
       # put to file
       File.open(args.first, 'w:utf-8') do |file|
         functions.each do |function|
-          file.puts function + ";\n\n"
+          file.puts function.gsub('\\n', "\n") + ";\n\n"
         end
 
         tables.each do |table|
