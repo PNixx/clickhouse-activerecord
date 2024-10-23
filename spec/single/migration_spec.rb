@@ -156,16 +156,18 @@ RSpec.describe 'Migration', :migrations do
 
               current_schema = schema(model)
 
-              expect(current_schema.keys.count).to eq(4)
+              expect(current_schema.keys.count).to eq(5)
               expect(current_schema).to have_key('col1')
               expect(current_schema).to have_key('col2')
               expect(current_schema).to have_key('col3')
               expect(current_schema).to have_key('col4')
+              expect(current_schema).to have_key('col5')
               expect(current_schema['col1'].sql_type).to eq('LowCardinality(String)')
               expect(current_schema['col1'].default).to eq('col')
               expect(current_schema['col2'].sql_type).to eq('LowCardinality(Nullable(String))')
               expect(current_schema['col3'].sql_type).to eq('Array(LowCardinality(Nullable(String)))')
               expect(current_schema['col4'].sql_type).to eq('Map(String, LowCardinality(Nullable(String)))')
+              expect(current_schema['col5'].sql_type).to eq('Map(String, Array(LowCardinality(Nullable(String))))')
             end
           end
 
@@ -176,13 +178,16 @@ RSpec.describe 'Migration', :migrations do
 
               current_schema = schema(model)
 
-              expect(current_schema.keys.count).to eq(3)
+              expect(current_schema.keys.count).to eq(4)
               expect(current_schema).to have_key('fixed_string1')
               expect(current_schema).to have_key('fixed_string16_array')
               expect(current_schema).to have_key('fixed_string16_map')
+              expect(current_schema).to have_key('fixed_string16_map_array')
               expect(current_schema['fixed_string1'].sql_type).to eq('FixedString(1)')
               expect(current_schema['fixed_string16_array'].sql_type).to eq('Array(Nullable(FixedString(16)))')
               expect(current_schema['fixed_string16_map'].sql_type).to eq('Map(String, Nullable(FixedString(16)))')
+              expect(current_schema['fixed_string16_map_array'].sql_type).to eq('Map(String, Array(Nullable(FixedString(16))))')
+
             end
           end
 

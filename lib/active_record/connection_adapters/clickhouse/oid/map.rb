@@ -26,6 +26,8 @@ module ActiveRecord
           def deserialize(value)
             if value.is_a?(::Hash)
               value.map { |k, item| [k.to_s, deserialize(item)] }.to_h
+            elsif value.is_a?(::Array)
+              value.map { |item| deserialize(item) }
             else
               return value if value.nil?
               case @subtype
@@ -44,6 +46,8 @@ module ActiveRecord
           def serialize(value)
             if value.is_a?(::Hash)
               value.map { |k, item| [k.to_s, serialize(item)] }.to_h
+            elsif value.is_a?(::Array)
+              value.map { |item| serialize(item) }
             else
               return value if value.nil?
               case @subtype
