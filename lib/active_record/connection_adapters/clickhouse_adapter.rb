@@ -12,10 +12,11 @@ require 'active_record/connection_adapters/clickhouse/oid/date_time'
 require 'active_record/connection_adapters/clickhouse/oid/big_integer'
 require 'active_record/connection_adapters/clickhouse/oid/map'
 require 'active_record/connection_adapters/clickhouse/oid/uuid'
+require 'active_record/connection_adapters/clickhouse/column'
 require 'active_record/connection_adapters/clickhouse/quoting'
-require 'active_record/connection_adapters/clickhouse/schema_definitions'
 require 'active_record/connection_adapters/clickhouse/schema_creation'
 require 'active_record/connection_adapters/clickhouse/schema_statements'
+require 'active_record/connection_adapters/clickhouse/table_definition'
 require 'net/http'
 require 'openssl'
 
@@ -75,13 +76,6 @@ module ActiveRecord
 
     if ActiveRecord::version >= Gem::Version.new('7.2')
       register "clickhouse", "ActiveRecord::ConnectionAdapters::ClickhouseAdapter", "active_record/connection_adapters/clickhouse_adapter"
-    end
-
-    class ClickhouseColumn < Column
-      private
-      def deduplicated
-        self
-      end
     end
 
     class ClickhouseAdapter < AbstractAdapter

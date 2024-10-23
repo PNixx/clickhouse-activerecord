@@ -130,6 +130,20 @@ RSpec.describe 'Migration', :migrations do
             end
           end
 
+          context 'codec' do
+            let(:directory) { 'dsl_table_with_codec' }
+            it 'creates a table with custom column' do
+              subject
+
+              current_schema = schema(model)
+
+              expect(current_schema.keys.count).to eq(1)
+              expect(current_schema).to have_key('custom')
+              expect(current_schema['custom'].sql_type).to eq('Nullable(UInt64)')
+              expect(current_schema['custom'].codec).to eq('T64, LZ4')
+            end
+          end
+
           context 'datetime' do
             let(:directory) { 'dsl_table_with_datetime_creation' }
             it 'creates a table with datetime columns' do

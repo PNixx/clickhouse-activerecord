@@ -49,7 +49,7 @@ jobs:
           ruby-version: ${{ matrix.version.ruby }}
           bundler-cache: true
 
-      - run: bundle exec rspec spec/single
+      - run: bundle exec rspec spec/single --format progress
 
   tests_cluster:
     name: Testing cluster server
@@ -94,4 +94,4 @@ jobs:
           ruby-version: ${{ matrix.version.ruby }}
           bundler-cache: true
 
-      - run: bundle exec rspec spec/cluster
+      - run: bundle exec rspec spec/cluster --format progress

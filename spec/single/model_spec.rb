@@ -31,6 +31,11 @@ RSpec.describe 'Model', :migrations do
       end
     end
 
+    it 'DB::Exception in row value' do
+      Model.create!(event_name: 'DB::Exception')
+      expect(Model.first.event_name).to eq('DB::Exception')
+    end
+
     describe '#do_execute' do
       it 'returns formatted result' do
         result = Model.connection.do_execute('SELECT 1 AS t')

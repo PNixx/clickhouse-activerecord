@@ -94,10 +94,15 @@ module ActiveRecord
           args.each { |name| column(name, kind, **options.except(:limit)) }
         end
 
+        def column(name, type, index: nil, **options)
+          options[:null] = false if type.match?(/Nullable\([^)]+\)/)
+          super(name, type, index: index, **options)
+        end
+
         private
 
         def valid_column_definition_options
-          super + [:array, :low_cardinality, :fixed_string, :value, :type, :map]
+          super + [:array, :low_cardinality, :fixed_string, :value, :type, :map, :codec]
         end
       end
 
