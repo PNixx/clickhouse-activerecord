@@ -35,7 +35,7 @@ module ClickhouseActiverecord
           # super(table.gsub(/^\.inner\./, ''), stream)
 
           # detect view table
-          view_match = sql.match(/^CREATE\s+(MATERIALIZED\s+)?VIEW\s+\S+\s+(TO (\S+))?/)
+          view_match = sql.match(/^CREATE\s+(MATERIALIZED\s+)?VIEW\s+\S+\s+(?:TO (\S+))?/)
         end
 
         # Copy from original dumper
@@ -52,7 +52,7 @@ module ClickhouseActiverecord
             # Add materialize flag
             tbl.print ', view: true' if view_match
             tbl.print ', materialized: true' if view_match && view_match[1].presence
-            tbl.print ", to: \"#{view_match[3]}\"" if view_match && view_match[3].presence
+            tbl.print ", to: \"#{view_match[2]}\"" if view_match && view_match[2].presence
           end
 
           if (id = columns.detect { |c| c.name == 'id' })
@@ -145,7 +145,7 @@ module ClickhouseActiverecord
     end
 
     def schema_array(column)
-      (column.sql_type =~ /Array?\(/).nil? ? nil : true
+      (column.sql_type =~ /Array\(/).nil? ? nil : true
     end
 
     def schema_map(column)
@@ -153,13 +153,14 @@ module ClickhouseActiverecord
         return :array
       end
 
-      (column.sql_type =~ /Map?\(/).nil? ? nil : true
+      (column.sql_type =~ /Map\(/).nil? ? nil : true
     end
 
     def schema_low_cardinality(column)
-      (column.sql_type =~ /LowCardinality?\(/).nil? ? nil : true
+      (column.sql_type =~ /LowCardinality\(/).nil? ? nil : true
     end
 
+    # @param [ActiveRecord::ConnectionAdapters::Clickhouse::Column] column
     def prepare_column_options(column)
       spec = {}
       spec[:unsigned] = schema_unsigned(column)
@@ -169,6 +170,7 @@ module ClickhouseActiverecord
         spec[:array] = nil
       end
       spec[:low_cardinality] = schema_low_cardinality(column)
+      spec[:codec] = column.codec.inspect if column.codec
       spec.merge(super).compact
     end
 

@@ -8,7 +8,7 @@ module ActiveRecord
       module SchemaStatements
         DEFAULT_RESPONSE_FORMAT = 'JSONCompactEachRowWithNamesAndTypes'.freeze
 
-        DB_EXCEPTION_REGEXP = /\ACode: \d.+\. DB::Exception:/.freeze
+        DB_EXCEPTION_REGEXP = /\ACode:\s+\d+\.\s+DB::Exception:/.freeze
 
         def execute(sql, name = nil, settings: {})
           do_execute(sql, name, settings: settings)
@@ -225,7 +225,7 @@ module ActiveRecord
           default_value = extract_value_from_default(field[3], field[2])
           default_function = extract_default_function(field[3])
           default_value = lookup_cast_type(sql_type).cast(default_value)
-          ClickhouseColumn.new(field[0], default_value, type_metadata, field[1].include?('Nullable'), default_function)
+          Clickhouse::Column.new(field[0], default_value, type_metadata, field[1].include?('Nullable'), default_function, codec: field[5].presence)
         end
 
         protected
