@@ -381,7 +381,7 @@ RSpec.describe 'Migration', :migrations do
         it 'creates a function' do
           subject
 
-          expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun'])
+          expect(ActiveRecord::Base.connection.functions).to match_array(['addFun', 'multFun'])
         end
       end
 
@@ -392,7 +392,7 @@ RSpec.describe 'Migration', :migrations do
 
           subject
 
-          expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun', 'forced_fun'])
+          expect(ActiveRecord::Base.connection.functions).to match_array(['forced_fun', 'some_fun'])
           expect(ActiveRecord::Base.connection.show_create_function('forced_fun').chomp).to eq('CREATE FUNCTION forced_fun AS (x, y) -> (x + y)')
         end
       end

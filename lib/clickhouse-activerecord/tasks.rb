@@ -47,12 +47,12 @@ module ClickhouseActiverecord
       tables.sort_by! {|table| table.match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) ? 1 : 0}
 
       # get all functions
-      functions = connection.execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined'")['data'].flatten
+      functions = connection.execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' ORDER BY name")['data'].flatten
 
       # put to file
       File.open(args.first, 'w:utf-8') do |file|
         functions.each do |function|
-          file.puts function + ";\n\n"
+          file.puts function.gsub('\\n', "\n") + ";\n\n"
         end
 
         tables.each do |table|
