@@ -73,7 +73,7 @@ module ActiveRecord
         end
 
         def functions
-          result = do_system_execute("SELECT name FROM system.functions WHERE origin = 'SQLUserDefined'")
+          result = do_system_execute("SELECT name FROM system.functions WHERE origin = 'SQLUserDefined' ORDER BY name")
           return [] if result.nil?
           result['data'].flatten
         end
