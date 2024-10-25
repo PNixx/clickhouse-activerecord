@@ -72,6 +72,12 @@ module ActiveRecord
           result['data'].flatten
         end
 
+        def materialized_views(name = nil)
+          result = do_system_execute("SHOW TABLES WHERE engine = 'MaterializedView'", name)
+          return [] if result.nil?
+          result['data'].flatten
+        end
+
         def functions
           result = do_system_execute("SELECT name FROM system.functions WHERE origin = 'SQLUserDefined'")
           return [] if result.nil?
