@@ -15,13 +15,16 @@ module ClickhouseActiverecord
     private
 
     def tables(stream)
-      functions = @connection.functions
+      functions = @connection.functions.sort
       functions.each do |function|
         function(function, stream)
       end
 
-      sorted_tables = @connection.tables.sort {|a,b| @connection.show_create_table(a).match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) ? 1 : a <=> b }
-      sorted_tables.each do |table_name|
+      view_tables = @connection.views.sort
+      materialized_view_tables = @connection.materialized_views.sort
+      sorted_tables = @connection.tables.sort - view_tables - materialized_view_tables
+
+      (sorted_tables + view_tables + materialized_view_tables).each do |table_name|
         table(table_name, stream) unless ignored?(table_name)
       end
     end
