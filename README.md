@@ -45,7 +45,7 @@ class ActionView < ActiveRecord::Base
   establish_connection(
     adapter: 'clickhouse',
     database: 'database',
-    connection: Net::HTTP.start('http://example.org', 8123)
+    connection: Net::HTTP.start('example.org', 8123)
   )
 end
 ```
