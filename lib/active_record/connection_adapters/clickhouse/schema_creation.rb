@@ -42,6 +42,9 @@ module ActiveRecord
           if options[:codec]
             sql.gsub!(/\s+(.*)/, " \\1 CODEC(#{options[:codec]})")
           end
+          if options[:aggregate_function]
+            sql.gsub!(/(\w+)\s+(.*)/, "\\1 AggregateFunction(#{options[:aggregate_function]}, \\2)")
+          end
           sql.gsub!(/(\sString)\(\d+\)/, '\1')
           sql << " DEFAULT #{quote_default_expression(options[:default], options[:column])}" if options_include_default?(options)
           sql
