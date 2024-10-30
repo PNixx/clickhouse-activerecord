@@ -148,6 +148,7 @@ module ClickhouseActiverecord
 
     def schema_limit(column)
       if column.type == :float
+        return 4 if column.sql_type == "Float32"
         return 8 if column.sql_type == "Float64"
       else
         super
@@ -181,6 +182,7 @@ module ClickhouseActiverecord
       return {} if match.nil? || match.size != 3
 
       { aggregate_function: match[1].inspect }.tap do |spec|
+        spec[:limit] = 4 if match[2] == "Float32"
         spec[:limit] = 8 if match[2] == "Float64"
       end
     end

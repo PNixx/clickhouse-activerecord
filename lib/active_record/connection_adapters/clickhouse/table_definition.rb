@@ -65,6 +65,7 @@ module ActiveRecord
 
         def float(*args, **options)
           kind = :float
+          kind = :float32 if options[:limit] == 4
           kind = :float64 if options[:limit] == 8
 
           args.each { |name| column(name, kind, **options.except(:limit)) }
