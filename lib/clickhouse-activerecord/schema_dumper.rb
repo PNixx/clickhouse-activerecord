@@ -147,8 +147,12 @@ module ClickhouseActiverecord
     end
 
     def schema_limit(column)
-      return nil if column.type == :float
-      super
+      if column.type == :float
+        return 4 if column.sql_type == "Float32"
+        return 8 if column.sql_type == "Float64"
+      else
+        super
+      end
     end
 
     def schema_unsigned(column)
@@ -172,6 +176,17 @@ module ClickhouseActiverecord
       (column.sql_type =~ /LowCardinality\(/).nil? ? nil : true
     end
 
+    def schema_aggregate_function(column)
+      match = column.sql_type.match(/AggregateFunction\((.+), (\w+)\)/)
+
+      return {} if match.nil? || match.size != 3
+
+      { aggregate_function: match[1].inspect }.tap do |spec|
+        spec[:limit] = 4 if match[2] == "Float32"
+        spec[:limit] = 8 if match[2] == "Float64"
+      end
+    end
+
     # @param [ActiveRecord::ConnectionAdapters::Clickhouse::Column] column
     def prepare_column_options(column)
       spec = {}
@@ -183,6 +198,7 @@ module ClickhouseActiverecord
       end
       spec[:low_cardinality] = schema_low_cardinality(column)
       spec[:codec] = column.codec.inspect if column.codec
+      spec.merge! schema_aggregate_function(column)
       spec.merge(super).compact
     end
 

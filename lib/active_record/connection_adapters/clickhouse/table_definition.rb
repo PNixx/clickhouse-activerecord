@@ -63,6 +63,14 @@ module ActiveRecord
           args.each { |name| column(name, kind, **options.except(:limit, :unsigned)) }
         end
 
+        def float(*args, **options)
+          kind = :float
+          kind = :float32 if options[:limit] == 4
+          kind = :float64 if options[:limit] == 8
+
+          args.each { |name| column(name, kind, **options.except(:limit)) }
+        end
+
         def datetime(*args, **options)
           kind = :datetime
 
@@ -102,7 +110,7 @@ module ActiveRecord
         private
 
         def valid_column_definition_options
-          super + [:array, :low_cardinality, :fixed_string, :value, :type, :map, :codec, :unsigned]
+          super + [:array, :low_cardinality, :fixed_string, :value, :type, :map, :codec, :unsigned, :aggregate_function]
         end
       end
 
