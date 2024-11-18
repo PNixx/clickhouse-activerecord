@@ -109,6 +109,15 @@ module ClickhouseActiverecord
       end
     end
 
+    def column_spec_for_primary_key(column)
+      spec = super
+
+      id = ActiveRecord::ConnectionAdapters::ClickhouseAdapter::NATIVE_DATABASE_TYPES.invert[{name: column.sql_type.gsub(/\(\d+\)/, "")}]
+      spec[:id] = id.inspect if id.present?
+
+      spec.except!(:limit, :unsigned) # This can be removed at some date, it is only here to clean up existing schemas which have dumped these values already
+    end
+
     def function(function, stream)
       stream.puts "  # FUNCTION: #{function}"
       sql = @connection.show_create_function(function)
