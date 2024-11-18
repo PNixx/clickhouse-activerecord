@@ -237,12 +237,13 @@ class CreateDataItems < ActiveRecord::Migration[7.1]
 end
 ```
 
-Create table with custom column structure:
+Create table with custom column structure and codec compression:
 
 ```ruby
 class CreateDataItems < ActiveRecord::Migration[7.1]
   def change
     create_table "data_items", id: false, options: "MergeTree PARTITION BY toYYYYMM(timestamp) ORDER BY timestamp", force: :cascade do |t|
+      t.integer :user_id, limit: 8, codec: 'DoubleDelta, LZ4'
       t.column "timestamp", "DateTime('UTC') CODEC(DoubleDelta, LZ4)"
     end
   end
