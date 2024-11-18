@@ -191,6 +191,8 @@ module ActiveRecord
               nil
             when /(Nullable)?\(?U?Int64\)?/
               8
+            when /(Nullable)?\(?U?Int128\)?/
+              16
             else
               super
           end
