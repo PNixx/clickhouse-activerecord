@@ -6,7 +6,6 @@ module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module SchemaStatements
-        DB_EXCEPTION_REGEXP = /\ACode:\s+\d+\.\s+DB::Exception:/.freeze
 
         def with_settings(**settings)
           @block_settings ||= {}
