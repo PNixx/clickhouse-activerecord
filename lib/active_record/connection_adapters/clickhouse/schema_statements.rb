@@ -6,7 +6,6 @@ module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module SchemaStatements
-        DB_EXCEPTION_REGEXP = /\ACode:\s+\d+\.\s+DB::Exception:/.freeze
 
         def with_settings(**settings)
           @block_settings ||= {}
@@ -129,7 +128,9 @@ module ActiveRecord
         end
 
         def show_create_function(function)
-          execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'")
+          result = do_system_execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'")
+          return if result.nil?
+          result['data'].flatten.first
         end
 
         def table_options(table)
