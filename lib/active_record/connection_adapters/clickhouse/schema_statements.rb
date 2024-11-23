@@ -39,16 +39,7 @@ module ActiveRecord
           @response_format = prev_format
         end
 
-        def execute(sql, name = nil, format: :deprecated, settings: {})
-          if format == :deprecated
-            format = @response_format
-          else
-            ActiveRecord.deprecator.warn(<<~MSG.squish)
-              Passing `format` to `execute` is deprecated and will be removed in an upcoming release.
-              Please wrap `execute` in `with_response_format` instead.
-            MSG
-          end
-
+        def execute(sql, name = nil, format: @response_format, settings: {})
           with_response_format(format) do
             log(sql, [adapter_name, name].compact.join(' ')) do
               raw_execute(sql, settings: settings)

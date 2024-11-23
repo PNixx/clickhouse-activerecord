@@ -43,18 +43,10 @@ RSpec.describe 'Model', :migrations do
         expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
       end
 
-      context 'when a different format is passed as a keyword' do
-        it 'prints a deprecation warning' do
-          expect(ActiveRecord.deprecator).to receive(:warn).with(/Passing `format` to `execute` is deprecated/)
-          Model.connection.execute('SELECT 1 AS t', format: 'JSONCompact')
-        end
-
-        it 'still works' do
-          allow(ActiveRecord.deprecator).to receive(:warn)
-          result = Model.connection.execute('SELECT 1 AS t', format: 'JSONCompact')
-          expect(result['data']).to eq([[1]])
-          expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
-        end
+      it 'also works when a different format is passed as a keyword' do
+        result = Model.connection.execute('SELECT 1 AS t', format: 'JSONCompact')
+        expect(result['data']).to eq([[1]])
+        expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
       end
     end
 
