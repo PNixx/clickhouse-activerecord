@@ -8,10 +8,11 @@ module ActiveRecord
 
           DB_EXCEPTION_REGEXP = /\ACode:\s+\d+\.\s+DB::Exception:/.freeze
 
-          def initialize(raw_response, format)
+          def initialize(raw_response, format, sql)
             @raw_response = raw_response
             @body = raw_response.body
             @format = format
+            @sql = sql
           end
 
           def process
@@ -31,13 +32,13 @@ module ActiveRecord
           end
 
           def process_successful_response
-            raise_generic! if @body.include?('DB::Exception') && @body.match?(DB_EXCEPTION_REGEXP)
+            raise_generic!(@sql) if @body.include?('DB::Exception') && @body.match?(DB_EXCEPTION_REGEXP)
 
             format_body_response
           end
 
-          def raise_generic!
-            raise ActiveRecord::ActiveRecordError, "Response code: #{@raw_response.code}:\n#{@body}"
+          def raise_generic!(sql = nil)
+            raise ActiveRecord::ActiveRecordError, "Response code: #{@raw_response.code}:\n#{@body}#{"\nQuery: #{sql}" if sql}"
           end
 
           def format_body_response
