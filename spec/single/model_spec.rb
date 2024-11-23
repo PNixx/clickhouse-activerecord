@@ -276,6 +276,55 @@ RSpec.describe 'Model', :migrations do
       end
     end
 
+    describe 'block-style settings' do
+      let!(:record) { Model.create!(event_name: 'some event', date: Date.current, datetime: Time.now) }
+
+      let(:last_query_finder) do
+        <<~SQL.squish
+          SELECT query, Settings, event_time_microseconds
+          FROM system.query_log
+          WHERE query ILIKE 'SELECT sample.* FROM sample FORMAT %'
+          ORDER BY event_date DESC, event_time DESC, event_time_microseconds DESC
+          LIMIT 1
+        SQL
+      end
+
+      it 'sends the settings to the server' do
+        expect_any_instance_of(Net::HTTP).to receive(:post).and_wrap_original do |original_method, *args, **kwargs|
+          resource, sql, * = args
+          if sql.include?('SELECT sample.*')
+            query = resource.split('?').second
+            params = query.split('&').to_h { |pair| pair.split('=').map { |s| CGI.unescape(s) } }
+            expect(params['cast_keep_nullable']).to eq('1')
+            expect(params['log_comment']).to eq('Log Comment!')
+          end
+          original_method.call(*args, **kwargs)
+        end
+
+        Model.connection.with_settings(cast_keep_nullable: 1, log_comment: 'Log Comment!') do
+          Model.all.load
+        end
+      end
+
+      it 'resets settings to default outside the block' do
+        Model.connection.with_settings(cast_keep_nullable: 1, log_comment: 'Log Comment!') do
+          Model.all.load
+        end
+
+        expect_any_instance_of(Net::HTTP).to receive(:post).and_wrap_original do |original_method, *args, **kwargs|
+          resource, sql, * = args
+          if sql.include?('SELECT sample.*')
+            query = resource.split('?').second
+            params = query.split('&').to_h { |pair| pair.split('=').map { |s| CGI.unescape(s) } }
+            expect(params).not_to include('cast_keep_nullable', 'log_comment')
+          end
+          original_method.call(*args, **kwargs)
+        end
+
+        Model.all.load
+      end
+    end
+
     describe '#using' do
       it 'works' do
         sql = Model.joins(:joins).using(:event_name, :date).to_sql
