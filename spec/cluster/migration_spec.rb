@@ -129,8 +129,6 @@ RSpec.describe 'Cluster Migration', :migrations do
 
       it 'creates a table' do
 
-        allow_any_instance_of(ActiveRecord::ConnectionAdapters::ClickhouseAdapter).to receive(:execute).and_call_original
-
         expect_any_instance_of(ActiveRecord::ConnectionAdapters::ClickhouseAdapter).to receive(:execute)
            .with('ALTER TABLE some ON CLUSTER ' + connection_config[:cluster_name] + ' DROP INDEX idx')
            .and_call_original
