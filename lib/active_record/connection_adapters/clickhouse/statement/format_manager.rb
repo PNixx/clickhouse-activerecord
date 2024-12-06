@@ -7,7 +7,7 @@ module ActiveRecord
         class FormatManager
 
           def initialize(sql, format:)
-            @sql = sql
+            @sql = sql.strip
             @format = format
           end
 
@@ -18,21 +18,17 @@ module ActiveRecord
           end
 
           def skip_format?
-            for_insert? || system_command? || schema_command? || format_specified? || delete?
+            system_command? || schema_command? || format_specified? || delete?
           end
 
           private
 
-          def for_insert?
-            /^insert into/i.match?(@sql)
-          end
-
           def system_command?
-            /^system|^optimize/i.match?(@sql)
+            /\Asystem|\Aoptimize/i.match?(@sql)
           end
 
           def schema_command?
-            /^create|^alter|^drop|^rename/i.match?(@sql)
+            /\Acreate|\Aalter|\Adrop|\Arename/i.match?(@sql)
           end
 
           def format_specified?
@@ -40,7 +36,7 @@ module ActiveRecord
           end
 
           def delete?
-            /^delete from/i.match?(@sql)
+            /\Adelete from/i.match?(@sql)
           end
 
         end
