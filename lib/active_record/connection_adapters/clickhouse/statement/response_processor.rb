@@ -61,7 +61,7 @@ module ActiveRecord
           end
 
           def format_from_json_compact_each_row_with_names_and_types(body)
-            rows = body.split("\n").map { |row| parse_json_payload(row) }
+            rows = body.each_line.map { |row| parse_json_payload(row) }
             names, types, *data = rows
 
             meta = names.zip(types).map do |name, type|
