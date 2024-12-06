@@ -388,7 +388,7 @@ RSpec.describe 'Migration', :migrations do
       context 'dsl' do
         let(:directory) { 'dsl_create_function' }
         it 'creates a function' do
-          ActiveRecord::Base.connection.do_execute('CREATE FUNCTION forced_fun AS (x, k, b) -> k*x + b', format: nil)
+          ActiveRecord::Base.connection.execute('CREATE FUNCTION forced_fun AS (x, k, b) -> k*x + b')
 
           subject
 
