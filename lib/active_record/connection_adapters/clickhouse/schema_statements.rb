@@ -18,7 +18,7 @@ module ActiveRecord
 
         # Request a specific format for the duration of the provided block.
         # Pass `nil` to explicitly send the SQL statement without a `FORMAT` clause.
-        # @param [String] format
+        # @param [String, nil] format
         #
         # @example Specify CSVWithNamesAndTypes format
         #   with_response_format('CSVWithNamesAndTypes') do
@@ -49,7 +49,7 @@ module ActiveRecord
 
         def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil, returning: nil)
           new_sql = sql.sub(/ (DEFAULT )?VALUES/, " VALUES")
-          execute(new_sql, name)
+          with_response_format(nil) { execute(new_sql, name) }
           true
         end
 
@@ -70,7 +70,7 @@ module ActiveRecord
         end
 
         def exec_insert_all(sql, name)
-          execute(sql, name)
+          with_response_format(nil) { execute(sql, name) }
           true
         end
 
