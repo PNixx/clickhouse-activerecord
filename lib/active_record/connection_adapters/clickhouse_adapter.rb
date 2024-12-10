@@ -300,9 +300,11 @@ module ActiveRecord
       end
 
       # @param [String] table
+      # @option [Boolean] single_line
       # @return [String]
-      def show_create_table(table)
-        do_system_execute("SHOW CREATE TABLE `#{table}`")['data'].try(:first).try(:first).gsub(/[\n\s]+/m, ' ').gsub("#{@config[:database]}.", "")
+      def show_create_table(table, single_line: true)
+        sql = do_system_execute("SHOW CREATE TABLE `#{table}`")['data'].try(:first).try(:first)
+        single_line ? sql.squish : sql
       end
 
       # Create a new ClickHouse database.
