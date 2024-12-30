@@ -177,7 +177,7 @@ module ClickhouseActiverecord
     end
 
     def schema_aggregate_function(column)
-      match = column.sql_type.match(/AggregateFunction\((.+), (\w+)\)/)
+      match = column.sql_type.match(/AggregateFunction\((.+), (\S+)\)/)
 
       return {} if match.nil? || match.size != 3
 
