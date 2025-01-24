@@ -178,10 +178,12 @@ module ActiveRecord
         def request(sql, format = nil, settings = {})
           formatted_sql = apply_format(sql, format)
           request_params = @connection_config || {}
-          @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql, {
-            'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}",
-            'Content-Type' => 'application/x-www-form-urlencoded',
-          })
+          @lock.synchronize do
+            @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql, {
+              'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}",
+              'Content-Type' => 'application/x-www-form-urlencoded',
+            })
+          end
         end
 
         def apply_format(sql, format)
