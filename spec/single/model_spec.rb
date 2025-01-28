@@ -158,6 +158,28 @@ RSpec.describe 'Model', :migrations do
       end
     end
 
+    describe 'JSON column type' do
+      let(:json) { { 'key' => 'value' } }
+      let!(:record1) { Model.create!(event_name: 'some event', json_value: json) }
+
+      it 'is mapped to :json' do
+        type = Model.columns_hash['json_value'].type
+        expect(type).to eq(:json)
+      end
+
+      it 'keeps JSON value' do
+        expect(Model.first.json_value).to eq(json)
+      end
+
+      context 'when the JSON column is complex' do
+        let(:json) { { 'key' => { 'nested_key' => 'value', 'another_key' => ['something'] } } }
+
+        it 'keeps JSON value' do
+          expect(Model.first.json_value).to eq(json)
+        end
+      end
+    end
+
     describe 'boolean column type' do
       let!(:record1) { Model.create!(event_name: 'some event', event_value: 1, date: date) }
 

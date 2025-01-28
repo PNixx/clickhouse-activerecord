@@ -212,6 +212,7 @@ false`. The default integer is `UInt32`
 | UInt256         |                   0 to ...                   |                 8+ |
 | Array           |                     ...                      |                ... |
 | Map             |                     ...                      |                ... |
+| JSON            |                     ...                      |                ... |
 
 Example:
 
