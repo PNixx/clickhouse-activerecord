@@ -303,7 +303,7 @@ module ActiveRecord
       # @option [Boolean] single_line
       # @return [String]
       def show_create_table(table, single_line: true)
-        sql = do_system_execute("SHOW CREATE TABLE `#{table}`")['data'].try(:first).try(:first)
+        sql = do_system_execute("SHOW CREATE TABLE `#{table}`")['data'].try(:first).try(:first).gsub("#{@config[:database]}.", '')
         single_line ? sql.squish : sql
       end
 
