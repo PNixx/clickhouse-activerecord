@@ -25,6 +25,7 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency 'activerecord', '>= 7.0'
   spec.add_runtime_dependency 'bundler', '>= 1.13.4'
+  spec.add_runtime_dependency 'pry'
 
   spec.add_development_dependency 'appraisal'
   spec.add_development_dependency 'rake', '~> 13.0'

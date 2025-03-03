@@ -126,8 +126,8 @@ module ActiveRecord
           change_column table_name, column_name, nil, default: extract_new_default_value(default_or_changes)
         end
 
-        def create_function(name, body)
-          execute "CREATE FUNCTION #{apply_cluster(quote_table_name(name))} AS #{body}"
+        def create_function(name, body, **options)
+          execute "CREATE#{' OR REPLACE' if options[:force]} FUNCTION #{apply_cluster(quote_table_name(name))} AS #{body}"
         end
 
         def drop_functions
@@ -147,13 +147,14 @@ module ActiveRecord
         end
 
         def functions
-          result = do_system_execute("SELECT name FROM system.functions WHERE origin = 'SQLUserDefined'")
+          result = do_system_execute("SELECT name FROM system.functions WHERE origin = 'SQLUserDefined' ORDER BY name")
           return [] if result.nil?
           result['data'].flatten
         end
 
         def show_create_function(function)
-          execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'", format: nil)
+          result = do_system_execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'")
+          result['data'].first.first
         end
 
         # Not indexes on clickhouse

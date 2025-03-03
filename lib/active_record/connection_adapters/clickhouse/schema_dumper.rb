@@ -38,7 +38,7 @@ HEADER
         end
 
         def tables(stream)
-          functions = @connection.functions
+          functions = @connection.functions.sort
           functions.each do |function|
             function(function, stream)
           end
@@ -143,7 +143,8 @@ HEADER
           return unless sql
 
           stream.puts "  # SQL: #{sql}"
-          stream.puts "  create_function \"#{function}\", \"#{sql.gsub(/^CREATE FUNCTION (.*?) AS/, '').strip}\""
+          stream.puts "  create_function \"#{function}\", \"#{sql.gsub(/^CREATE FUNCTION (.*?) AS/, '').strip}\", force: true"
+          stream.puts
         end
 
         def format_options(options)

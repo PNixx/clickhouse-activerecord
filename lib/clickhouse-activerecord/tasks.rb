@@ -36,7 +36,9 @@ module ClickhouseActiverecord
     def structure_dump(path, *)
       establish_master_connection
 
-      functions = connection.execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined'")['data'].flatten
+      functions = connection.execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' ORDER BY name")['data']
+                    .flatten
+                    .map { |function| function.gsub('\\n', "\n") }
       table_defs = connection.execute("SHOW TABLES FROM #{@configuration[:database]}")['data']
                      .flatten
                      .reject { |name| /\.inner/.match?(name) || %w[schema_migrations ar_internal_metadata].include?(name) }

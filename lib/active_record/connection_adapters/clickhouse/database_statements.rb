@@ -9,7 +9,7 @@ module ActiveRecord
         def with_settings(**settings)
           @block_settings ||= {}
           prev_settings = @block_settings
-          @block_settings.merge! settings
+          @block_settings = @block_settings.merge(settings)
           yield
         ensure
           @block_settings = prev_settings

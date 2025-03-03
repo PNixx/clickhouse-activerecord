@@ -456,16 +456,20 @@ RSpec.describe 'Migration', :migrations do
         it 'creates a function' do
           subject
 
-          expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun'])
+          expect(ActiveRecord::Base.connection.functions).to match_array(['addFun', 'multFun'])
         end
       end
 
       context 'dsl' do
         let(:directory) { 'dsl_create_function' }
+
         it 'creates a function' do
+          ActiveRecord::Base.connection.execute('CREATE FUNCTION forced_fun AS (x, k, b) -> k*x + b')
+
           subject
 
-          expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun'])
+          expect(ActiveRecord::Base.connection.functions).to match_array(['forced_fun', 'some_fun'])
+          expect(ActiveRecord::Base.connection.show_create_function('forced_fun').chomp).to eq('CREATE FUNCTION forced_fun AS (x, y) -> (x + y)')
         end
       end
     end
