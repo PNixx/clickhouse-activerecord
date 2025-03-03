@@ -127,7 +127,7 @@ module ActiveRecord
         end
 
         def create_function(name, body, **options)
-          execute "CREATE#{' OR REPLACE' if options[:force]} FUNCTION #{apply_cluster(quote_table_name(name))} AS #{body}"
+          do_system_execute "CREATE#{' OR REPLACE' if options[:force]} FUNCTION #{apply_cluster(quote_table_name(name))} AS #{body}"
         end
 
         def drop_functions
