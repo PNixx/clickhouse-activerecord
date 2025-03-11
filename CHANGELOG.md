@@ -1,4 +1,42 @@
-### Version 1.1.2 (Aug 27, 2024)
+### Version 1.3.1 (Feb 12, 2025)
+
+
+
+ * Restore replace database from dump schema table creation
+
+ ### Version 1.3.0 (Jan 24, 2025)
+
+ * 🎉 Support for Rails 8.0 #189
+ * Restore multi-line table definitions in structure dumps #187
+ * Use a flag to track updates/deletes in SQL visitor #188
+
+ ### Version 1.2.1 (Nov 18, 2024)
+
+ * Maintain primary key type specificity in #183
+ * Reliably sort functions, views, and materialized views in schema in #181
+ * Improve function dumps in #179
+ * Add support for integer limits in map type in #178
+ * Add support for `request_settings` in create_table
+
+ ### Version 1.2.0 (Oct 23, 2024)
+
+ * Fix for function creation in `structure.sql` #166
+ * Add `group_by_grouping_sets` query method #161
+ * Add support for `CREATE FUNCTION` and `CREATE OR REPLACE FUNCTION`; the later in schema loading #146
+ * Add support for `LIMIT BY` clause #169
+ * Include column definitions in schema dump if the column name is not `id` #173
+ * Add blank line after create_function in schema #170
+ * Improve DB::Exception error handling #164
+ * SchemaDumper adds materialized view destination #159
+ * Add Array support to Map #158
+ * Add support codec compression parameter #135
+
+ ### Version 1.1.3 (Sep 27, 2024)
+
+ * Fix schema dumper #163
+
+ ### Version 1.1.2 (Aug 27, 2024)
+
 * 🎉 Support for rails 7.2 #156
 * Add method `views` for getting table `View` list in #152
 * Add support for Map datatype in #144
