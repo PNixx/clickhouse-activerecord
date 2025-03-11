@@ -1,7 +1,5 @@
 ### Version 1.3.1 (Feb 12, 2025)
 
-
-
  * Restore replace database from dump schema table creation
 
  ### Version 1.3.0 (Jan 24, 2025)
