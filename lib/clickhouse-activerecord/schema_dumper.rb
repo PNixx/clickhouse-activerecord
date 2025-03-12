@@ -126,7 +126,7 @@ module ClickhouseActiverecord
       sql = @connection.show_create_function(function)
       if sql
         stream.puts "  # SQL: #{sql}"
-        stream.puts "  create_function \"#{function}\", \"#{sql.gsub(/^CREATE FUNCTION (.*?) AS/, '').strip}\", force: true"
+        stream.puts "  create_function \"#{function}\", \"#{sql.sub(/\ACREATE(OR REPLACE)? FUNCTION .*? AS/, '').strip}\", force: true"
         stream.puts
       end
     end
