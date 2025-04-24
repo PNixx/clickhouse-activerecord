@@ -33,6 +33,9 @@ default: &default
   migrations_paths: db/clickhouse # optional, default: db/migrate_clickhouse
   cluster_name: 'cluster_name' # optional for creating tables in cluster 
   replica_name: '{replica}' # replica macros name, optional for creating replicated tables
+  read_timeout: 300 # change network timeouts, by default 60 seconds
+  write_timeout: 300
+  keep_alive_timeout: 300
 ```
 
 Alternatively if you wish to pass a custom `Net::HTTP` transport (or any other
