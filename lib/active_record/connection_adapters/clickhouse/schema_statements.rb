@@ -85,7 +85,7 @@ module ActiveRecord
         end
 
         def show_create_function(function)
-          do_execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'", format: nil)
+          do_execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'", format: nil).sub(/\ACREATE FUNCTION/, 'CREATE OR REPLACE FUNCTION')
         end
 
         def table_options(table)
