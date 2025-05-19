@@ -4,7 +4,6 @@
   <profiles>
     <default>
       <load_balancing>random</load_balancing>
-      <enable_json_type>1</enable_json_type>
     </default>
   </profiles>
 
