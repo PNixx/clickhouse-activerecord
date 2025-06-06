@@ -88,6 +88,7 @@ development:
     
   clickhouse:
     adapter: clickhouse
+    migrations_paths: db/migrate_clickhouse
     database: database
 ```
 
