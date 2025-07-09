@@ -6,6 +6,7 @@ class CreateSomeTable < ActiveRecord::Migration[7.1]
       t.column :col1, "AggregateFunction(sum, Float32)", null: false
       t.column :col2, "AggregateFunction(anyLast, Float64)", null: false
       t.column :col3, "AggregateFunction(anyLast, DateTime64)", null: false
+      t.column :col4, "SimpleAggregateFunction(anyLast, DateTime64)", null: false
     end
   end
 end

@@ -48,6 +48,17 @@ RSpec.describe ClickhouseActiverecord::SchemaDumper, :migrations do
           end
         ).to_stdout_from_any_process
       end
+
+      it 'creates a table with simple aggregate function column for an DateTime64' do
+        expect { subject }.to output(
+          satisfy do |schema|
+            expect(schema).to match(/t\.datetime "col3"/)
+            expect(schema).to match(/"col3"[^\n]+aggregate_function: "anyLast"/)
+            expect(schema).to match(/"col3"[^\n]+precision: 3/)
+            expect(schema).to match(/"t\.datetime "col4"[^\n]+simple_aggregate_function: "anyLast"/)
+          end
+        ).to_stdout_from_any_process
+      end
     end
   end
 end

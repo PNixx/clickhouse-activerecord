@@ -177,13 +177,14 @@ module ClickhouseActiverecord
     end
 
     def schema_aggregate_function(column)
-      match = column.sql_type.match(/AggregateFunction\((.+), (\S+)\)/)
+      match = column.sql_type.match(/((?:Simple|)AggregateFunction)\((.+), (\S+)\)/)
 
-      return {} if match.nil? || match.size != 3
+      return {} if match.nil? || match.size != 4
 
-      { aggregate_function: match[1].inspect }.tap do |spec|
-        spec[:limit] = 4 if match[2] == "Float32"
-        spec[:limit] = 8 if match[2] == "Float64"
+      type = match[1] == "AggregateFunction" ? :aggregate_function : :simple_aggregate_function
+      { type => match[2].inspect }.tap do |spec|
+        spec[:limit] = 4 if match[3] == "Float32"
+        spec[:limit] = 8 if match[3] == "Float64"
       end
     end
 
