@@ -215,6 +215,9 @@ false`. The default integer is `UInt32`
 | UInt256         |                   0 to ...                   |                 8+ |
 | Array           |                     ...                      |                ... |
 | Map             |                     ...                      |                ... |
+| JSON            |                     ...                      |                ... |
+
+**Note:** JSON column type is only officially supported since [ClickHouse 25.4](https://clickhouse.com/docs/whats-new/changelog#254).
 
 Example:
 
