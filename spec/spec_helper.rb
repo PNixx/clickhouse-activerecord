@@ -1,9 +1,11 @@
+
 # frozen_string_literal: true
 
 require 'bundler/setup'
 require 'pry'
 require 'active_record'
 require 'clickhouse-activerecord'
+require 'active_support/notifications'
 require 'active_support/testing/stream'
 
 ClickhouseActiverecord.load
@@ -14,7 +16,6 @@ RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = '.rspec_status'
   config.include ActiveSupport::Testing::Stream
-  config.raise_errors_for_deprecations!
 
   # Disable RSpec exposing methods globally on `Module` and `main`
   config.disable_monkey_patching!
@@ -31,17 +32,21 @@ RSpec.configure do |config|
 
     clear_consts
     clear_db
+    ActiveRecord::Base.connection.schema_cache.clear!
   end
+
+  config.filter_run_excluding cluster: !ENV.key?('CLICKHOUSE_CLUSTER')
 end
 
 ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(
   default: {
     adapter: 'clickhouse',
     host: 'localhost',
-    port: ENV['CLICKHOUSE_PORT'] || 8123,
-    database: ENV['CLICKHOUSE_DATABASE'] || 'test',
-    username: ENV['CLICKHOUSE_USER'],
-    password: ENV['CLICKHOUSE_PASSWORD'],
+    port: ENV.fetch('CLICKHOUSE_PORT', 8123),
+    database: ENV.fetch('CLICKHOUSE_DATABASE', 'test'),
+    username: nil,
+    password: nil,
+    use_metadata_table: !ENV['CLICKHOUSE_CLUSTER'],
     cluster_name: ENV['CLICKHOUSE_CLUSTER'],
   }
 )
@@ -56,7 +61,17 @@ def schema(model)
 end
 
 def clear_db
-  ActiveRecord::Base.connection.tables.each { |table| ActiveRecord::Base.connection.drop_table(table, sync: true) }
+  cluster = ActiveRecord::Base.connection_db_config.configuration_hash[:cluster_name]
+  pattern =
+    if cluster
+      normalized_cluster_name = cluster.start_with?('{') ? "'#{cluster}'" : cluster
+
+      "DROP TABLE %s ON CLUSTER #{normalized_cluster_name} SYNC"
+    else
+      'DROP TABLE %s'
+    end
+
+  ActiveRecord::Base.connection.tables.each { |table| ActiveRecord::Base.connection.execute(pattern % table) }
 rescue ActiveRecord::NoDatabaseError
   # Ignored
 end
@@ -65,10 +80,28 @@ def clear_consts
   $LOADED_FEATURES.select { |file| file.include? FIXTURES_PATH }.each do |file|
     const = File.basename(file)
                 .scan(ActiveRecord::Migration::MigrationFilenameRegexp)[0][1]
-                .camelcase
-                .safe_constantize
+              .camelcase
+              .safe_constantize
 
     Object.send(:remove_const, const.to_s) if const
     $LOADED_FEATURES.delete(file)
+  end
+end
+
+class SqlCapture
+  def initialize(&block)
+    @block = block
+  end
+
+  def captured
+    trap = ->(_name, _started, _finished, _unique_id, payload) { store_captured(payload[:sql]) }
+    ActiveSupport::Notifications.subscribed(trap, 'sql.active_record') { @block.call }
+    @captured
+  end
+
+  private
+
+  def store_captured(sql)
+    @captured = sql
   end
 end
