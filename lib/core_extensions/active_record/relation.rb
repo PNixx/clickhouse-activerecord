@@ -49,7 +49,11 @@ module CoreExtensions
       end
 
       def settings_values=(value)
-        assert_mutability!
+        if ::ActiveRecord::version >= Gem::Version.new('7.2')
+          assert_modifiable!
+        else
+          assert_mutability!
+        end
         @values[:settings] = value
       end
 
@@ -74,7 +78,11 @@ module CoreExtensions
       end
 
       def final_value=(value)
-        assert_mutability!
+        if ::ActiveRecord::version >= Gem::Version.new('7.2')
+          assert_modifiable!
+        else
+          assert_mutability!
+        end
         @values[:final] = value
       end
 
