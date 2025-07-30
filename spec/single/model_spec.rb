@@ -287,6 +287,18 @@ RSpec.describe 'Model', :migrations do
       end
     end
 
+    describe '#unscope' do
+      it 'removes settings' do
+        sql = Model.settings(foo: :bar).unscope(:settings).to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample')
+      end
+
+      it 'removes FINAL' do
+        sql = Model.final.unscope(:final).to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample')
+      end
+    end
+
     describe 'arel predicates' do
       describe '#matches' do
         it 'uses ilike for case insensitive matches' do

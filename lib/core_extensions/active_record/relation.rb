@@ -1,6 +1,11 @@
 module CoreExtensions
   module ActiveRecord
     module Relation
+
+      def self.prepended(base)
+        base::VALID_UNSCOPING_VALUES << :final << :settings
+      end
+
       def reverse_order!
         return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
 
