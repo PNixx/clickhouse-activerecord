@@ -222,6 +222,31 @@ RSpec.describe 'Model', :migrations do
     end
 
     describe '#settings' do
+      it 'does not change settings_values when empty' do
+        query = Model.all
+        query = query.settings
+        expect(query.settings_values).to be_empty
+      end
+
+      it 'updates settings_values' do
+        query = Model.all
+        query = query.settings(foo: 'bar', abc: 123)
+        expect(query.settings_values).to eq({ foo: 'bar', abc: 123 })
+      end
+
+      it 'overwrites settings_values previously set' do
+        query = Model.all
+        query = query.settings(foo: 'bar', abc: 123)
+        query = query.settings(foo: 'baz')
+        expect(query.settings_values).to eq({ foo: 'baz', abc: 123 })
+      end
+
+      it 'works as a chainable method' do
+        query = Model.all
+        query = query.settings(foo: 'bar', abc: 123).settings(foo: 'baz')
+        expect(query.settings_values).to eq({ foo: 'baz', abc: 123 })
+      end
+
       it 'works' do
         sql = Model.settings(optimize_read_in_order: 1, cast_keep_nullable: 1).to_sql
         expect(sql).to eq('SELECT sample.* FROM sample SETTINGS optimize_read_in_order = 1, cast_keep_nullable = 1')
