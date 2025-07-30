@@ -37,14 +37,26 @@ module CoreExtensions
       #   # SELECT users.* FROM users FINAL
       #
       # An <tt>ActiveRecord::ActiveRecordError</tt> will be raised if database not ClickHouse.
-      def final
-        spawn.final!
+      #
+      # @param [Boolean] final
+      def final(final = true)
+        spawn.final!(final)
       end
 
-      def final!
+      # @param [Boolean] final
+      def final!(final = true)
         check_command('FINAL')
-        @values[:final] = true
+        self.final_value = final
         self
+      end
+
+      def final_value=(value)
+        assert_mutability!
+        @values[:final] = value
+      end
+
+      def final_value
+        @values.fetch(:final, nil)
       end
 
       # GROUPING SETS allows you to specify multiple groupings in the GROUP BY clause.
@@ -139,7 +151,7 @@ module CoreExtensions
           arel = super(connection_or_aliases)
         end
 
-        arel.final! if @values[:final].present?
+        arel.final! if final_value
         arel.limit_by(*@values[:limit_by]) if @values[:limit_by].present?
         arel.settings(@values[:settings]) if @values[:settings].present?
         arel.using(@values[:using]) if @values[:using].present?
