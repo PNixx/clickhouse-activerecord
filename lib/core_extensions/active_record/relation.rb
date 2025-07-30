@@ -25,7 +25,7 @@ module CoreExtensions
 
       # @param [Hash] opts
       def settings!(**opts)
-        check_command('SETTINGS')
+        check_command!('SETTINGS')
         @values[:settings] = (@values[:settings] || {}).merge opts
         self
       end
@@ -45,7 +45,7 @@ module CoreExtensions
 
       # @param [Boolean] final
       def final!(final = true)
-        check_command('FINAL')
+        check_command!('FINAL')
         self.final_value = final
         self
       end
@@ -140,7 +140,7 @@ module CoreExtensions
 
       private
 
-      def check_command(cmd)
+      def check_command!(cmd)
         raise ::ActiveRecord::ActiveRecordError, cmd + ' is a ClickHouse specific query clause' unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
       end
 
