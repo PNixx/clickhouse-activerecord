@@ -36,16 +36,33 @@ RSpec.describe 'Model', :migrations do
       expect(Model.first.event_name).to eq('DB::Exception')
     end
 
-    describe '#do_execute' do
+    describe '#execute' do
       it 'returns formatted result' do
-        result = Model.connection.do_execute('SELECT 1 AS t')
+        result = Model.connection.execute('SELECT 1 AS t')
+        expect(result['data']).to eq([[1]])
+        expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+      end
+
+      it 'also works when a different format is passed as a keyword' do
+        result = Model.connection.execute('SELECT 1 AS t', format: 'JSONCompact')
+        expect(result['data']).to eq([[1]])
+        expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+      end
+    end
+
+    describe '#with_response_format' do
+      it 'returns formatted result' do
+        result = Model.connection.execute('SELECT 1 AS t')
         expect(result['data']).to eq([[1]])
         expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
       end
 
       context 'with JSONCompact format' do
         it 'returns formatted result' do
-          result = Model.connection.do_execute('SELECT 1 AS t', format: 'JSONCompact')
+          result =
+            Model.connection.with_response_format('JSONCompact') do
+              Model.connection.execute('SELECT 1 AS t')
+            end
           expect(result['data']).to eq([[1]])
           expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
         end
@@ -53,9 +70,22 @@ RSpec.describe 'Model', :migrations do
 
       context 'with JSONCompactEachRowWithNamesAndTypes format' do
         it 'returns formatted result' do
-          result = Model.connection.do_execute('SELECT 1 AS t', format: 'JSONCompactEachRowWithNamesAndTypes')
+          result =
+            Model.connection.with_response_format('JSONCompactEachRowWithNamesAndTypes') do
+              Model.connection.execute('SELECT 1 AS t')
+            end
           expect(result['data']).to eq([[1]])
           expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+        end
+      end
+
+      context 'with nil format' do
+        it 'omits the FORMAT clause' do
+          result =
+            Model.connection.with_response_format(nil) do
+              Model.connection.execute('SELECT 1 AS t')
+            end
+          expect(result.chomp).to eq('1')
         end
       end
     end
@@ -260,6 +290,55 @@ RSpec.describe 'Model', :migrations do
       it 'allows passing the symbol :default to reset a setting' do
         sql = Model.settings(max_insert_block_size: :default).to_sql
         expect(sql).to eq('SELECT sample.* FROM sample SETTINGS max_insert_block_size = DEFAULT')
+      end
+    end
+
+    describe 'block-style settings' do
+      let!(:record) { Model.create!(event_name: 'some event', date: Date.current, datetime: Time.now) }
+
+      let(:last_query_finder) do
+        <<~SQL.squish
+          SELECT query, Settings, event_time_microseconds
+          FROM system.query_log
+          WHERE query ILIKE 'SELECT sample.* FROM sample FORMAT %'
+          ORDER BY event_date DESC, event_time DESC, event_time_microseconds DESC
+          LIMIT 1
+        SQL
+      end
+
+      it 'sends the settings to the server' do
+        expect_any_instance_of(Net::HTTP).to receive(:post).and_wrap_original do |original_method, *args, **kwargs|
+          resource, sql, * = args
+          if sql.include?('SELECT sample.*')
+            query = resource.split('?').second
+            params = query.split('&').to_h { |pair| pair.split('=').map { |s| CGI.unescape(s) } }
+            expect(params['cast_keep_nullable']).to eq('1')
+            expect(params['log_comment']).to eq('Log Comment!')
+          end
+          original_method.call(*args, **kwargs)
+        end
+
+        Model.connection.with_settings(cast_keep_nullable: 1, log_comment: 'Log Comment!') do
+          Model.all.load
+        end
+      end
+
+      it 'resets settings to default outside the block' do
+        Model.connection.with_settings(cast_keep_nullable: 1, log_comment: 'Log Comment!') do
+          Model.all.load
+        end
+
+        expect_any_instance_of(Net::HTTP).to receive(:post).and_wrap_original do |original_method, *args, **kwargs|
+          resource, sql, * = args
+          if sql.include?('SELECT sample.*')
+            query = resource.split('?').second
+            params = query.split('&').to_h { |pair| pair.split('=').map { |s| CGI.unescape(s) } }
+            expect(params).not_to include('cast_keep_nullable', 'log_comment')
+          end
+          original_method.call(*args, **kwargs)
+        end
+
+        Model.all.load
       end
     end
 

@@ -70,7 +70,7 @@ RSpec.describe 'Cluster Migration', :migrations do
           let(:directory) { 'dsl_create_function' }
 
           it 'creates a function' do
-            ActiveRecord::Base.connection.do_execute('CREATE FUNCTION forced_fun AS (x, k, b) -> k*x + b', format: nil)
+            ActiveRecord::Base.connection.execute('CREATE FUNCTION forced_fun AS (x, k, b) -> k*x + b')
 
             subject
 
@@ -128,6 +128,8 @@ RSpec.describe 'Cluster Migration', :migrations do
       let(:directory) { 'dsl_create_table_with_index' }
 
       it 'creates a table' do
+
+        allow_any_instance_of(ActiveRecord::ConnectionAdapters::ClickhouseAdapter).to receive(:execute).and_call_original
 
         expect_any_instance_of(ActiveRecord::ConnectionAdapters::ClickhouseAdapter).to receive(:execute)
            .with('ALTER TABLE some ON CLUSTER ' + connection_config[:cluster_name] + ' DROP INDEX idx')

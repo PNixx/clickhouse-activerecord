@@ -16,6 +16,7 @@ require 'active_record/connection_adapters/clickhouse/column'
 require 'active_record/connection_adapters/clickhouse/quoting'
 require 'active_record/connection_adapters/clickhouse/schema_creation'
 require 'active_record/connection_adapters/clickhouse/schema_statements'
+require 'active_record/connection_adapters/clickhouse/statement'
 require 'active_record/connection_adapters/clickhouse/table_definition'
 require 'net/http'
 require 'openssl'
@@ -82,6 +83,8 @@ module ActiveRecord
       include Clickhouse::Quoting
 
       ADAPTER_NAME = 'Clickhouse'.freeze
+      DEFAULT_RESPONSE_FORMAT = 'JSONCompactEachRowWithNamesAndTypes'.freeze
+      USER_AGENT = "ClickHouse ActiveRecord #{ClickhouseActiverecord::VERSION}"
       NATIVE_DATABASE_TYPES = {
         string: { name: 'String' },
         integer: { name: 'UInt32' },
@@ -137,6 +140,7 @@ module ActiveRecord
 
         @connection_config = { user: @config[:username], password: @config[:password], database: @config[:database] }.compact
         @debug = @config[:debug] || false
+        @response_format = @config[:format] || DEFAULT_RESPONSE_FORMAT
 
         @prepared_statements = false
 
@@ -145,7 +149,7 @@ module ActiveRecord
 
       # Return ClickHouse server version
       def server_version
-        @server_version ||= do_system_execute('SELECT version()')['data'][0][0]
+        @server_version ||= select_value('SELECT version()')
       end
 
       # Savepoints are not supported, noop
@@ -310,10 +314,7 @@ module ActiveRecord
       # Create a new ClickHouse database.
       def create_database(name)
         sql = apply_cluster "CREATE DATABASE #{quote_table_name(name)}"
-        log_with_debug(sql, adapter_name) do
-          res = @connection.post("/?#{@connection_config.except(:database).to_param}", sql)
-          process_response(res, DEFAULT_RESPONSE_FORMAT)
-        end
+        do_system_execute sql, adapter_name, except_params: [:database]
       end
 
       def create_view(table_name, request_settings: {}, **options)
@@ -326,7 +327,7 @@ module ActiveRecord
           drop_table(table_name, options.merge(if_exists: true))
         end
 
-        do_execute(schema_creation.accept(td), format: nil, settings: request_settings)
+        execute(schema_creation.accept(td), settings: request_settings)
       end
 
       def create_table(table_name, request_settings: {}, **options, &block)
@@ -343,7 +344,7 @@ module ActiveRecord
           drop_table(table_name, options.merge(if_exists: true))
         end
 
-        do_execute(schema_creation.accept(td), format: nil, settings: request_settings)
+        execute(schema_creation.accept(td), settings: request_settings)
 
         if options[:with_distributed]
           distributed_table_name = options.delete(:with_distributed)
@@ -358,16 +359,13 @@ module ActiveRecord
 
       def create_function(name, body, **options)
         fd = "CREATE#{' OR REPLACE' if options[:force]} FUNCTION #{apply_cluster(quote_table_name(name))} AS #{body}"
-        do_execute(fd, format: nil)
+        execute(fd)
       end
 
       # Drops a ClickHouse database.
       def drop_database(name) #:nodoc:
         sql = apply_cluster "DROP DATABASE IF EXISTS #{quote_table_name(name)}"
-        log_with_debug(sql, adapter_name) do
-          res = @connection.post("/?#{@connection_config.except(:database).to_param}", sql)
-          process_response(res, DEFAULT_RESPONSE_FORMAT)
-        end
+        do_system_execute sql, adapter_name, except_params: [:database]
       end
 
       def drop_functions
@@ -377,7 +375,7 @@ module ActiveRecord
       end
 
       def rename_table(table_name, new_name)
-        do_execute apply_cluster "RENAME TABLE #{quote_table_name(table_name)} TO #{quote_table_name(new_name)}"
+        execute apply_cluster "RENAME TABLE #{quote_table_name(table_name)} TO #{quote_table_name(new_name)}"
       end
 
       def drop_table(table_name, options = {}) # :nodoc:
@@ -387,7 +385,7 @@ module ActiveRecord
         query = apply_cluster(query)
         query = "#{query} SYNC" if options[:sync]
 
-        do_execute(query)
+        execute(query)
 
         if options[:with_distributed]
           distributed_table_name = options.delete(:with_distributed)
@@ -402,25 +400,19 @@ module ActiveRecord
         query = apply_cluster(query)
         query = "#{query} SYNC" if options[:sync]
 
-        do_execute(query, format: nil)
+        execute(query)
       end
 
       def add_column(table_name, column_name, type, **options)
-        return if options[:if_not_exists] == true && column_exists?(table_name, column_name, type)
-
-        at = create_alter_table table_name
-        at.add_column(column_name, type, **options)
-        execute(schema_creation.accept(at), nil, settings: {wait_end_of_query: 1, send_progress_in_http_headers: 1})
+        with_settings(wait_end_of_query: 1, send_progress_in_http_headers: 1) { super }
       end
 
       def remove_column(table_name, column_name, type = nil, **options)
-        return if options[:if_exists] == true && !column_exists?(table_name, column_name)
-
-        execute("ALTER TABLE #{quote_table_name(table_name)} #{remove_column_for_alter(table_name, column_name, type, **options)}", nil, settings: {wait_end_of_query: 1, send_progress_in_http_headers: 1})
+        with_settings(wait_end_of_query: 1, send_progress_in_http_headers: 1) { super }
       end
 
       def change_column(table_name, column_name, type, **options)
-        result = do_execute("ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, **options)}", nil, settings: {wait_end_of_query: 1, send_progress_in_http_headers: 1})
+        result = execute("ALTER TABLE #{quote_table_name(table_name)} #{change_column_for_alter(table_name, column_name, type, **options)}", nil, settings: {wait_end_of_query: 1, send_progress_in_http_headers: 1})
         raise "Error parse json response: #{result}" if result.presence && !result.is_a?(Hash)
       end
 
