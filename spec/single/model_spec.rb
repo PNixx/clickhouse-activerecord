@@ -157,6 +157,11 @@ RSpec.describe 'Model', :migrations do
       it 'finds the record' do
         expect(Model.find_by(event_name: 'some event').attributes).to eq(record.attributes)
       end
+
+      it 'find with record `insert into table`' do
+        Model.create!(event_name: 'INSERT INTO table VALUES(1,1)', date: Date.current, datetime: Time.now)
+        expect(Model.where('event_name ILIKE ?', 'insert into%').count).to eq(1)
+      end
     end
 
     describe '#reverse_order!' do
