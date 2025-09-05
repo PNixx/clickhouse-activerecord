@@ -267,10 +267,12 @@ module ActiveRecord
         # @param [Array] except_params
         # @return [Net::HTTPResponse]
         def request(statement, settings: {}, except_params: [])
-          @connection.post("/?#{settings_params(settings, except: except_params)}",
-                           statement.formatted_sql,
-                           'Content-Type' => 'application/x-www-form-urlencoded',
-                           'User-Agent' => ClickhouseAdapter::USER_AGENT)
+          @lock.synchronize do
+            @connection.post("/?#{settings_params(settings, except: except_params)}",
+                             statement.formatted_sql,
+                             'Content-Type' => 'application/x-www-form-urlencoded',
+                             'User-Agent' => ClickhouseAdapter::USER_AGENT)
+          end
         end
 
         def log_with_debug(sql, name = nil)
