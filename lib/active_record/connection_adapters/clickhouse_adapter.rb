@@ -110,6 +110,8 @@ module ActiveRecord
         uint64: { name: 'UInt64' },
         # uint128: { name: 'UInt128' }, not yet implemented in clickhouse
         uint256: { name: 'UInt256' },
+
+        json: { name: 'JSON' },
       }.freeze
 
       include Clickhouse::SchemaStatements
@@ -242,6 +244,8 @@ module ActiveRecord
           m.register_type(%r(Map)) do |sql_type|
             Clickhouse::OID::Map.new(sql_type)
           end
+
+          m.register_type %r(JSON)i, ActiveRecord::Type::Json.new
         end
       end
 
