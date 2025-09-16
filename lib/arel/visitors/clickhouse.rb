@@ -50,9 +50,37 @@ module Arel
         super
       end
 
+      # def visit_Arel_Nodes_Final(o, collector)
+      #   # Handle FINAL clause placement correctly with JOINs
+      #   if o.expr.is_a?(Arel::Nodes::JoinSource)
+      #     # Visit the left side (main table) first
+      #     visit o.expr.left, collector
+      #     collector << ' FINAL'
+
+      #     # Then visit any RIGHT side (JOINs)
+      #     o.expr.right.each do |join|
+      #       collector << ' '
+      #       visit join, collector
+      #     end
+      #   else
+      #     # For simple cases without JOINs
+      #     visit o.expr, collector
+      #     collector << ' FINAL'
+      #   end
+      #   collector
+      # end
+
       def visit_Arel_Nodes_Final(o, collector)
-        visit o.expr, collector
+        # Visit the left side (main table) first
+        visit o.expr.left, collector
         collector << ' FINAL'
+
+        # Then visit any RIGHT side (JOINs)
+        o.expr.right.each do |join|
+          collector << ' '
+          visit join, collector
+        end
+
         collector
       end
 
