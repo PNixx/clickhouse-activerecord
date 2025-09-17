@@ -418,6 +418,11 @@ RSpec.describe 'Model', :migrations do
         expect(Model.final!.count).to eq(1)
         expect(Model.final.where(date: '2023-07-21').to_sql).to eq('SELECT sample.* FROM sample FINAL WHERE sample.date = \'2023-07-21\'')
       end
+
+      it 'works with JOINs' do
+        sql = Model.final.joins(:joins).where(date: '2023-07-21').to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample FINAL INNER JOIN joins ON joins.model_id = sample.event_name WHERE sample.date = \'2023-07-21\'')
+      end
     end
 
     describe '#limit_by' do
