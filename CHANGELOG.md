@@ -1,3 +1,11 @@
+### Version 1.4.0 (Sep 18, 2025)
+
+* `CREATE OR REPLACE FUNCTION` in SQL schema dumps in #198
+* Added shard config to handle replica path with shard in #201
+* Add support for simple schema dumping in #203
+* Unscope :final and :settings in #208
+* Encapsulate format logic within Statement and helper classes in #162
+
 ### Version 1.3.1 (Feb 12, 2025)
 
  * Restore replace database from dump schema table creation
