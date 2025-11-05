@@ -1,6 +1,6 @@
 services:
   clickhouse:
-    image: 'clickhouse/clickhouse-server:${CLICKHOUSE_VERSION-23.11-alpine}'
+    image: 'clickhouse/clickhouse-server:${CLICKHOUSE_VERSION}'
     container_name: 'clickhouse-activerecord-clickhouse-server'
     ports:
       - '18123:8123'

@@ -15,6 +15,7 @@
   <tmp_path>/var/lib/clickhouse/tmp/</tmp_path>
   <user_files_path>/var/lib/clickhouse/user_files/</user_files_path>
   <access_control_path>/var/lib/clickhouse/access/</access_control_path>
+  <format_schema_path>/var/lib/clickhouse/format_schemas/</format_schema_path>
   <keep_alive_timeout>3</keep_alive_timeout>
 
   <logger>
@@ -114,4 +115,11 @@
       <value>86400</value>
     </header>
   </http_options_response>
+
+  <user_directories>
+    <users_xml>
+      <path>users.xml</path>
+    </users_xml>
+  </user_directories>
+
 </clickhouse>
