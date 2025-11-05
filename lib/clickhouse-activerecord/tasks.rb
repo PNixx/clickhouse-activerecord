@@ -15,8 +15,6 @@ module ClickhouseActiverecord
     def create
       establish_master_connection
       connection.create_database @configuration.database
-      connection.schema_migration.create_table
-      connection.internal_metadata.create_table
     rescue ActiveRecord::StatementInvalid => e
       if e.cause.to_s.include?('already exists')
         raise ActiveRecord::DatabaseAlreadyExists
@@ -41,7 +39,6 @@ module ClickhouseActiverecord
 
       # get all tables
       tables = connection.execute("SHOW TABLES FROM #{@configuration.database} WHERE name NOT LIKE '.inner_id.%'")['data'].flatten.map do |table|
-        next if %w[schema_migrations ar_internal_metadata].include?(table)
         connection.show_create_table(table, single_line: false).gsub("#{@configuration.database}.", '')
       end.compact
 

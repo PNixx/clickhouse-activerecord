@@ -176,7 +176,9 @@ module CoreExtensions
       end
 
       def build_arel(connection_or_aliases = nil, aliases = nil)
-        if ::ActiveRecord::version >= Gem::Version.new('7.2')
+        requirement = Gem::Requirement.new('>= 7.2', '< 8.1')
+
+        if requirement.satisfied_by?(::ActiveRecord::version)
           arel = super
         else
           arel = super(connection_or_aliases)

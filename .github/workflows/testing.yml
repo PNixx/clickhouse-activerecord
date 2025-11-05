@@ -30,7 +30,9 @@ jobs:
             rails: 7.2.1
           - ruby: 3.2
             rails: 8.0.1
-        clickhouse: [ '22.1', '24.9' ]
+          - ruby: 3.2
+            rails: 8.1
+        clickhouse: [ '24.9', '25.3' ]
 
     steps:
       - uses: actions/checkout@v4
