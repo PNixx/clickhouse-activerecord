@@ -1,3 +1,9 @@
+### Version 1.5.0 (Nov 5, 2025)
+
+* 🎉 Support for Rails 8.1
+* Fix sql structure dump with `schema_migrations` #138
+* Remove old tasks
+
 ### Version 1.4.0 (Sep 18, 2025)
 
 * `CREATE OR REPLACE FUNCTION` in SQL schema dumps in #198
