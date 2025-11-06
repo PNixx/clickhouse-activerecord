@@ -1,3 +1,7 @@
+### Version 1.5.1 (Nov 6, 2025)
+
+* Fix rake tasks
+
 ### Version 1.5.0 (Nov 5, 2025)
 
 * 🎉 Support for Rails 8.1
