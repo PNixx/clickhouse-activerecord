@@ -758,9 +758,10 @@ RSpec.describe 'Model', :migrations do
       it 'allows creating tables with JSON columns via migration' do
         # Create a temporary migration-style table
         json_model.connection.execute('DROP TABLE IF EXISTS migration_json_test')
-        
+
         expect {
-          json_model.connection.create_table :migration_json_test, id: false, 
+          json_model.connection.create_table :migration_json_test, id: false,
+                                            options: 'MergeTree ORDER BY id',
                                             request_settings: { allow_experimental_json_type: 1 } do |t|
             t.column :id, :integer, null: false
             t.json :config, null: false
