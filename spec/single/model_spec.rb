@@ -631,4 +631,155 @@ RSpec.describe 'Model', :migrations do
       end
     end
   end
+
+  context 'json' do
+    let!(:json_model) do
+      Class.new(ActiveRecord::Base) do
+        self.table_name = 'json_test_table'
+      end
+    end
+
+    before do
+      # Create table with JSON column
+      json_model.connection.execute('DROP TABLE IF EXISTS json_test_table')
+      json_model.connection.execute(<<~SQL, nil, settings: { allow_experimental_json_type: 1 })
+        CREATE TABLE json_test_table (
+          id UInt64,
+          properties JSON,
+          metadata JSON
+        ) ENGINE = MergeTree ORDER BY id
+      SQL
+    end
+
+    after do
+      json_model.connection.execute('DROP TABLE IF EXISTS json_test_table')
+    end
+
+    describe 'JSON column type recognition' do
+      it 'recognizes JSON columns with correct type' do
+        columns = json_model.columns_hash
+        expect(columns['properties'].type).to eq(:json)
+        expect(columns['properties'].sql_type).to eq('JSON')
+        expect(columns['metadata'].type).to eq(:json)
+      end
+
+      it 'validates JSON type in connection' do
+        connection = json_model.connection
+        expect(connection.valid_type?(:json)).to be_truthy
+        expect(connection.native_database_types[:json]).to eq({ name: 'JSON' })
+      end
+    end
+
+    describe 'JSON data operations' do
+      it 'creates record with JSON data' do
+        test_data = { 'key' => 'value', 'nested' => { 'count' => '42' } }
+        metadata = { 'version' => '1.0', 'tags' => ['test', 'json'] }
+
+        expect {
+          json_model.create!(
+            id: 1,
+            properties: test_data,
+            metadata: metadata
+          )
+        }.to change { json_model.count }.by(1)
+
+        record = json_model.first
+        expect(record.properties).to eq(test_data)
+        expect(record.metadata).to eq(metadata)
+      end
+
+      it 'handles empty JSON values' do
+        expect {
+          json_model.create!(
+            id: 2,
+            properties: {},
+            metadata: { 'status' => 'empty' }
+          )
+        }.to change { json_model.count }.by(1)
+
+        record = json_model.first
+        expect(record.properties).to eq({})
+        expect(record.metadata).to eq({ 'status' => 'empty' })
+      end
+
+      it 'handles complex JSON structures' do
+        # Note: In ClickHouse JSON type, numbers are stored as strings
+        complex_json = {
+          'user' => {
+            'name' => 'John Doe',
+            'preferences' => {
+              'theme' => 'dark',
+              'notifications' => true,
+              'languages' => ['en', 'es']
+            }
+          },
+          'timestamps' => {
+            'created_at' => '2023-01-01T00:00:00Z',
+            'updated_at' => '2023-12-31T23:59:59Z'
+          },
+          'metrics' => ['1', '2', '3', '4', '5'],  # Numbers become strings in ClickHouse JSON
+          'active' => true,
+          'score' => 0.955e2  # ClickHouse JSON representation
+        }
+
+        json_model.create!(
+          id: 3,
+          properties: complex_json,
+          metadata: { 'type' => 'complex' }
+        )
+
+        record = json_model.first
+        expect(record.properties['user']['name']).to eq('John Doe')
+        expect(record.properties['metrics']).to eq(['1', '2', '3', '4', '5'])
+        expect(record.properties['active']).to be_truthy
+        expect(record.properties['score']).to be_a(Numeric)
+      end
+
+      it 'works with insert_all' do
+        records = [
+          { id: 4, properties: { 'batch' => '1' }, metadata: { 'source' => 'batch' } },
+          { id: 5, properties: { 'batch' => '2' }, metadata: { 'source' => 'batch' } }
+        ]
+
+        expect {
+          json_model.insert_all(records)
+        }.to change { json_model.count }.by(2)
+
+        first_record = json_model.find_by(id: 4)
+        second_record = json_model.find_by(id: 5)
+
+        expect(first_record.properties).to eq({ 'batch' => '1' })
+        expect(second_record.properties).to eq({ 'batch' => '2' })
+        expect(first_record.metadata).to eq({ 'source' => 'batch' })
+      end
+    end
+
+    describe 'migration and schema dumping' do
+      it 'allows creating tables with JSON columns via migration' do
+        # Create a temporary migration-style table
+        json_model.connection.execute('DROP TABLE IF EXISTS migration_json_test')
+
+        expect {
+          json_model.connection.create_table :migration_json_test, id: false,
+                                            options: 'MergeTree ORDER BY id',
+                                            request_settings: { allow_experimental_json_type: 1 } do |t|
+            t.column :id, :integer, null: false
+            t.json :config, null: false
+            t.json :optional_data, null: false  # JSON columns cannot be nullable in ClickHouse
+          end
+        }.not_to raise_error
+
+        # Verify the table was created with correct column types
+        columns = json_model.connection.columns('migration_json_test')
+        config_column = columns.find { |c| c.name == 'config' }
+        optional_column = columns.find { |c| c.name == 'optional_data' }
+
+        expect(config_column.type).to eq(:json)
+        expect(config_column.sql_type).to eq('JSON')
+        expect(optional_column.type).to eq(:json)
+
+        json_model.connection.execute('DROP TABLE IF EXISTS migration_json_test')
+      end
+    end
+  end
 end
