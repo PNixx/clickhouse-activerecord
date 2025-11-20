@@ -286,10 +286,10 @@ Engines `MergeTree` and all support replication engines will be replaced to `Rep
 
 Donations to this project are going directly to [PNixx](https://github.com/PNixx), the original author of this project:
 
-* BTC address: `1H3rhpf7WEF5JmMZ3PVFMQc7Hm29THgUfN`
+* BTC address: `bc1qr73vls0kv2ujk4ugqmpqj6j0qtqvdr3nx25xdl`
 * ETH address: `0x6F094365A70fe7836A633d2eE80A1FA9758234d5`
 * XMR address: `42gP71qLB5M43RuDnrQ3vSJFFxis9Kw9VMURhpx9NLQRRwNvaZRjm2TFojAMC8Fk1BQhZNKyWhoyJSn5Ak9kppgZPjE17Zh`
-* TON address: `UQBt0-s1igIpJoEup0B1yAUkZ56rzbpruuAjNhQ26MVCaNlC`
+* TON address: `UQBCnxOfBsHPZ3PesGgMedVMEf5UHnm0jrSq-042pMWw08Ux`
 
 ## Development
 

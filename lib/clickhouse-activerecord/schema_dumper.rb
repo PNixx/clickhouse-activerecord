@@ -31,6 +31,8 @@ module ClickhouseActiverecord
 
     def table(table, stream)
       if table.match(/^\.inner/).nil?
+        sql= ""
+        simple ||= ENV['simple'] == 'true'
         unless simple
           stream.puts "  # TABLE: #{table}"
           sql = @connection.show_create_table(table)

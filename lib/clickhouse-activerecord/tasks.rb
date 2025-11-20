@@ -39,7 +39,6 @@ module ClickhouseActiverecord
 
       # get all tables
       tables = connection.execute("SHOW TABLES FROM #{@configuration.database} WHERE name NOT LIKE '.inner_id.%'")['data'].flatten.map do |table|
-        next if %w[schema_migrations ar_internal_metadata].include?(table)
         connection.show_create_table(table, single_line: false).gsub("#{@configuration.database}.", '')
       end.compact
 
@@ -66,9 +65,9 @@ module ClickhouseActiverecord
         if sql.gsub(/[a-z]/i, '').blank?
           next
         elsif sql =~ /^INSERT INTO/
-          connection.do_execute(sql, nil, format: nil)
+          connection.execute(sql, nil, format: nil)
         elsif sql =~ /^CREATE .*?FUNCTION/
-          connection.do_execute(sql, nil, format: nil)
+          connection.execute(sql, nil, format: nil)
         else
           connection.execute(sql)
         end

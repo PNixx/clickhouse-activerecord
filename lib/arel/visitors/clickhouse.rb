@@ -51,8 +51,14 @@ module Arel
       end
 
       def visit_Arel_Nodes_Final(o, collector)
-        visit o.expr, collector
+        visit o.expr.left, collector
         collector << ' FINAL'
+
+        o.expr.right.each do |join|
+          collector << ' '
+          visit join, collector
+        end
+
         collector
       end
 

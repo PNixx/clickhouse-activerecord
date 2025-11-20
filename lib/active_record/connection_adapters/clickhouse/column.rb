@@ -5,7 +5,7 @@ module ActiveRecord
 
         attr_reader :codec
 
-        def initialize(name, default, sql_type_metadata = nil, null = true, default_function = nil, codec: nil, **args)
+        def initialize(*, codec: nil, **)
           super
           @codec = codec
         end

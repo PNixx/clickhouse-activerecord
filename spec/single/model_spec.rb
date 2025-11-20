@@ -36,16 +36,33 @@ RSpec.describe 'Model', :migrations do
       expect(Model.first.event_name).to eq('DB::Exception')
     end
 
-    describe '#do_execute' do
+    describe '#execute' do
       it 'returns formatted result' do
-        result = Model.connection.do_execute('SELECT 1 AS t')
+        result = Model.connection.execute('SELECT 1 AS t')
+        expect(result['data']).to eq([[1]])
+        expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+      end
+
+      it 'also works when a different format is passed as a keyword' do
+        result = Model.connection.execute('SELECT 1 AS t', format: 'JSONCompact')
+        expect(result['data']).to eq([[1]])
+        expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+      end
+    end
+
+    describe '#with_response_format' do
+      it 'returns formatted result' do
+        result = Model.connection.execute('SELECT 1 AS t')
         expect(result['data']).to eq([[1]])
         expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
       end
 
       context 'with JSONCompact format' do
         it 'returns formatted result' do
-          result = Model.connection.do_execute('SELECT 1 AS t', format: 'JSONCompact')
+          result =
+            Model.connection.with_response_format('JSONCompact') do
+              Model.connection.execute('SELECT 1 AS t')
+            end
           expect(result['data']).to eq([[1]])
           expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
         end
@@ -53,9 +70,22 @@ RSpec.describe 'Model', :migrations do
 
       context 'with JSONCompactEachRowWithNamesAndTypes format' do
         it 'returns formatted result' do
-          result = Model.connection.do_execute('SELECT 1 AS t', format: 'JSONCompactEachRowWithNamesAndTypes')
+          result =
+            Model.connection.with_response_format('JSONCompactEachRowWithNamesAndTypes') do
+              Model.connection.execute('SELECT 1 AS t')
+            end
           expect(result['data']).to eq([[1]])
           expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
+        end
+      end
+
+      context 'with nil format' do
+        it 'omits the FORMAT clause' do
+          result =
+            Model.connection.with_response_format(nil) do
+              Model.connection.execute('SELECT 1 AS t')
+            end
+          expect(result.chomp).to eq('1')
         end
       end
     end
@@ -126,6 +156,11 @@ RSpec.describe 'Model', :migrations do
 
       it 'finds the record' do
         expect(Model.find_by(event_name: 'some event').attributes).to eq(record.attributes)
+      end
+
+      it 'find with record `insert into table`' do
+        Model.create!(event_name: 'INSERT INTO table VALUES(1,1)', date: Date.current, datetime: Time.now)
+        expect(Model.where('event_name ILIKE ?', 'insert into%').count).to eq(1)
       end
     end
 
@@ -222,6 +257,31 @@ RSpec.describe 'Model', :migrations do
     end
 
     describe '#settings' do
+      it 'does not change settings_values when empty' do
+        query = Model.all
+        query = query.settings
+        expect(query.settings_values).to be_empty
+      end
+
+      it 'updates settings_values' do
+        query = Model.all
+        query = query.settings(foo: 'bar', abc: 123)
+        expect(query.settings_values).to eq({ foo: 'bar', abc: 123 })
+      end
+
+      it 'overwrites settings_values previously set' do
+        query = Model.all
+        query = query.settings(foo: 'bar', abc: 123)
+        query = query.settings(foo: 'baz')
+        expect(query.settings_values).to eq({ foo: 'baz', abc: 123 })
+      end
+
+      it 'works as a chainable method' do
+        query = Model.all
+        query = query.settings(foo: 'bar', abc: 123).settings(foo: 'baz')
+        expect(query.settings_values).to eq({ foo: 'baz', abc: 123 })
+      end
+
       it 'works' do
         sql = Model.settings(optimize_read_in_order: 1, cast_keep_nullable: 1).to_sql
         expect(sql).to eq('SELECT sample.* FROM sample SETTINGS optimize_read_in_order = 1, cast_keep_nullable = 1')
@@ -235,6 +295,55 @@ RSpec.describe 'Model', :migrations do
       it 'allows passing the symbol :default to reset a setting' do
         sql = Model.settings(max_insert_block_size: :default).to_sql
         expect(sql).to eq('SELECT sample.* FROM sample SETTINGS max_insert_block_size = DEFAULT')
+      end
+    end
+
+    describe 'block-style settings' do
+      let!(:record) { Model.create!(event_name: 'some event', date: Date.current, datetime: Time.now) }
+
+      let(:last_query_finder) do
+        <<~SQL.squish
+          SELECT query, Settings, event_time_microseconds
+          FROM system.query_log
+          WHERE query ILIKE 'SELECT sample.* FROM sample FORMAT %'
+          ORDER BY event_date DESC, event_time DESC, event_time_microseconds DESC
+          LIMIT 1
+        SQL
+      end
+
+      it 'sends the settings to the server' do
+        expect_any_instance_of(Net::HTTP).to receive(:post).and_wrap_original do |original_method, *args, **kwargs|
+          resource, sql, * = args
+          if sql.include?('SELECT sample.*')
+            query = resource.split('?').second
+            params = query.split('&').to_h { |pair| pair.split('=').map { |s| CGI.unescape(s) } }
+            expect(params['cast_keep_nullable']).to eq('1')
+            expect(params['log_comment']).to eq('Log Comment!')
+          end
+          original_method.call(*args, **kwargs)
+        end
+
+        Model.connection.with_settings(cast_keep_nullable: 1, log_comment: 'Log Comment!') do
+          Model.all.load
+        end
+      end
+
+      it 'resets settings to default outside the block' do
+        Model.connection.with_settings(cast_keep_nullable: 1, log_comment: 'Log Comment!') do
+          Model.all.load
+        end
+
+        expect_any_instance_of(Net::HTTP).to receive(:post).and_wrap_original do |original_method, *args, **kwargs|
+          resource, sql, * = args
+          if sql.include?('SELECT sample.*')
+            query = resource.split('?').second
+            params = query.split('&').to_h { |pair| pair.split('=').map { |s| CGI.unescape(s) } }
+            expect(params).not_to include('cast_keep_nullable', 'log_comment')
+          end
+          original_method.call(*args, **kwargs)
+        end
+
+        Model.all.load
       end
     end
 
@@ -259,6 +368,18 @@ RSpec.describe 'Model', :migrations do
       it 'empty' do
         sql = Model.window('x').select('sum(event_value) OVER x').to_sql
         expect(sql).to eq('SELECT sum(event_value) OVER x FROM sample WINDOW x AS ()')
+      end
+    end
+
+    describe '#unscope' do
+      it 'removes settings' do
+        sql = Model.settings(foo: :bar).unscope(:settings).to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample')
+      end
+
+      it 'removes FINAL' do
+        sql = Model.final.unscope(:final).to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample')
       end
     end
 
@@ -296,6 +417,11 @@ RSpec.describe 'Model', :migrations do
         expect(Model.final.count).to eq(1)
         expect(Model.final!.count).to eq(1)
         expect(Model.final.where(date: '2023-07-21').to_sql).to eq('SELECT sample.* FROM sample FINAL WHERE sample.date = \'2023-07-21\'')
+      end
+
+      it 'works with JOINs' do
+        sql = Model.final.joins(:joins).where(date: '2023-07-21').to_sql
+        expect(sql).to eq('SELECT sample.* FROM sample FINAL INNER JOIN joins ON joins.model_id = sample.event_name WHERE sample.date = \'2023-07-21\'')
       end
     end
 
@@ -502,6 +628,157 @@ RSpec.describe 'Model', :migrations do
         expect(record.map_array_datetime['c']).to be_a Array
         expect(record.map_array_datetime['c'][0]).to eq(DateTime.parse('2022-12-05 15:22:49'))
         expect(record.map_array_datetime['c'][1]).to eq(DateTime.parse('2024-01-01 12:00:08'))
+      end
+    end
+  end
+
+  context 'json' do
+    let!(:json_model) do
+      Class.new(ActiveRecord::Base) do
+        self.table_name = 'json_test_table'
+      end
+    end
+
+    before do
+      # Create table with JSON column
+      json_model.connection.execute('DROP TABLE IF EXISTS json_test_table')
+      json_model.connection.execute(<<~SQL, nil, settings: { allow_experimental_json_type: 1 })
+        CREATE TABLE json_test_table (
+          id UInt64,
+          properties JSON,
+          metadata JSON
+        ) ENGINE = MergeTree ORDER BY id
+      SQL
+    end
+
+    after do
+      json_model.connection.execute('DROP TABLE IF EXISTS json_test_table')
+    end
+
+    describe 'JSON column type recognition' do
+      it 'recognizes JSON columns with correct type' do
+        columns = json_model.columns_hash
+        expect(columns['properties'].type).to eq(:json)
+        expect(columns['properties'].sql_type).to eq('JSON')
+        expect(columns['metadata'].type).to eq(:json)
+      end
+
+      it 'validates JSON type in connection' do
+        connection = json_model.connection
+        expect(connection.valid_type?(:json)).to be_truthy
+        expect(connection.native_database_types[:json]).to eq({ name: 'JSON' })
+      end
+    end
+
+    describe 'JSON data operations' do
+      it 'creates record with JSON data' do
+        test_data = { 'key' => 'value', 'nested' => { 'count' => '42' } }
+        metadata = { 'version' => '1.0', 'tags' => ['test', 'json'] }
+
+        expect {
+          json_model.create!(
+            id: 1,
+            properties: test_data,
+            metadata: metadata
+          )
+        }.to change { json_model.count }.by(1)
+
+        record = json_model.first
+        expect(record.properties).to eq(test_data)
+        expect(record.metadata).to eq(metadata)
+      end
+
+      it 'handles empty JSON values' do
+        expect {
+          json_model.create!(
+            id: 2,
+            properties: {},
+            metadata: { 'status' => 'empty' }
+          )
+        }.to change { json_model.count }.by(1)
+
+        record = json_model.first
+        expect(record.properties).to eq({})
+        expect(record.metadata).to eq({ 'status' => 'empty' })
+      end
+
+      it 'handles complex JSON structures' do
+        # Note: In ClickHouse JSON type, numbers are stored as strings
+        complex_json = {
+          'user' => {
+            'name' => 'John Doe',
+            'preferences' => {
+              'theme' => 'dark',
+              'notifications' => true,
+              'languages' => ['en', 'es']
+            }
+          },
+          'timestamps' => {
+            'created_at' => '2023-01-01T00:00:00Z',
+            'updated_at' => '2023-12-31T23:59:59Z'
+          },
+          'metrics' => ['1', '2', '3', '4', '5'],  # Numbers become strings in ClickHouse JSON
+          'active' => true,
+          'score' => 0.955e2  # ClickHouse JSON representation
+        }
+
+        json_model.create!(
+          id: 3,
+          properties: complex_json,
+          metadata: { 'type' => 'complex' }
+        )
+
+        record = json_model.first
+        expect(record.properties['user']['name']).to eq('John Doe')
+        expect(record.properties['metrics']).to eq(['1', '2', '3', '4', '5'])
+        expect(record.properties['active']).to be_truthy
+        expect(record.properties['score']).to be_a(Numeric)
+      end
+
+      it 'works with insert_all' do
+        records = [
+          { id: 4, properties: { 'batch' => '1' }, metadata: { 'source' => 'batch' } },
+          { id: 5, properties: { 'batch' => '2' }, metadata: { 'source' => 'batch' } }
+        ]
+
+        expect {
+          json_model.insert_all(records)
+        }.to change { json_model.count }.by(2)
+
+        first_record = json_model.find_by(id: 4)
+        second_record = json_model.find_by(id: 5)
+
+        expect(first_record.properties).to eq({ 'batch' => '1' })
+        expect(second_record.properties).to eq({ 'batch' => '2' })
+        expect(first_record.metadata).to eq({ 'source' => 'batch' })
+      end
+    end
+
+    describe 'migration and schema dumping' do
+      it 'allows creating tables with JSON columns via migration' do
+        # Create a temporary migration-style table
+        json_model.connection.execute('DROP TABLE IF EXISTS migration_json_test')
+
+        expect {
+          json_model.connection.create_table :migration_json_test, id: false,
+                                            options: 'MergeTree ORDER BY id',
+                                            request_settings: { allow_experimental_json_type: 1 } do |t|
+            t.column :id, :integer, null: false
+            t.json :config, null: false
+            t.json :optional_data, null: false  # JSON columns cannot be nullable in ClickHouse
+          end
+        }.not_to raise_error
+
+        # Verify the table was created with correct column types
+        columns = json_model.connection.columns('migration_json_test')
+        config_column = columns.find { |c| c.name == 'config' }
+        optional_column = columns.find { |c| c.name == 'optional_data' }
+
+        expect(config_column.type).to eq(:json)
+        expect(config_column.sql_type).to eq('JSON')
+        expect(optional_column.type).to eq(:json)
+
+        json_model.connection.execute('DROP TABLE IF EXISTS migration_json_test')
       end
     end
   end

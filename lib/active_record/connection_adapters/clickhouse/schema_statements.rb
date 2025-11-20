@@ -6,22 +6,55 @@ module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module SchemaStatements
-        DEFAULT_RESPONSE_FORMAT = 'JSONCompactEachRowWithNamesAndTypes'.freeze
 
-        DB_EXCEPTION_REGEXP = /\ACode:\s+\d+\.\s+DB::Exception:/.freeze
-
-        def execute(sql, name = nil, settings: {})
-          do_execute(sql, name, settings: settings)
+        def with_settings(**settings)
+          @block_settings ||= {}
+          prev_settings = @block_settings
+          @block_settings = @block_settings.merge(settings)
+          yield
+        ensure
+          @block_settings = prev_settings
         end
 
-        def exec_insert(sql, name, _binds, _pk = nil, _sequence_name = nil, returning: nil)
-          new_sql = sql.dup.sub(/ (DEFAULT )?VALUES/, " VALUES")
-          do_execute(new_sql, name, format: nil)
+        # Request a specific format for the duration of the provided block.
+        # Pass `nil` to explicitly send the SQL statement without a `FORMAT` clause.
+        # @param [String, nil] format
+        #
+        # @example Specify CSVWithNamesAndTypes format
+        #   with_response_format('CSVWithNamesAndTypes') do
+        #     Table.connection.execute('SELECT * FROM table')
+        #   end
+        #   # sends and executes "SELECT * FROM table FORMAT CSVWithNamesAndTypes"
+        #
+        # @example Specify no format
+        #  with_response_format(nil) do
+        #    Table.connection.execute('SELECT * FROM table')
+        #   end
+        #   # sends and executes "SELECT * FROM table"
+        def with_response_format(format)
+          prev_format = @response_format
+          @response_format = format
+          yield
+        ensure
+          @response_format = prev_format
+        end
+
+        def execute(sql, name = nil, format: @response_format, settings: {})
+          with_response_format(format) do
+            log(sql, [adapter_name, name].compact.join(' ')) do
+              raw_execute(sql, settings: settings)
+            end
+          end
+        end
+
+        def exec_insert(sql, name = nil, _binds = [], _pk = nil, _sequence_name = nil, returning: nil)
+          new_sql = sql.sub(/ (DEFAULT )?VALUES/, " VALUES")
+          with_response_format(nil) { execute(new_sql, name) }
           true
         end
 
         def internal_exec_query(sql, name = nil, binds = [], prepare: false, async: false, allow_retry: false)
-          result = do_execute(sql, name)
+          result = execute(sql, name)
           columns = result['meta'].map { |m| m['name'] }
           types = {}
           result['meta'].each_with_index do |m, i|
@@ -37,24 +70,25 @@ module ActiveRecord
         end
 
         def exec_insert_all(sql, name)
-          do_execute(sql, name, format: nil)
+          with_response_format(nil) { execute(sql, name) }
           true
         end
 
         # @link https://clickhouse.com/docs/en/sql-reference/statements/alter/update
-        def exec_update(_sql, _name = nil, _binds = [])
-          do_execute(_sql, _name, format: nil)
+        def exec_update(sql, name = nil, _binds = [])
+          execute(sql, name)
           0
         end
 
         # @link https://clickhouse.com/docs/en/sql-reference/statements/delete
-        def exec_delete(_sql, _name = nil, _binds = [])
-          log(_sql, "#{adapter_name} #{_name}") do
-            res = request(_sql)
+        def exec_delete(sql, name = nil, _binds = [])
+          log(sql, "#{adapter_name} #{name}") do
+            statement = Statement.new(sql, format: @response_format)
+            res = request(statement)
             begin
               data = JSON.parse(res.header['x-clickhouse-summary'])
               data['result_rows'].to_i
-            rescue JSONError
+            rescue JSON::ParserError
               0
             end
           end
@@ -85,7 +119,10 @@ module ActiveRecord
         end
 
         def show_create_function(function)
-          do_execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'", format: nil).sub(/\ACREATE FUNCTION/, 'CREATE OR REPLACE FUNCTION')
+          result = do_system_execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'")
+          return if result.nil?
+
+          result['data'].flatten.first.sub(/\ACREATE FUNCTION/, 'CREATE OR REPLACE FUNCTION')
         end
 
         def table_options(table)
@@ -110,18 +147,18 @@ module ActiveRecord
           tables
         end
 
-        def do_system_execute(sql, name = nil)
-          log_with_debug(sql, "#{adapter_name} #{name}") do
-            res = request(sql, DEFAULT_RESPONSE_FORMAT)
-            process_response(res, DEFAULT_RESPONSE_FORMAT, sql)
+        def do_system_execute(sql, name = nil, except_params: [])
+          log_with_debug(sql, [adapter_name, name].compact.join(' ')) do
+            raw_execute(sql, except_params: except_params)
           end
         end
 
         def do_execute(sql, name = nil, format: DEFAULT_RESPONSE_FORMAT, settings: {})
-          log(sql, "#{adapter_name} #{name}") do
-            res = request(sql, format, settings)
-            process_response(res, format, sql)
-          end
+          ActiveRecord.deprecator.warn(<<~MSG.squish)
+            `do_execute` is deprecated and will be removed in an upcoming release.
+            Please use `execute` instead.
+          MSG
+          execute(sql, name, format: format, settings: settings)
         end
 
         if ::ActiveRecord::version >= Gem::Version.new('7.2')
@@ -154,7 +191,7 @@ module ActiveRecord
             if (duplicate = inserting.detect { |v| inserting.count(v) > 1 })
               raise "Duplicate migration #{duplicate}. Please renumber your migrations to resolve the conflict."
             end
-            do_execute(insert_versions_sql(inserting), nil, format: nil, settings: {max_partitions_per_insert_block: [100, inserting.size].max})
+            execute(insert_versions_sql(inserting), nil, settings: {max_partitions_per_insert_block: [100, inserting.size].max})
           end
         end
 
@@ -166,74 +203,6 @@ module ActiveRecord
           else
             super
           end
-        end
-
-        private
-
-        # Make HTTP request to ClickHouse server
-        # @param [String] sql
-        # @param [String, nil] format
-        # @param [Hash] settings
-        # @return [Net::HTTPResponse]
-        def request(sql, format = nil, settings = {})
-          formatted_sql = apply_format(sql, format)
-          request_params = @connection_config || {}
-          @lock.synchronize do
-            @connection.post("/?#{request_params.merge(settings).to_param}", formatted_sql, {
-              'User-Agent' => "Clickhouse ActiveRecord #{ClickhouseActiverecord::VERSION}",
-              'Content-Type' => 'application/x-www-form-urlencoded',
-            })
-          end
-        end
-
-        def apply_format(sql, format)
-          format ? "#{sql} FORMAT #{format}" : sql
-        end
-
-        def process_response(res, format, sql = nil)
-          case res.code.to_i
-          when 200
-            body = res.body
-
-            if body.include?("DB::Exception") && body.match?(DB_EXCEPTION_REGEXP)
-              raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}#{sql ? "\nQuery: #{sql}" : ''}"
-            else
-              format_body_response(res.body, format)
-            end
-          else
-            case res.body
-              when /DB::Exception:.*\(UNKNOWN_DATABASE\)/
-                raise ActiveRecord::NoDatabaseError
-              when /DB::Exception:.*\(DATABASE_ALREADY_EXISTS\)/
-                raise ActiveRecord::DatabaseAlreadyExists
-              else
-                raise ActiveRecord::ActiveRecordError, "Response code: #{res.code}:\n#{res.body}"
-            end
-          end
-        rescue JSON::ParserError
-          res.body
-        end
-
-        def log_with_debug(sql, name = nil)
-          return yield unless @debug
-          log(sql, "#{name} (system)") { yield }
-        end
-
-        def schema_creation
-          Clickhouse::SchemaCreation.new(self)
-        end
-
-        def create_table_definition(table_name, **options)
-          Clickhouse::TableDefinition.new(self, table_name, **options)
-        end
-
-        def new_column_from_field(table_name, field, _definitions)
-          sql_type = field[1]
-          type_metadata = fetch_type_metadata(sql_type)
-          default_value = extract_value_from_default(field[3], field[2])
-          default_function = extract_default_function(field[3])
-          default_value = lookup_cast_type(sql_type).cast(default_value)
-          Clickhouse::Column.new(field[0], default_value, type_metadata, field[1].include?('Nullable'), default_function, codec: field[5].presence)
         end
 
         protected
@@ -250,7 +219,29 @@ module ActiveRecord
 
         private
 
-        # Extracts the value from a PostgreSQL column default definition.
+        def schema_creation
+          Clickhouse::SchemaCreation.new(self)
+        end
+
+        def create_table_definition(table_name, **options)
+          Clickhouse::TableDefinition.new(self, table_name, **options)
+        end
+
+        def new_column_from_field(table_name, field, _definitions)
+          column_name, sql_type, default_type, default_expression = field
+          type_metadata = fetch_type_metadata(sql_type)
+          default_value = extract_value_from_default(default_expression, default_type)
+          default_function = extract_default_function(default_expression)
+          cast_type = lookup_cast_type(sql_type)
+          default_value = cast_type.cast(default_value)
+
+          args = [column_name]
+          args << cast_type if ::ActiveRecord::version >= Gem::Version.new('8.1')
+          args += [default_value, type_metadata, field[1].include?('Nullable'), default_function]
+
+          Clickhouse::Column.new(*args, codec: field[5].presence)
+        end
+
         def extract_value_from_default(default_expression, default_type)
           return nil if default_type != 'DEFAULT' || default_expression.blank?
           return nil if has_default_function?(default_expression)
@@ -269,42 +260,38 @@ module ActiveRecord
           (%r{\w+\(.*\)} === default)
         end
 
-        def format_body_response(body, format)
-          return body if body.blank?
+        def raw_execute(sql, settings: {}, except_params: [])
+          statement = Statement.new(sql, format: @response_format)
+          statement.response = request(statement, settings: settings, except_params: except_params)
+          statement.processed_response
+        end
 
-          case format
-          when 'JSONCompact'
-            format_from_json_compact(body)
-          when 'JSONCompactEachRowWithNamesAndTypes'
-            format_from_json_compact_each_row_with_names_and_types(body)
-          else
-            body
+        # Make HTTP request to ClickHouse server
+        # @param [ActiveRecord::ConnectionAdapters::Clickhouse::Statement] statement
+        # @param [Hash] settings
+        # @param [Array] except_params
+        # @return [Net::HTTPResponse]
+        def request(statement, settings: {}, except_params: [])
+          @lock.synchronize do
+            @connection.post("/?#{settings_params(settings, except: except_params)}",
+                             statement.formatted_sql,
+                             'Content-Type' => 'application/x-www-form-urlencoded',
+                             'User-Agent' => ClickhouseAdapter::USER_AGENT)
           end
         end
 
-        def format_from_json_compact(body)
-          parse_json_payload(body)
+        def log_with_debug(sql, name = nil)
+          return yield unless @debug
+          log(sql, "#{name} (system)") { yield }
         end
 
-        def format_from_json_compact_each_row_with_names_and_types(body)
-          rows = body.split("\n").map { |row| parse_json_payload(row) }
-          names, types, *data = rows
-
-          meta = names.zip(types).map do |name, type|
-            {
-              'name' => name,
-              'type' => type
-            }
-          end
-
-          {
-            'meta' => meta,
-            'data' => data
-          }
-        end
-
-        def parse_json_payload(payload)
-          JSON.parse(payload, decimal_class: BigDecimal)
+        def settings_params(settings = {}, except: [])
+          request_params = @connection_config || {}
+          block_settings = @block_settings || {}
+          request_params.merge(block_settings)
+                        .merge(settings)
+                        .except(*except)
+                        .to_param
         end
       end
     end
