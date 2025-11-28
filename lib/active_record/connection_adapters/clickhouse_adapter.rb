@@ -149,6 +149,11 @@ module ActiveRecord
         connect
       end
 
+      def disconnect!
+        @connection.finish if @connection&.started?
+        super
+      end
+
       # Return ClickHouse server version
       def server_version
         @server_version ||= select_value('SELECT version()')
