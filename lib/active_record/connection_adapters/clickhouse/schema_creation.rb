@@ -44,7 +44,7 @@ module ActiveRecord
           end
           sql.gsub!(/(\sString)\(\d+\)/, '\1')
 
-          if ::ActiveRecord::version >= Gem::Version.new('8.1')
+          if ::ActiveRecord::version > Gem::Version.new('8.0')
             sql << " DEFAULT #{quote_default_expression_for_column_definition(options[:default], options[:column])}" if options_include_default?(options)
           else
             sql << " DEFAULT #{quote_default_expression(options[:default], options[:column])}" if options_include_default?(options)
