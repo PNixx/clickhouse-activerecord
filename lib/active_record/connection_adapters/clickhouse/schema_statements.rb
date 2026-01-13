@@ -47,6 +47,11 @@ module ActiveRecord
           end
         end
 
+        def truncate_tables(*table_names)
+          table_names -= views
+          super(*table_names)
+        end
+
         def execute_batch(statements, name = nil, **kwargs)
           statements.each do |statement|
             execute(statement, name, **kwargs)
