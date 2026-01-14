@@ -158,10 +158,18 @@ Structure load from `db/clickhouse_structure.sql` file:
 
 For auto truncate tables before each test add to `spec/rails_helper.rb` file:
 
-```
+```ruby
 require 'clickhouse-activerecord/rspec'
 ```
-    
+
+### Minitest
+
+For auto truncate tables before each test add to `test/test_helper.rb` file:
+
+```ruby
+require 'clickhouse-activerecord/minitest'
+```
+
 ### Insert and select data
 
 ```ruby

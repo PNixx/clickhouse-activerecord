@@ -299,6 +299,38 @@ module ActiveRecord
                         .except(*except)
                         .to_param
         end
+
+        # Returns a hash of table names to their engine types
+        def table_engines(table_names = nil)
+          table_names_sql = if table_names.present?
+            "AND name IN (#{table_names.map { |name| "'#{name}'" }.join(', ')})"
+          end
+
+          sql = <<~SQL
+            SELECT name, engine FROM system.tables
+            WHERE database = currentDatabase()
+            #{table_names_sql}
+          SQL
+
+          result = do_system_execute(sql)
+          return {} if result.nil?
+
+          result['data'].to_h { |row| [row[0], row[1]] }
+        end
+
+        # @see https://clickhouse.com/docs/sql-reference/statements/truncate
+        # Additionally add 'Dictionary' because it is returned from 'show tables'.
+        TRUNCATE_UNSUPPORTED_ENGINES = %w[View File URL Buffer Null Dictionary].freeze
+
+        def build_truncate_statements(table_names)
+          engines = table_engines(table_names)
+          tables_to_truncate = table_names.select do |table_name|
+            engine = engines[table_name]
+            engine.nil? || !TRUNCATE_UNSUPPORTED_ENGINES.include?(engine)
+          end
+
+          super(tables_to_truncate)
+        end
       end
     end
   end
