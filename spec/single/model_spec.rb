@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 RSpec.describe 'Model', :migrations do
-
   class ModelJoin < ActiveRecord::Base
     self.table_name = 'joins'
     belongs_to :model, class_name: 'Model'
@@ -19,7 +18,6 @@ RSpec.describe 'Model', :migrations do
   let(:date) { Date.today }
 
   context 'sample' do
-
     before do
       migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_sample_data')
       quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
@@ -173,10 +171,10 @@ RSpec.describe 'Model', :migrations do
         Model.create!(event_name: 'some event 1', date: 1.day.ago)
         Model.create!(event_name: 'some event 2', date: 2.day.ago)
         if IS_NEW_CLICKHOUSE_SERVER
-          expect(Model.all.reverse_order!.to_sql).to eq('SELECT sample.* FROM sample ORDER BY sample.event_name DESC')
+          expect(Model.all.reverse_order!.to_sql).to eq('SELECT `sample`.* FROM `sample` ORDER BY `sample`.`event_name` DESC')
           expect(Model.all.reverse_order!.map(&:event_name)).to eq(['some event 2', 'some event 1'])
         else
-          expect(Model.all.reverse_order!.to_sql).to eq('SELECT sample.* FROM sample ORDER BY sample.date DESC')
+          expect(Model.all.reverse_order!.to_sql).to eq('SELECT `sample`.* FROM `sample` ORDER BY `sample`.`date` DESC')
           expect(Model.all.reverse_order!.map(&:event_name)).to eq(['some event 1', 'some event 2'])
         end
       end
@@ -284,17 +282,17 @@ RSpec.describe 'Model', :migrations do
 
       it 'works' do
         sql = Model.settings(optimize_read_in_order: 1, cast_keep_nullable: 1).to_sql
-        expect(sql).to eq('SELECT sample.* FROM sample SETTINGS optimize_read_in_order = 1, cast_keep_nullable = 1')
+        expect(sql).to eq('SELECT `sample`.* FROM `sample` SETTINGS optimize_read_in_order = 1, cast_keep_nullable = 1')
       end
 
       it 'quotes' do
         sql = Model.settings(foo: :bar).to_sql
-        expect(sql).to eq('SELECT sample.* FROM sample SETTINGS foo = \'bar\'')
+        expect(sql).to eq("SELECT `sample`.* FROM `sample` SETTINGS foo = 'bar'")
       end
 
       it 'allows passing the symbol :default to reset a setting' do
         sql = Model.settings(max_insert_block_size: :default).to_sql
-        expect(sql).to eq('SELECT sample.* FROM sample SETTINGS max_insert_block_size = DEFAULT')
+        expect(sql).to eq('SELECT `sample`.* FROM `sample` SETTINGS max_insert_block_size = DEFAULT')
       end
     end
 
@@ -350,36 +348,36 @@ RSpec.describe 'Model', :migrations do
     describe '#using' do
       it 'works' do
         sql = Model.joins(:joins).using(:event_name, :date).to_sql
-        expect(sql).to eq('SELECT sample.* FROM sample INNER JOIN joins USING event_name,date')
+        expect(sql).to eq('SELECT `sample`.* FROM `sample` INNER JOIN `joins` USING event_name,date')
       end
 
       it 'works with filters' do
         sql = Model.joins(:joins).using(:event_name, :date).where(joins: { event_value: 1 }).to_sql
-        expect(sql).to eq("SELECT sample.* FROM sample INNER JOIN joins USING event_name,date WHERE joins.event_value = 1")
+        expect(sql).to eq('SELECT `sample`.* FROM `sample` INNER JOIN `joins` USING event_name,date WHERE `joins`.`event_value` = 1')
       end
     end
 
     describe '#window' do
       it 'works' do
         sql = Model.window('x', order: 'date', partition: 'name', rows: 'UNBOUNDED PRECEDING').select('sum(event_value) OVER x').to_sql
-        expect(sql).to eq('SELECT sum(event_value) OVER x FROM sample WINDOW x AS (PARTITION BY name ORDER BY date ROWS UNBOUNDED PRECEDING)')
+        expect(sql).to eq('SELECT sum(event_value) OVER x FROM `sample` WINDOW `x` AS (PARTITION BY name ORDER BY date ROWS UNBOUNDED PRECEDING)')
       end
 
       it 'empty' do
         sql = Model.window('x').select('sum(event_value) OVER x').to_sql
-        expect(sql).to eq('SELECT sum(event_value) OVER x FROM sample WINDOW x AS ()')
+        expect(sql).to eq('SELECT sum(event_value) OVER x FROM `sample` WINDOW `x` AS ()')
       end
     end
 
     describe '#unscope' do
       it 'removes settings' do
         sql = Model.settings(foo: :bar).unscope(:settings).to_sql
-        expect(sql).to eq('SELECT sample.* FROM sample')
+        expect(sql).to eq('SELECT `sample`.* FROM `sample`')
       end
 
       it 'removes FINAL' do
         sql = Model.final.unscope(:final).to_sql
-        expect(sql).to eq('SELECT sample.* FROM sample')
+        expect(sql).to eq('SELECT `sample`.* FROM `sample`')
       end
     end
 
@@ -387,12 +385,12 @@ RSpec.describe 'Model', :migrations do
       describe '#matches' do
         it 'uses ilike for case insensitive matches' do
           sql = Model.where(Model.arel_table[:event_name].matches('some event')).to_sql
-          expect(sql).to eq("SELECT sample.* FROM sample WHERE sample.event_name ILIKE 'some event'")
+          expect(sql).to eq("SELECT `sample`.* FROM `sample` WHERE `sample`.`event_name` ILIKE 'some event'")
         end
 
         it 'uses like for case sensitive matches' do
           sql = Model.where(Model.arel_table[:event_name].matches('some event', nil, true)).to_sql
-          expect(sql).to eq("SELECT sample.* FROM sample WHERE sample.event_name LIKE 'some event'")
+          expect(sql).to eq("SELECT `sample`.* FROM `sample` WHERE `sample`.`event_name` LIKE 'some event'")
         end
       end
     end
@@ -416,24 +414,24 @@ RSpec.describe 'Model', :migrations do
         expect(Model.count).to eq(2)
         expect(Model.final.count).to eq(1)
         expect(Model.final!.count).to eq(1)
-        expect(Model.final.where(date: '2023-07-21').to_sql).to eq('SELECT sample.* FROM sample FINAL WHERE sample.date = \'2023-07-21\'')
+        expect(Model.final.where(date: '2023-07-21').to_sql).to eq("SELECT `sample`.* FROM `sample` FINAL WHERE `sample`.`date` = '2023-07-21'")
       end
 
       it 'works with JOINs' do
         sql = Model.final.joins(:joins).where(date: '2023-07-21').to_sql
-        expect(sql).to eq('SELECT sample.* FROM sample FINAL INNER JOIN joins ON joins.model_id = sample.event_name WHERE sample.date = \'2023-07-21\'')
+        expect(sql).to eq("SELECT `sample`.* FROM `sample` FINAL INNER JOIN `joins` ON `joins`.`model_id` = `sample`.`event_name` WHERE `sample`.`date` = '2023-07-21'")
       end
     end
 
     describe '#limit_by' do
       it 'works' do
         sql = Model.limit_by(1, :event_name).to_sql
-        expect(sql).to eq('SELECT sample.* FROM sample LIMIT 1 BY event_name')
+        expect(sql).to eq('SELECT `sample`.* FROM `sample` LIMIT 1 BY event_name')
       end
 
       it 'works with limit' do
         sql = Model.limit(1).limit_by(1, :event_name).to_sql
-        expect(sql).to eq('SELECT sample.* FROM sample LIMIT 1 BY event_name LIMIT 1')
+        expect(sql).to eq('SELECT `sample`.* FROM `sample` LIMIT 1 BY event_name LIMIT 1')
       end
     end
 
@@ -444,27 +442,27 @@ RSpec.describe 'Model', :migrations do
 
       it 'works with the empty grouping set' do
         sql = Model.group_by_grouping_sets([]).to_sql
-        expect(sql).to eq('SELECT sample.* FROM sample GROUP BY GROUPING SETS ( (  ) )')
+        expect(sql).to eq('SELECT `sample`.* FROM `sample` GROUP BY GROUPING SETS ( (  ) )')
       end
 
       it 'accepts strings' do
         sql = Model.group_by_grouping_sets(%w[foo bar], %w[baz]).to_sql
-        expect(sql).to eq('SELECT sample.* FROM sample GROUP BY GROUPING SETS ( ( foo, bar ), ( baz ) )')
+        expect(sql).to eq('SELECT `sample`.* FROM `sample` GROUP BY GROUPING SETS ( ( foo, bar ), ( baz ) )')
       end
 
       it 'accepts symbols' do
         sql = Model.group_by_grouping_sets(%i[foo bar], %i[baz]).to_sql
-        expect(sql).to eq('SELECT sample.* FROM sample GROUP BY GROUPING SETS ( ( foo, bar ), ( baz ) )')
+        expect(sql).to eq('SELECT `sample`.* FROM `sample` GROUP BY GROUPING SETS ( ( `foo`, `bar` ), ( `baz` ) )')
       end
 
       it 'accepts Arel nodes' do
         sql = Model.group_by_grouping_sets([Model.arel_table[:foo], Model.arel_table[:bar]], [Model.arel_table[:baz]]).to_sql
-        expect(sql).to eq('SELECT sample.* FROM sample GROUP BY GROUPING SETS ( ( sample.foo, sample.bar ), ( sample.baz ) )')
+        expect(sql).to eq('SELECT `sample`.* FROM `sample` GROUP BY GROUPING SETS ( ( `sample`.`foo`, `sample`.`bar` ), ( `sample`.`baz` ) )')
       end
 
       it 'accepts mixed arguments' do
         sql = Model.group_by_grouping_sets(['foo', :bar], [Model.arel_table[:baz]]).to_sql
-        expect(sql).to eq('SELECT sample.* FROM sample GROUP BY GROUPING SETS ( ( foo, bar ), ( sample.baz ) )')
+        expect(sql).to eq('SELECT `sample`.* FROM `sample` GROUP BY GROUPING SETS ( ( foo, `bar` ), ( `sample`.`baz` ) )')
       end
     end
   end
