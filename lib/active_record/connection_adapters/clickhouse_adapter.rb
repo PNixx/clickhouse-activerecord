@@ -169,6 +169,9 @@ module ActiveRecord
       def release_savepoint(name)
       end
 
+      # @deprecated In Rails 7.2+, migrations_paths is read from db_config, not from adapter method.
+      # For Rails 7.2+, you must specify migrations_paths in database.yml configuration.
+      # This method is kept for backward compatibility only.
       def migrations_paths
         @config[:migrations_paths] || 'db/migrate_clickhouse'
       end
