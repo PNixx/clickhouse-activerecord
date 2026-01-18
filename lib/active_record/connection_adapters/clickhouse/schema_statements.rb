@@ -291,12 +291,38 @@ module ActiveRecord
         # @return [Net::HTTPResponse]
         def request(statement, settings: {}, except_params: [], &block)
           @lock.synchronize do
-            req = Net::HTTP::Post.new("/?#{settings_params(settings, except: except_params)}", {
-              'Content-Type' => 'application/x-www-form-urlencoded',
-              'User-Agent' => ClickhouseAdapter::USER_AGENT,
-            })
-            @connection.request(req, statement.formatted_sql, &block)
+            streaming = block_given?
+            body = statement.formatted_sql
+            headers = build_request_headers(skip_response_compression: streaming)
+
+            if Compression.validated_method?(@request_compression)
+              body = Compression.compress(body, @request_compression)
+              headers['Content-Encoding'] = @request_compression
+            end
+
+            if !streaming && Compression.validated_method?(@response_compression)
+              settings = { enable_http_compression: 1 }.merge(settings)
+            end
+
+            req = Net::HTTP::Post.new(
+              "/?#{settings_params(settings, except: except_params)}",
+              headers
+            )
+            @connection.request(req, body, &block)
           end
+        end
+
+        def build_request_headers(skip_response_compression: false)
+          headers = {
+            'Content-Type' => 'application/x-www-form-urlencoded',
+            'User-Agent' => ClickhouseAdapter::USER_AGENT
+          }
+
+          if !skip_response_compression && Compression.validated_method?(@response_compression)
+            headers['Accept-Encoding'] = @response_compression
+          end
+
+          headers
         end
 
         def log_with_debug(sql, name = nil)

@@ -36,6 +36,8 @@ default: &default
   read_timeout: 300 # change network timeouts, by default 60 seconds
   write_timeout: 300
   keep_alive_timeout: 300
+  request_compression: gzip # optional for adding request compression (see HTTP Compression below)
+  response_compression: gzip # optional for adding response compression (see HTTP Compression below)
 ```
 
 Alternatively if you wish to pass a custom `Net::HTTP` transport (or any other
@@ -51,6 +53,45 @@ class ActionView < ActiveRecord::Base
     connection: Net::HTTP.start('http://example.org', 8123)
   )
 end
+```
+
+### HTTP Compression
+
+The adapter supports HTTP compression for both requests and responses, which can significantly reduce bandwidth 
+usage for large queries and result sets.
+See [HTTP Interface - Compression documenation](https://clickhouse.com/docs/interfaces/http#compression) for
+the full supported list.
+
+```yml
+default: &default
+  adapter: clickhouse
+  database: database
+  host: localhost
+  # Request body compression (adds Content-Encoding header)
+  request_compression: gzip
+  # Response compression (adds Accept-Encoding header)
+  response_compression: gzip
+```
+
+NOTE: Response compression is currently not compatible with streaming requests.
+
+**Available compression methods:**
+
+| Method    | Config Value | Required Gem                                     |
+| --------- | ------------ | ------------------------------------------------ |
+| gzip      | `gzip`       | -                                                |
+| deflate   | `deflate`    | -                                                |
+| Brotli    | `br`         | [brotli](https://rubygems.org/gems/brotli)       |
+| Zstandard | `zstd`       | [zstd-ruby](https://rubygems.org/gems/zstd-ruby) |
+| LZ4       | `lz4`        | [extlz4](https://rubygems.org/gems/extlz4)   |
+| Bzip2     | `bz2`        | [bzip2-ffi](https://rubygems.org/gems/bzip2-ffi) |
+| XZ        | `xz`         | [ruby-xz](https://rubygems.org/gems/ruby-xz)     |
+
+For methods requiring external gems, add the gem to your Gemfile. If you do not add the gem,
+it is a no-op and requests will behave as normal.
+
+```ruby
+gem 'brotli'     # for brotli compression
 ```
 
 ## Usage in Rails
@@ -277,7 +318,7 @@ class CreateDataItems < ActiveRecord::Migration[7.1]
       t.integer "sign", limit: 1, unsigned: false, default: -> { "CAST(1, 'Int8')" }, null: false
       t.integer "version", limit: 8, default: -> { "CAST(toUnixTimestamp(now()), 'UInt64')" }, null: false
     end
-    
+
     create_table "with_index", id: false, options: 'MergeTree PARTITION BY toYYYYMM(date) ORDER BY (date)' do |t|
       t.integer :int1, null: false
       t.integer :int2, null: false

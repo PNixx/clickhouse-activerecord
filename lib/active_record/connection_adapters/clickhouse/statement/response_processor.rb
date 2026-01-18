@@ -19,7 +19,7 @@ module ActiveRecord
 
           # @return [String, Hash, Array, nil]
           def process
-            @body = @raw_response.body
+            @body = decompress_body(@raw_response)
             if success?
               process_successful_response
             else
@@ -48,6 +48,16 @@ module ActiveRecord
 
           def success?
             @raw_response.code.to_i == 200
+          end
+
+          def decompress_body(response)
+            body = response.body
+            return body if body.nil? || body.empty?
+
+            content_encoding = response['Content-Encoding']
+            return body if content_encoding.nil? || content_encoding.empty?
+
+            Compression.decompress(body, content_encoding)
           end
 
           # @return [String, Hash, Array]
