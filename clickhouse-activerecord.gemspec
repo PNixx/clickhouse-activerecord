@@ -29,4 +29,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rake', '~> 13.0'
   spec.add_development_dependency 'rspec', '~> 3.4'
   spec.add_development_dependency 'pry', '~> 0.12'
+  # Testing dependency for compression
+  spec.add_development_dependency 'brotli', '~> 0.7'
 end
