@@ -470,13 +470,13 @@ RSpec.describe 'Model', :migrations do
 
     describe '#cte & cse:' do
       it 'cte string' do
-        sql = Model.with('t' => ModelJoin.where(event_name: 'test')).where(event_name: Model.from('f').select('event_name')).to_sql
-        expect(sql).to eq('WITH t AS (SELECT joins.* FROM joins WHERE joins.event_name = \'test\') SELECT sample.* FROM sample WHERE sample.event_name IN (SELECT event_name FROM f)')
+        sql = Model.with('t' => ModelJoin.where(event_name: 'test')).where(event_name: Model.from('t').select('event_name')).to_sql
+        expect(sql).to eq('WITH t AS (SELECT joins.* FROM joins WHERE joins.event_name = \'test\') SELECT sample.* FROM sample WHERE sample.event_name IN (SELECT event_name FROM t)')
       end
 
       it 'cte symbol' do
-        sql = Model.with(t: ModelJoin.where(event_name: 'test')).where(event_name: Model.from('f').select('event_name')).to_sql
-        expect(sql).to eq('WITH t AS (SELECT joins.* FROM joins WHERE joins.event_name = \'test\') SELECT sample.* FROM sample WHERE sample.event_name IN (SELECT event_name FROM f)')
+        sql = Model.with(t: ModelJoin.where(event_name: 'test')).where(event_name: Model.from('t').select('event_name')).to_sql
+        expect(sql).to eq('WITH t AS (SELECT joins.* FROM joins WHERE joins.event_name = \'test\') SELECT sample.* FROM sample WHERE sample.event_name IN (SELECT event_name FROM t)')
       end
 
       it 'cse string variable' do
