@@ -467,6 +467,37 @@ RSpec.describe 'Model', :migrations do
         expect(sql).to eq('SELECT sample.* FROM sample GROUP BY GROUPING SETS ( ( foo, bar ), ( sample.baz ) )')
       end
     end
+
+    describe '#cte & cse:' do
+      it 'cte string' do
+        sql = Model.with('t' => ModelJoin.where(event_name: 'test')).where(event_name: Model.from('f').select('event_name')).to_sql
+        expect(sql).to eq('WITH t AS (SELECT joins.* FROM joins WHERE joins.event_name = \'test\') SELECT sample.* FROM sample WHERE sample.event_name IN (SELECT event_name FROM f)')
+      end
+
+      it 'cte symbol' do
+        sql = Model.with(t: ModelJoin.where(event_name: 'test')).where(event_name: Model.from('f').select('event_name')).to_sql
+        expect(sql).to eq('WITH t AS (SELECT joins.* FROM joins WHERE joins.event_name = \'test\') SELECT sample.* FROM sample WHERE sample.event_name IN (SELECT event_name FROM f)')
+      end
+
+      it 'cse string variable' do
+        sql = Model.with('2026-01-01 15:23:00' => :t).where(Arel.sql('date = toDate(t)')).to_sql
+        expect(sql).to eq('WITH \'2026-01-01 15:23:00\' AS t SELECT sample.* FROM sample WHERE (date = toDate(t))')
+      end
+
+      it 'cse symbol function' do
+        sql = Model.with('(id, extension) -> concat(lower(id), extension)': :t).where(Arel.sql('date = toDate(t)')).to_sql
+        expect(sql).to eq('WITH (id, extension) -> concat(lower(id), extension) AS t SELECT sample.* FROM sample WHERE (date = toDate(t))')
+      end
+
+      it 'cse query relation' do
+        sql = Model.with(ModelJoin.select(Arel.sql('min(date)')) => :min_date).where(Arel.sql('date = min_date')).to_sql
+        expect(sql).to eq('WITH (SELECT min(date) FROM joins) AS min_date SELECT sample.* FROM sample WHERE (date = min_date)')
+      end
+
+      it 'cse error' do
+        expect { Model.with('2026-01-01 15:23:00' => 't').where(Arel.sql('date = toDate(t)')).to_sql }.to raise_error(ArgumentError)
+      end
+    end
   end
 
   context 'sample with id column' do

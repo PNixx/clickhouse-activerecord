@@ -1,3 +1,13 @@
+### Version 1.6.0 (Jan 19, 2026)
+
+* Support CSE (Common Scalar Expressions) in the `WITH` clause
+* Fix regex to match FROM keyword, not column names containing 'from' #220
+* Add JSON column type support #209
+* Support execute_batch #216
+* Add disconnect method to adapter #186
+* Add check_current_protected_environment! to Tasks #222
+* Do not truncate engines that cannot be truncated #226
+
 ### Version 1.5.1 (Nov 6, 2025)
 
 * Fix rake tasks

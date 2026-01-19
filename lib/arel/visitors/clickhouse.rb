@@ -18,6 +18,33 @@ module Arel
         end
       end
 
+      # https://clickhouse.com/docs/sql-reference/statements/select/with
+      def visit_Arel_Nodes_Cte(o, collector)
+        is_cse = o.relation.is_a?(Symbol)
+
+        if is_cse && o.name.is_a?(String)
+          collector << quote(o.name)
+        elsif is_cse && o.name.is_a?(ActiveRecord::Relation)
+          visit o.name.arel, collector
+        else
+          collector << quote_table_name(o.name)
+        end
+        collector << " AS "
+
+        case o.materialized
+        when true
+          collector << "MATERIALIZED "
+        when false
+          collector << "NOT MATERIALIZED "
+        end
+
+        if is_cse
+          collector << o.relation.to_s
+        else
+          visit o.relation, collector
+        end
+      end
+
       # https://clickhouse.com/docs/en/sql-reference/statements/delete
       # DELETE and UPDATE in ClickHouse working only without table name
       def visit_Arel_Attributes_Attribute(o, collector)
