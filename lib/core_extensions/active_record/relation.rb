@@ -6,6 +6,16 @@ module CoreExtensions
         base::VALID_UNSCOPING_VALUES << :final << :settings
       end
 
+      def reverse_order!
+        return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+
+        orders = order_values.uniq.reject(&:blank?)
+        return super unless orders.empty? && !primary_key
+
+        self.order_values = (column_names & %w[date created_at]).map { |c| arel_table[c].desc }
+        self
+      end
+
       # Define settings in the SETTINGS clause of the SELECT query. The setting value is applied only to that query and is reset to the default or previous value after the query is executed.
       # For example:
       #
@@ -181,6 +191,32 @@ module CoreExtensions
         arel.windows(@values[:windows]) if @values[:windows].present?
 
         arel
+      end
+
+      def build_with_value_from_hash(hash)
+        return super if ::ActiveRecord::version >= Gem::Version.new('7.2')
+
+        # Redefine for ActiveRecord < 7.2
+        hash.map do |name, value|
+          expression =
+            case value
+            when ::Arel::Nodes::SqlLiteral then ::Arel::Nodes::Grouping.new(value)
+            when ::ActiveRecord::Relation then value.arel
+            when ::Arel::SelectManager then value
+            when Symbol then value
+            else
+              raise ArgumentError, "Unsupported argument type: `#{value}` #{value.class}"
+            end
+          ::Arel::Nodes::TableAlias.new(expression, name)
+        end
+      end
+
+      def build_with_expression_from_value(value, nested = false)
+        case value
+        when Symbol then value
+        else
+          super
+        end
       end
     end
   end

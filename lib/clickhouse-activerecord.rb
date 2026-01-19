@@ -4,7 +4,6 @@ require 'active_record/connection_adapters/clickhouse_adapter'
 
 require 'core_extensions/active_record/internal_metadata'
 require 'core_extensions/active_record/relation'
-require 'core_extensions/active_record/relation/query_methods'
 require 'core_extensions/active_record/schema_migration'
 require 'core_extensions/active_record/migration/command_recorder'
 require 'core_extensions/arel/nodes/select_core'
@@ -25,7 +24,6 @@ module ClickhouseActiverecord
     ActiveRecord::InternalMetadata.prepend(CoreExtensions::ActiveRecord::InternalMetadata)
     ActiveRecord::Migration::CommandRecorder.include(CoreExtensions::ActiveRecord::Migration::CommandRecorder)
     ActiveRecord::Relation.prepend(CoreExtensions::ActiveRecord::Relation)
-    ActiveRecord::QueryMethods.prepend(CoreExtensions::ActiveRecord::QueryMethods)
     ActiveRecord::SchemaMigration.prepend(CoreExtensions::ActiveRecord::SchemaMigration)
 
     Arel::Nodes::SelectCore.prepend(CoreExtensions::Arel::Nodes::SelectCore)
