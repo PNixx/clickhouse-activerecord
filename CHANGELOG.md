@@ -1,3 +1,7 @@
+### Version 1.6.1 (Jan 20, 2026)
+
+* Fix prepare rake task on ClickHouse 24.6
+
 ### Version 1.6.0 (Jan 19, 2026)
 
 * Support CSE (Common Scalar Expressions) in the `WITH` clause
