@@ -31,6 +31,7 @@ default: &default
   ssl: true # optional for using ssl connection
   debug: true # use for showing in to log technical information
   migrations_paths: db/clickhouse # optional, default: db/migrate_clickhouse
+  # Note: For Rails 7.2+, migrations_paths must be explicitly specified in database.yml
   cluster_name: 'cluster_name' # optional for creating tables in cluster 
   replica_name: '{replica}' # replica macros name, optional for creating replicated tables
   read_timeout: 300 # change network timeouts, by default 60 seconds
@@ -61,6 +62,15 @@ Add your `database.yml` connection information with postfix `_clickhouse` for yo
 development:
   adapter: clickhouse
   database: database
+```
+
+**Important for Rails 7.2+**: In Rails 7.2 and later, you must explicitly specify `migrations_paths` in your `database.yml` configuration:
+
+```yml
+development:
+  adapter: clickhouse
+  database: database
+  migrations_paths: db/migrate_clickhouse  # Required for Rails 7.2+
 ```
 
 Your model example:
