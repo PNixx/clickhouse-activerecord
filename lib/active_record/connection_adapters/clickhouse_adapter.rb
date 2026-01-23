@@ -18,6 +18,7 @@ require 'active_record/connection_adapters/clickhouse/schema_creation'
 require 'active_record/connection_adapters/clickhouse/schema_statements'
 require 'active_record/connection_adapters/clickhouse/statement'
 require 'active_record/connection_adapters/clickhouse/table_definition'
+require 'active_record/connection_adapters/clickhouse/compression'
 require 'net/http'
 require 'openssl'
 
@@ -143,6 +144,9 @@ module ActiveRecord
         @connection_config = { user: @config[:username], password: @config[:password], database: @config[:database] }.compact
         @debug = @config[:debug] || false
         @response_format = @config[:format] || DEFAULT_RESPONSE_FORMAT
+
+        @request_compression = @config[:request_compression]
+        @response_compression = @config[:response_compression]
 
         @prepared_statements = false
 

@@ -10,7 +10,7 @@ module ActiveRecord
 
           def initialize(raw_response, format, sql)
             @raw_response = raw_response
-            @body = raw_response.body
+            @body = decompress_body(raw_response)
             @format = format
             @sql = sql
           end
@@ -29,6 +29,16 @@ module ActiveRecord
 
           def success?
             @raw_response.code.to_i == 200
+          end
+
+          def decompress_body(response)
+            body = response.body
+            return body if body.nil? || body.empty?
+
+            content_encoding = response['Content-Encoding']
+            return body if content_encoding.nil? || content_encoding.empty?
+
+            Compression.decompress(body, content_encoding)
           end
 
           def process_successful_response

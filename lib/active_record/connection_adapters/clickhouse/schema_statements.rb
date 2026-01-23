@@ -279,11 +279,31 @@ module ActiveRecord
         # @return [Net::HTTPResponse]
         def request(statement, settings: {}, except_params: [])
           @lock.synchronize do
-            @connection.post("/?#{settings_params(settings, except: except_params)}",
-                             statement.formatted_sql,
-                             'Content-Type' => 'application/x-www-form-urlencoded',
-                             'User-Agent' => ClickhouseAdapter::USER_AGENT)
+            body = statement.formatted_sql
+            headers = build_request_headers
+
+            if Compression.validated_method?(@request_compression)
+              body = Compression.compress(body, @request_compression)
+              headers['Content-Encoding'] = @request_compression
+            end
+            
+            if Compression.validated_method?(@response_compression)
+              settings = { enable_http_compression: 1 }.merge(settings)
+            end
+
+            @connection.post("/?#{settings_params(settings, except: except_params)}", body, headers)
           end
+        end
+
+        def build_request_headers
+          headers = {
+            'Content-Type' => 'application/x-www-form-urlencoded',
+            'User-Agent' => ClickhouseAdapter::USER_AGENT
+          }
+
+          headers['Accept-Encoding'] = @response_compression if Compression.validated_method?(@response_compression)
+
+          headers
         end
 
         def log_with_debug(sql, name = nil)
