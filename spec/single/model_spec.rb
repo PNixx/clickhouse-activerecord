@@ -312,10 +312,10 @@ RSpec.describe 'Model', :migrations do
       end
 
       it 'sends the settings to the server' do
-        expect_any_instance_of(Net::HTTP).to receive(:post).and_wrap_original do |original_method, *args, **kwargs|
-          resource, sql, * = args
+        expect_any_instance_of(Net::HTTP).to receive(:request).and_wrap_original do |original_method, *args, **kwargs|
+          req, sql, * = args
           if sql.include?('SELECT sample.*')
-            query = resource.split('?').second
+            query = req.path.split('?').second
             params = query.split('&').to_h { |pair| pair.split('=').map { |s| CGI.unescape(s) } }
             expect(params['cast_keep_nullable']).to eq('1')
             expect(params['log_comment']).to eq('Log Comment!')
@@ -333,10 +333,10 @@ RSpec.describe 'Model', :migrations do
           Model.all.load
         end
 
-        expect_any_instance_of(Net::HTTP).to receive(:post).and_wrap_original do |original_method, *args, **kwargs|
-          resource, sql, * = args
+        expect_any_instance_of(Net::HTTP).to receive(:request).and_wrap_original do |original_method, *args, **kwargs|
+          req, sql, * = args
           if sql.include?('SELECT sample.*')
-            query = resource.split('?').second
+            query = req.path.split('?').second
             params = query.split('&').to_h { |pair| pair.split('=').map { |s| CGI.unescape(s) } }
             expect(params).not_to include('cast_keep_nullable', 'log_comment')
           end
