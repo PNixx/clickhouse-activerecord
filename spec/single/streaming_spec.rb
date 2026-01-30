@@ -14,25 +14,41 @@ RSpec.describe 'Streaming', :migrations do
     it 'simple' do
       path = Model.connection.execute_streaming('SELECT count(*) AS count FROM sample')
       expect(path.is_a?(String)).to be_truthy
-      expect(File.read(path)).to eq("[\"count\"]\n[\"UInt64\"]\n[\"0\"]\n")
+      if Model.connection.server_version.to_f < 25
+        expect(File.read(path)).to eq("[\"count\"]\n[\"UInt64\"]\n[\"0\"]\n")
+      else
+        expect(File.read(path)).to eq("[\"count\"]\n[\"UInt64\"]\n[0]\n")
+      end
     end
 
     it 'JSONCompact format' do
       path = Model.connection.execute_streaming('SELECT count(*) AS count FROM sample', format: 'JSONCompact')
       data = JSON.parse(File.read(path))
-      expect(data['data'][0][0]).to eq('0')
+      if Model.connection.server_version.to_f < 25
+        expect(data['data'][0][0]).to eq('0')
+      else
+        expect(data['data'][0][0]).to eq(0)
+      end
     end
 
     it 'JSONEachRow format' do
       path = Model.connection.execute_streaming('SELECT count(*) AS count FROM sample', format: 'JSONEachRow')
       data = JSON.parse(File.read(path))
-      expect(data['count']).to eq('0')
+      if Model.connection.server_version.to_f < 25
+        expect(data['count']).to eq('0')
+      else
+        expect(data['data'][0][0]).to eq(0)
+      end
     end
 
     it 'multiple rows JSONEachRow format' do
       path = Model.connection.execute_streaming('SELECT * FROM generate_series(1, 1000000)', format: 'JSONEachRow')
       lines = File.readlines(path)
-      expect(JSON.parse(lines[0])).to eq('generate_series' => '1')
+      if Model.connection.server_version.to_f < 25
+        expect(JSON.parse(lines[0])).to eq('generate_series' => '1')
+      else
+        expect(JSON.parse(lines[0])).to eq('generate_series' => 1)
+      end
       expect(lines.size).to eq(1000000)
     end
 
