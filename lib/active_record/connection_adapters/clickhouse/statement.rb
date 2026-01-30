@@ -9,19 +9,27 @@ module ActiveRecord
       class Statement
 
         attr_reader :format
-        attr_writer :response
 
         def initialize(sql, format:)
           @sql = sql
           @format = format
         end
 
+        # @return [String]
         def formatted_sql
           @formatted_sql ||= FormatManager.new(@sql, format: @format).apply
         end
 
-        def processed_response
-          ResponseProcessor.new(@response, @format, @sql).process
+        # @param [Net::HTTPResponse] response
+        # @return [String, Hash, Array, nil]
+        def processed_response(response)
+          ResponseProcessor.new(response, @format, @sql).process
+        end
+
+        # @param [Net::HTTPResponse] response
+        # @return [String, nil]
+        def streaming_response(response)
+          ResponseProcessor.new(response, @format, @sql).streaming_process
         end
 
       end

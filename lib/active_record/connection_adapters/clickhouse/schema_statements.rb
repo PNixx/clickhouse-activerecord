@@ -53,6 +53,18 @@ module ActiveRecord
           end
         end
 
+        # @return [ClickhouseActiverecord::StreamResponse]
+        def execute_streaming(sql, name = nil, format: @response_format, settings: {})
+          with_response_format(format) do
+            log(sql, [adapter_name, 'Stream', name].compact.join(' ')) do
+              statement = Statement.new(sql, format: @response_format)
+              request(statement, settings: settings) do |response|
+                return statement.streaming_response(response)
+              end
+            end
+          end
+        end
+
         def exec_insert(sql, name = nil, _binds = [], _pk = nil, _sequence_name = nil, returning: nil)
           new_sql = sql.sub(/ (DEFAULT )?VALUES/, " VALUES")
           with_response_format(nil) { execute(new_sql, name) }
@@ -268,8 +280,8 @@ module ActiveRecord
 
         def raw_execute(sql, settings: {}, except_params: [])
           statement = Statement.new(sql, format: @response_format)
-          statement.response = request(statement, settings: settings, except_params: except_params)
-          statement.processed_response
+          response = request(statement, settings: settings, except_params: except_params)
+          statement.processed_response(response)
         end
 
         # Make HTTP request to ClickHouse server
@@ -277,12 +289,13 @@ module ActiveRecord
         # @param [Hash] settings
         # @param [Array] except_params
         # @return [Net::HTTPResponse]
-        def request(statement, settings: {}, except_params: [])
+        def request(statement, settings: {}, except_params: [], &block)
           @lock.synchronize do
-            @connection.post("/?#{settings_params(settings, except: except_params)}",
-                             statement.formatted_sql,
-                             'Content-Type' => 'application/x-www-form-urlencoded',
-                             'User-Agent' => ClickhouseAdapter::USER_AGENT)
+            req = Net::HTTP::Post.new("/?#{settings_params(settings, except: except_params)}", {
+              'Content-Type' => 'application/x-www-form-urlencoded',
+              'User-Agent' => ClickhouseAdapter::USER_AGENT,
+            })
+            @connection.request(req, statement.formatted_sql, &block)
           end
         end
 

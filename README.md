@@ -235,6 +235,14 @@ Action.with(ActionView.select(Arel.sql('min(date)')) => :min_date).where(Arel.sq
 #=> #<ActiveRecord::Relation [#<Action *** >]>
 ```
 
+### Streaming request
+
+```ruby
+path = Action.connection.execute_streaming(Action.where(date: Date.current), format: 'CSVWithNames')
+# Clickhouse Stream (10.3ms)  SELECT actions.* FROM actions WHERE actions.date = '2017-11-29'
+file = File.open(path)
+```
+
 
 ### Migration Data Types
 

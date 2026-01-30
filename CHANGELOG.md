@@ -1,3 +1,7 @@
+### Version 1.6.2 (Jan 30, 2026)
+
+* Add streaming request and save response to tmp file
+
 ### Version 1.6.1 (Jan 20, 2026)
 
 * Fix prepare rake task on ClickHouse 24.6

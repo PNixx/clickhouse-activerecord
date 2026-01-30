@@ -8,14 +8,18 @@ module ActiveRecord
 
           DB_EXCEPTION_REGEXP = /\ACode:\s+\d+\.\s+DB::Exception:/.freeze
 
+          # @param [Net::HTTPResponse] raw_response
+          # @param [String, nil] format
+          # @param [String] sql
           def initialize(raw_response, format, sql)
             @raw_response = raw_response
-            @body = raw_response.body
             @format = format
             @sql = sql
           end
 
+          # @return [String, Hash, Array, nil]
           def process
+            @body = @raw_response.body
             if success?
               process_successful_response
             else
@@ -25,12 +29,28 @@ module ActiveRecord
             @body
           end
 
+          # @return [String, nil]
+          def streaming_process
+            file = Tempfile.new('clickhouse-activerecord', binmode: true)
+            if success?
+              @raw_response.read_body do |chunk|
+                file.write(chunk)
+              end
+              file.close
+              file.path
+            else
+              @body = @raw_response.body
+              raise_database_error!
+            end
+          end
+
           private
 
           def success?
             @raw_response.code.to_i == 200
           end
 
+          # @return [String, Hash, Array]
           def process_successful_response
             raise_generic!(@sql) if @body.include?('DB::Exception') && @body.match?(DB_EXCEPTION_REGEXP)
 
