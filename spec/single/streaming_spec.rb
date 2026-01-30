@@ -37,7 +37,7 @@ RSpec.describe 'Streaming', :migrations do
       if Model.connection.server_version.to_f < 25
         expect(data['count']).to eq('0')
       else
-        expect(data['data'][0][0]).to eq(0)
+        expect(data['count']).to eq(0)
       end
     end
 
