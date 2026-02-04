@@ -238,7 +238,7 @@ Action.with(ActionView.select(Arel.sql('min(date)')) => :min_date).where(Arel.sq
 ### Streaming request
 
 ```ruby
-path = Action.connection.execute_streaming(Action.where(date: Date.current), format: 'CSVWithNames')
+path = Action.connection.execute_to_file(Action.where(date: Date.current), format: 'CSVWithNames')
 # Clickhouse Stream (10.3ms)  SELECT actions.* FROM actions WHERE actions.date = '2017-11-29'
 file = File.open(path)
 ```

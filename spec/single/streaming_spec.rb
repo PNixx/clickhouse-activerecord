@@ -12,7 +12,7 @@ RSpec.describe 'Streaming', :migrations do
     end
 
     it 'simple' do
-      path = Model.connection.execute_streaming('SELECT count(*) AS count FROM sample')
+      path = Model.connection.execute_to_file('SELECT count(*) AS count FROM sample')
       expect(path.is_a?(String)).to be_truthy
       if Model.connection.server_version.to_f < 25
         expect(File.read(path)).to eq("[\"count\"]\n[\"UInt64\"]\n[\"0\"]\n")
@@ -22,7 +22,7 @@ RSpec.describe 'Streaming', :migrations do
     end
 
     it 'JSONCompact format' do
-      path = Model.connection.execute_streaming('SELECT count(*) AS count FROM sample', format: 'JSONCompact')
+      path = Model.connection.execute_to_file('SELECT count(*) AS count FROM sample', format: 'JSONCompact')
       data = JSON.parse(File.read(path))
       if Model.connection.server_version.to_f < 25
         expect(data['data'][0][0]).to eq('0')
@@ -32,7 +32,7 @@ RSpec.describe 'Streaming', :migrations do
     end
 
     it 'JSONEachRow format' do
-      path = Model.connection.execute_streaming('SELECT count(*) AS count FROM sample', format: 'JSONEachRow')
+      path = Model.connection.execute_to_file('SELECT count(*) AS count FROM sample', format: 'JSONEachRow')
       data = JSON.parse(File.read(path))
       if Model.connection.server_version.to_f < 25
         expect(data['count']).to eq('0')
@@ -42,7 +42,7 @@ RSpec.describe 'Streaming', :migrations do
     end
 
     it 'multiple rows JSONEachRow format' do
-      path = Model.connection.execute_streaming('SELECT * FROM generate_series(1, 1000000)', format: 'JSONEachRow')
+      path = Model.connection.execute_to_file('SELECT * FROM generate_series(1, 1000000)', format: 'JSONEachRow')
       lines = File.readlines(path)
       if Model.connection.server_version.to_f < 25
         expect(JSON.parse(lines[0])).to eq('generate_series' => '1')
@@ -53,7 +53,7 @@ RSpec.describe 'Streaming', :migrations do
     end
 
     it 'multiple rows CSVWithNames format' do
-      path = Model.connection.execute_streaming('SELECT * FROM generate_series(1, 1000000)', format: 'CSVWithNames')
+      path = Model.connection.execute_to_file('SELECT * FROM generate_series(1, 1000000)', format: 'CSVWithNames')
       lines = File.readlines(path)
       expect(JSON.parse(lines[0])).to eq('generate_series')
       expect(JSON.parse(lines[1])).to eq(1)
@@ -61,7 +61,7 @@ RSpec.describe 'Streaming', :migrations do
     end
 
     it 'error' do
-      expect { Model.connection.execute_streaming('error request') }.to raise_error(ActiveRecord::ActiveRecordError, include('DB::Exception'))
+      expect { Model.connection.execute_to_file('error request') }.to raise_error(ActiveRecord::ActiveRecordError, include('DB::Exception'))
     end
   end
 end

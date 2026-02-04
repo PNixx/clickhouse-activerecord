@@ -1,3 +1,7 @@
+### Version 1.6.3 (Feb 04, 2026)
+
+* Rename method `execute_streaming` to `execute_to_file`
+
 ### Version 1.6.2 (Jan 30, 2026)
 
 * Add streaming request and save response to tmp file

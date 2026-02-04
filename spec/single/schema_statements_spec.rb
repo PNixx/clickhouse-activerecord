@@ -20,13 +20,13 @@ RSpec.describe 'ActiveRecord::ConnectionAdapters::Clickhouse::SchemaStatements' 
       connection.exec_insert("INSERT INTO truncate_test (id, name) VALUES (1, 'Alice'), (2, 'Bob')")
       connection.exec_insert("INSERT INTO truncate_test2 (id, value) VALUES (1, 100), (2, 200)")
 
-      expect(connection.select_value('SELECT count() FROM truncate_test')).to eq(2)
-      expect(connection.select_value('SELECT count() FROM truncate_test2')).to eq(2)
+      expect(connection.select_value('SELECT count() FROM truncate_test').to_i).to eq(2)
+      expect(connection.select_value('SELECT count() FROM truncate_test2').to_i).to eq(2)
 
       connection.truncate_tables('truncate_test', 'truncate_test2')
 
-      expect(connection.select_value('SELECT count() FROM truncate_test')).to eq(0)
-      expect(connection.select_value('SELECT count() FROM truncate_test2')).to eq(0)
+      expect(connection.select_value('SELECT count() FROM truncate_test').to_i).to eq(0)
+      expect(connection.select_value('SELECT count() FROM truncate_test2').to_i).to eq(0)
     end
 
     it 'skips tables with unsupported engines' do
@@ -45,7 +45,7 @@ RSpec.describe 'ActiveRecord::ConnectionAdapters::Clickhouse::SchemaStatements' 
 
       expect { connection.truncate_tables(*connection.tables) }.not_to raise_error
 
-      expect(connection.select_value('SELECT count() FROM truncate_test')).to eq(0)
+      expect(connection.select_value('SELECT count() FROM truncate_test').to_i).to eq(0)
     end
   end
 end

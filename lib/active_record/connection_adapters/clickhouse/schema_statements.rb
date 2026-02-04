@@ -53,8 +53,9 @@ module ActiveRecord
           end
         end
 
-        # @return [ClickhouseActiverecord::StreamResponse]
-        def execute_streaming(sql, name = nil, format: @response_format, settings: {})
+        # Execute an SQL query and save the result to a file in stream mode
+        # @return [String]
+        def execute_to_file(sql, name = nil, format: @response_format, settings: {})
           with_response_format(format) do
             log(sql, [adapter_name, 'Stream', name].compact.join(' ')) do
               statement = Statement.new(sql, format: @response_format)
