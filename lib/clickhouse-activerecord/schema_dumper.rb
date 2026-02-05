@@ -85,10 +85,16 @@ module ClickhouseActiverecord
             columns.each do |column|
               raise StandardError, "Unknown type '#{column.sql_type}' for column '#{column.name}'" unless @connection.valid_type?(column.type)
               next if column.name == pk && column.name == "id"
-              type, colspec = column_spec(column)
               name = column.name =~ (/\./) ? "\"`#{column.name}`\"" : column.name.inspect
-              tbl.print "    t.#{type} #{name}"
-              tbl.print ", #{format_colspec(colspec)}" if colspec.present?
+              if column.sql_type.match?(/^(Simple)?AggregateFunction/)
+                tbl.print "    t.column #{name}, #{column.sql_type.inspect}"
+                colspec = prepare_column_options(column)
+                tbl.print ", #{format_colspec(colspec)}" if colspec.present?
+              else
+                type, colspec = column_spec(column)
+                tbl.print "    t.#{type} #{name}"
+                tbl.print ", #{format_colspec(colspec)}" if colspec.present?
+              end
               tbl.puts
             end
           end
