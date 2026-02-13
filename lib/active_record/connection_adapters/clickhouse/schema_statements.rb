@@ -254,7 +254,7 @@ module ActiveRecord
           args << cast_type if ::ActiveRecord::version >= Gem::Version.new('8.1')
           args += [default_value, type_metadata, field[1].include?('Nullable'), default_function]
 
-          Clickhouse::Column.new(*args, codec: field[5].presence)
+          Clickhouse::Column.new(*args, codec: field[5].presence, ttl: field[6].presence)
         end
 
         def extract_value_from_default(default_expression, default_type)

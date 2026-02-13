@@ -5,7 +5,7 @@ module ActiveRecord
     module Clickhouse
       class TableDefinition < ActiveRecord::ConnectionAdapters::TableDefinition
 
-        attr_reader :view, :materialized, :if_not_exists, :to
+        attr_reader :view, :materialized, :if_not_exists, :to, :ttl
 
         def initialize(
             conn,
@@ -18,6 +18,7 @@ module ActiveRecord
             view: false,
             materialized: false,
             to: nil,
+            ttl: nil,
             **
           )
           @conn = conn
@@ -34,6 +35,7 @@ module ActiveRecord
           @view = view || materialized
           @materialized = materialized
           @to = to
+          @ttl = ttl
         end
 
         def integer(*args, **options)
@@ -102,7 +104,7 @@ module ActiveRecord
         private
 
         def valid_column_definition_options
-          super + [:array, :low_cardinality, :fixed_string, :value, :type, :map, :codec, :unsigned]
+          super + [:array, :low_cardinality, :fixed_string, :value, :type, :map, :codec, :unsigned, :ttl]
         end
       end
 
