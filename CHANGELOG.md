@@ -1,3 +1,7 @@
+### Version 1.6.4 (Feb 13, 2026)
+
+* Fix error: EOFError (end of file reached)
+
 ### Version 1.6.3 (Feb 04, 2026)
 
 * Rename method `execute_streaming` to `execute_to_file`
