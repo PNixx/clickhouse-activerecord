@@ -4,13 +4,16 @@ module ActiveRecord
       module Quoting
         extend ActiveSupport::Concern
 
+        QUOTED_COLUMN_NAMES = Concurrent::Map.new
+        QUOTED_TABLE_NAMES = Concurrent::Map.new
+
         module ClassMethods # :nodoc:
           def quote_column_name(name)
-            name.to_s.include?('.') ? "`#{name}`" : name.to_s
+            QUOTED_COLUMN_NAMES[name] ||= "`#{name.to_s.gsub('`', '``')}`".freeze
           end
 
           def quote_table_name(name)
-            name.to_s
+            QUOTED_TABLE_NAMES[name] ||= "`#{name.to_s.gsub('`', '``').gsub('.', '`.`')}`".freeze
           end
         end
       end
