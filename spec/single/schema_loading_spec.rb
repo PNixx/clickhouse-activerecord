@@ -5,6 +5,12 @@ RSpec.describe 'Schema Loading', :migrations do
   let(:connection) { model.connection }
   let(:database) { connection.instance_variable_get(:@config)[:database] }
 
+  it 'schema define' do
+    allow_any_instance_of(ActiveRecord::MigrationContext).to receive(:migrations).
+      and_return([double(version: 1)])
+    ActiveRecord::Schema.define(version: 2) {}
+  end
+
   describe 'assign_database_to_subquery' do
     after do
       connection.execute('DROP VIEW IF EXISTS test_view')

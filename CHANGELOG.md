@@ -1,3 +1,30 @@
+### Version 1.6.6 (Feb 16, 2026)
+
+* Fix error: EOFError (end of file reached)
+* Method `execute_to_file` will return `Tempfile` object
+
+### Version 1.6.3 (Feb 04, 2026)
+
+* Rename method `execute_streaming` to `execute_to_file`
+
+### Version 1.6.2 (Jan 30, 2026)
+
+* Add streaming request and save response to tmp file
+
+### Version 1.6.1 (Jan 20, 2026)
+
+* Fix prepare rake task on ClickHouse 24.6
+
+### Version 1.6.0 (Jan 19, 2026)
+
+* Support CSE (Common Scalar Expressions) in the `WITH` clause
+* Fix regex to match FROM keyword, not column names containing 'from' #220
+* Add JSON column type support #209
+* Support execute_batch #216
+* Add disconnect method to adapter #186
+* Add check_current_protected_environment! to Tasks #222
+* Do not truncate engines that cannot be truncated #226
+
 ### Version 1.5.1 (Nov 6, 2025)
 
 * Fix rake tasks

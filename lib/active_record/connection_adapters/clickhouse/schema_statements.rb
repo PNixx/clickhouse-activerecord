@@ -58,6 +58,28 @@ module ActiveRecord
           end
         end
 
+        # Execute an SQL query and save the result to a file in stream mode
+        # @return [Tempfile]
+        def execute_to_file(sql, name = nil, format: @response_format, settings: {})
+          with_response_format(format) do
+            log(sql, [adapter_name, 'Stream', name].compact.join(' ')) do
+              statement = Statement.new(sql, format: @response_format)
+              result = nil
+              @lock.synchronize do
+                req = Net::HTTP::Post.new("/?#{settings_params(settings)}", {
+                  'Content-Type' => 'application/x-www-form-urlencoded',
+                  'User-Agent' => ClickhouseAdapter::USER_AGENT,
+                })
+                @connection.start unless @connection.started?
+                @connection.request(req, statement.formatted_sql) do |response|
+                  result = statement.streaming_response(response)
+                end
+              end
+              result
+            end
+          end
+        end
+
         def exec_insert(sql, name = nil, _binds = [], _pk = nil, _sequence_name = nil, returning: nil)
           new_sql = sql.sub(/ (DEFAULT )?VALUES/, " VALUES")
           with_response_format(nil) { execute(new_sql, name) }
@@ -202,7 +224,7 @@ module ActiveRecord
             if (duplicate = inserting.detect { |v| inserting.count(v) > 1 })
               raise "Duplicate migration #{duplicate}. Please renumber your migrations to resolve the conflict."
             end
-            execute(insert_versions_sql(inserting), nil, settings: {max_partitions_per_insert_block: [100, inserting.size].max})
+            execute(insert_versions_sql(inserting), nil, format: nil, settings: {max_partitions_per_insert_block: [100, inserting.size].max})
           end
         end
 
@@ -273,8 +295,8 @@ module ActiveRecord
 
         def raw_execute(sql, settings: {}, except_params: [])
           statement = Statement.new(sql, format: @response_format)
-          statement.response = request(statement, settings: settings, except_params: except_params)
-          statement.processed_response
+          response = request(statement, settings: settings, except_params: except_params)
+          statement.processed_response(response)
         end
 
         # Make HTTP request to ClickHouse server
@@ -303,6 +325,38 @@ module ActiveRecord
                         .merge(settings)
                         .except(*except)
                         .to_param
+        end
+
+        # Returns a hash of table names to their engine types
+        def table_engines(table_names = nil)
+          table_names_sql = if table_names.present?
+            "AND name IN (#{table_names.map { |name| "'#{name}'" }.join(', ')})"
+          end
+
+          sql = <<~SQL
+            SELECT name, engine FROM system.tables
+            WHERE database = currentDatabase()
+            #{table_names_sql}
+          SQL
+
+          result = do_system_execute(sql)
+          return {} if result.nil?
+
+          result['data'].to_h { |row| [row[0], row[1]] }
+        end
+
+        # @see https://clickhouse.com/docs/sql-reference/statements/truncate
+        # Additionally add 'Dictionary' because it is returned from 'show tables'.
+        TRUNCATE_UNSUPPORTED_ENGINES = %w[View File URL Buffer Null Dictionary].freeze
+
+        def build_truncate_statements(table_names)
+          engines = table_engines(table_names)
+          tables_to_truncate = table_names.select do |table_name|
+            engine = engines[table_name]
+            engine.nil? || !TRUNCATE_UNSUPPORTED_ENGINES.include?(engine)
+          end
+
+          super(tables_to_truncate)
         end
       end
     end

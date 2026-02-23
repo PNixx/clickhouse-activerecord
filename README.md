@@ -1,7 +1,7 @@
 # Clickhouse::Activerecord
 
 A Ruby database ActiveRecord driver for ClickHouse. Support Rails >= 7.1.
-Support ClickHouse version from 22.0 LTS.
+Support ClickHouse version from 22.0 LTS (Testing on 24.6).
 
 ## Installation
 
@@ -158,10 +158,18 @@ Structure load from `db/clickhouse_structure.sql` file:
 
 For auto truncate tables before each test add to `spec/rails_helper.rb` file:
 
-```
+```ruby
 require 'clickhouse-activerecord/rspec'
 ```
-    
+
+### Minitest
+
+For auto truncate tables before each test add to `test/test_helper.rb` file:
+
+```ruby
+require 'clickhouse-activerecord/minitest'
+```
+
 ### Insert and select data
 
 ```ruby
@@ -192,6 +200,47 @@ User.joins(:actions).using(:group_id)
 User.window('x', order: 'date', partition: 'name', rows: 'UNBOUNDED PRECEDING').select('sum(value) OVER x')
 # SELECT sum(value) OVER x FROM users WINDOW x AS (PARTITION BY name ORDER BY date ROWS UNBOUNDED PRECEDING)
 #=> #<ActiveRecord::Relation [#<User *** >]>
+```
+
+### CTE and CSE examples
+
+For activation CSE ([Common Scalar Expressions](https://clickhouse.com/docs/sql-reference/statements/select/with#common-scalar-expressions)) in ClickHouse `value` in hash must be a `Symbol` class.
+`key` in a hash must be converting to:
+
+* `String` -> quoted string
+* `Symbol` -> raw data
+* `Relation` -> sql query
+
+See in examples:
+
+```ruby
+# CTE
+Action.with(t: ActionView.where(event_name: 'test')).where(event_name: Action.from('t').select('event_name'))
+# Clickhouse (10.3ms)  WITH t AS (SELECT action_view.* FROM action_view WHERE action_view.event_name = \'test\') SELECT actions.* FROM actions WHERE actions.event_name IN (SELECT event_name FROM t)
+#=> #<ActiveRecord::Relation [#<Action *** >]>
+
+# CSE with string key
+Action.with('2026-01-01 15:23:00' => :t).where(Arel.sql('date = toDate(t)'))
+# Clickhouse (10.3ms)  WITH '2026-01-01 15:23:00' AS t SELECT actions.* FROM actions WHERE (date = toDate(t))
+#=> #<ActiveRecord::Relation [#<Action *** >]>
+
+# CSE with symbol key
+Action.with('(id, extension) -> concat(lower(id), extension)': :t).where(Arel.sql('date = toDate(t)'))
+# Clickhouse (10.3ms)  WITH (id, extension) -> concat(lower(id), extension) AS t SELECT actions.* FROM actions WHERE (date = toDate(t))
+#=> #<ActiveRecord::Relation [#<Action *** >]>
+
+# CSE with ActiveRecord relation key
+Action.with(ActionView.select(Arel.sql('min(date)')) => :min_date).where(Arel.sql('date = min_date'))
+# Clickhouse (10.3ms)  WITH (SELECT min(date) FROM action_view) AS min_date SELECT actions.* FROM actions WHERE (date = min_date)
+#=> #<ActiveRecord::Relation [#<Action *** >]>
+```
+
+### Streaming request
+
+```ruby
+path = Action.connection.execute_to_file(Action.where(date: Date.current), format: 'CSVWithNames')
+# Clickhouse Stream (10.3ms)  SELECT actions.* FROM actions WHERE actions.date = '2017-11-29'
+file = File.open(path)
 ```
 
 
