@@ -78,7 +78,7 @@ module ActiveRecord
         def exec_insert(sql, name = nil, _binds = [], _pk = nil, _sequence_name = nil, returning: nil)
           new_sql = sql.sub(/ (DEFAULT )?VALUES/, " VALUES")
           with_response_format(nil) { execute(new_sql, name) }
-          true
+          nil
         end
 
         def internal_exec_query(sql, name = nil, binds = [], prepare: false, async: false, allow_retry: false)
