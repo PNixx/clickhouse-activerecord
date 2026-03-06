@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'tempfile'
+
 module ActiveRecord
   module ConnectionAdapters
     module Clickhouse

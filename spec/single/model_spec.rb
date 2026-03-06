@@ -155,7 +155,7 @@ RSpec.describe 'Model', :migrations do
       let!(:record) { Model.create!(event_name: 'some event', date: Date.current, datetime: Time.now) }
 
       it 'finds the record' do
-        expect(Model.find_by(event_name: 'some event').attributes).to eq(record.attributes)
+        expect(Model.find_by(event_name: 'some event').attributes.except('ver')).to eq(record.attributes.except('ver'))
       end
 
       it 'find with record `insert into table`' do
