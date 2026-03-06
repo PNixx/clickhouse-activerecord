@@ -269,7 +269,7 @@ module ActiveRecord
           default_value = cast_type.cast(default_value)
 
           args = [column_name]
-          args << cast_type if ::ActiveRecord::version > Gem::Version.new('8.0')
+          args << cast_type if ::ActiveRecord::version >= Gem::Version.new('8.1')
           args += [default_value, type_metadata, field[1].include?('Nullable'), default_function]
 
           Clickhouse::Column.new(*args, codec: field[5].presence)
