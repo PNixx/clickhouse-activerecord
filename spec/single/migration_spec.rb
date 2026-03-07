@@ -358,6 +358,28 @@ RSpec.describe 'Migration', :migrations do
       end
     end
 
+    describe 'add column with limit' do
+      let(:directory) { 'dsl_add_column_with_limit' }
+      it 'adds integer columns with correct types based on limit and unsigned options' do
+        subject
+
+        current_schema = schema(model)
+
+        # Signed integers
+        expect(current_schema['int16_col'].sql_type).to eq('Int16')
+        expect(current_schema['int32_col'].sql_type).to eq('Int32')
+        expect(current_schema['int64_col'].sql_type).to eq('Int64')
+
+        # Unsigned integers
+        expect(current_schema['uint8_col'].sql_type).to eq('UInt8')
+        expect(current_schema['uint16_col'].sql_type).to eq('UInt16')
+        expect(current_schema['uint64_col'].sql_type).to eq('UInt64')
+
+        # Default unsigned integer (no limit)
+        expect(current_schema['uint32_col'].sql_type).to eq('UInt32')
+      end
+    end
+
     describe 'drop column' do
       let(:directory) { 'dsl_drop_column' }
       it 'drops column' do

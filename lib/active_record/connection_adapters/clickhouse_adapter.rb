@@ -413,6 +413,7 @@ module ActiveRecord
       end
 
       def add_column(table_name, column_name, type, **options)
+        type, options = resolve_type_with_limit(type, **options)
         with_settings(wait_end_of_query: 1, send_progress_in_http_headers: 1) { super }
       end
 
@@ -550,6 +551,52 @@ module ActiveRecord
       end
 
       private
+
+      # Resolves standard Rails types with :limit/:unsigned options into
+      # ClickHouse-specific types. This mirrors the logic in TableDefinition
+      # (integer, enum) so that add_column produces the same types as
+      # create_table.
+      def resolve_type_with_limit(type, **options)
+        case type.to_sym
+        when :integer
+          kind = resolve_integer_kind(options)
+          [kind, options.except(:limit, :unsigned)]
+        when :enum
+          kind = :enum8
+          kind = :enum8  if options[:limit] == 1
+          kind = :enum16 if options[:limit] == 2
+          [kind, options.except(:limit)]
+        else
+          [type, options]
+        end
+      end
+
+      def resolve_integer_kind(options)
+        unsigned = options[:unsigned]
+        unsigned = true if unsigned.nil?
+
+        kind = :uint32 # default
+
+        if options[:limit]
+          if unsigned
+            kind = :uint8       if options[:limit] == 1
+            kind = :uint16      if options[:limit] == 2
+            kind = :uint32      if [3, 4].include?(options[:limit])
+            kind = :uint64      if [5, 6, 7].include?(options[:limit])
+            kind = :big_integer if options[:limit] == 8
+            kind = :uint256     if options[:limit] > 8
+          else
+            kind = :int8   if options[:limit] == 1
+            kind = :int16  if options[:limit] == 2
+            kind = :int32  if [3, 4].include?(options[:limit])
+            kind = :int64  if options[:limit] > 5 && options[:limit] <= 8
+            kind = :int128 if options[:limit] > 8 && options[:limit] <= 16
+            kind = :int256 if options[:limit] > 16
+          end
+        end
+
+        kind
+      end
 
       def connect
         @connection = @connection_parameters[:connection] || Net::HTTP.start(@connection_parameters[:host], @connection_parameters[:port], use_ssl: @connection_parameters[:ssl], verify_mode: OpenSSL::SSL::VERIFY_NONE)
