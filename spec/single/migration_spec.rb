@@ -368,6 +368,7 @@ RSpec.describe 'Migration', :migrations do
         # Signed integers
         expect(current_schema['int16_col'].sql_type).to eq('Int16')
         expect(current_schema['int32_col'].sql_type).to eq('Int32')
+        expect(current_schema['int64_limit5_col'].sql_type).to eq('Int64')
         expect(current_schema['int64_col'].sql_type).to eq('Int64')
 
         # Unsigned integers

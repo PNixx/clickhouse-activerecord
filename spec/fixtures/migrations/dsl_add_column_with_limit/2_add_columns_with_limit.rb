@@ -5,6 +5,7 @@ class AddColumnsWithLimit < ActiveRecord::Migration[7.1]
     # Signed integers with limit
     add_column :some, :int16_col, :integer, limit: 2, unsigned: false, null: false, default: 0
     add_column :some, :int32_col, :integer, limit: 4, unsigned: false, null: false, default: 0
+    add_column :some, :int64_limit5_col, :integer, limit: 5, unsigned: false, null: false, default: 0
     add_column :some, :int64_col, :integer, limit: 8, unsigned: false, null: false, default: 0
 
     # Unsigned integers with limit
