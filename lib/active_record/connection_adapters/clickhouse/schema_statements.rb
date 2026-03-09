@@ -49,6 +49,7 @@ module ActiveRecord
 
         def truncate_tables(*table_names)
           table_names -= views
+          table_names -= dictionaries
           super(*table_names)
         end
 
@@ -141,6 +142,12 @@ module ActiveRecord
 
         def materialized_views(name = nil)
           result = do_system_execute("SHOW TABLES WHERE engine = 'MaterializedView'", name)
+          return [] if result.nil?
+          result['data'].flatten
+        end
+
+        def dictionaries(name = nil)
+          result = do_system_execute("SHOW TABLES WHERE engine = 'Dictionary'", name)
           return [] if result.nil?
           result['data'].flatten
         end
