@@ -42,6 +42,9 @@ module ActiveRecord
           if options[:codec]
             sql.gsub!(/\s+(.*)/, " \\1 CODEC(#{options[:codec]})")
           end
+          if options[:ttl]
+            sql.gsub!(/\s+(.*)/, " \\1 TTL #{options[:ttl]}")
+          end
           sql.gsub!(/(\sString)\(\d+\)/, '\1')
 
           if ::ActiveRecord::version >= Gem::Version.new('8.1')
@@ -66,6 +69,13 @@ module ActiveRecord
           end
 
           create_sql
+        end
+
+        def add_ttl_clause!(create_sql, options)
+          ttl = options.respond_to?(:ttl) ? options.ttl : options[:ttl]
+          return unless ttl.present?
+
+          create_sql << " TTL #{ttl}"
         end
 
         def add_as_clause!(create_sql, options)
@@ -121,6 +131,7 @@ module ActiveRecord
           # Attach options for only table or materialized view without TO section
           add_table_options!(create_sql, o) if !o.view || o.view && o.materialized && !o.to
           add_as_clause!(create_sql, o) if o.as && o.view
+          add_ttl_clause!(create_sql, o) if o.ttl
           create_sql
         end
 

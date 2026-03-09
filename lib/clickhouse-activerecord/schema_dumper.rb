@@ -191,6 +191,7 @@ module ClickhouseActiverecord
       end
       spec[:low_cardinality] = schema_low_cardinality(column)
       spec[:codec] = column.codec.inspect if column.codec
+      spec[:ttl] = column.ttl.inspect if column.ttl
       spec.merge(super).compact
     end
 

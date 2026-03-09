@@ -144,6 +144,26 @@ RSpec.describe 'Migration', :migrations do
             end
           end
 
+          context 'ttl' do
+            let(:directory) { 'dsl_table_with_ttl' }
+            it 'creates a table with table-level and column-level TTL' do
+              subject
+
+              current_schema = schema(model)
+
+              expect(current_schema.keys.count).to eq(2)
+              expect(current_schema).to have_key('date')
+              expect(current_schema).to have_key('data')
+              expect(current_schema['date'].sql_type).to eq('Date')
+              expect(current_schema['data'].sql_type).to eq('UInt32')
+              expect(current_schema['data'].ttl).to eq('date + toIntervalDay(1)')
+
+              # Verify table-level TTL in SHOW CREATE TABLE
+              create_sql = ActiveRecord::Base.connection.show_create_table('some')
+              expect(create_sql).to include('TTL date + toIntervalDay(30)')
+            end
+          end
+
           context 'datetime' do
             let(:directory) { 'dsl_table_with_datetime_creation' }
             it 'creates a table with datetime columns' do
