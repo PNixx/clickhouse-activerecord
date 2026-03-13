@@ -31,6 +31,7 @@ module ActiveRecord
               value.map { |item| deserialize(item) }
             else
               return value if value.nil?
+              return value if already_deserialized?(value)
               case @subtype
                 when :integer
                   value.to_i
@@ -67,6 +68,11 @@ module ActiveRecord
           end
 
           private
+
+          def already_deserialized?(value)
+            (@subtype == :date && value.is_a?(::Date)) ||
+              (@subtype == :datetime && (value.is_a?(::DateTime) || value.is_a?(::Time)))
+          end
 
           def bits_to_limit(bits)
             case bits
