@@ -1,11 +1,15 @@
 # frozen_string_literal: true
 
+require 'base64'
 require 'clickhouse-activerecord/version'
 
 module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module SchemaStatements
+        HTTP_AUTH_BASIC = :basic
+        HTTP_AUTH_X_HEADERS = :x_clickhouse_headers
+        HTTP_AUTH_TYPES = [HTTP_AUTH_BASIC, HTTP_AUTH_X_HEADERS].freeze
 
         def with_settings(**settings)
           @block_settings ||= {}
@@ -61,10 +65,7 @@ module ActiveRecord
               statement = Statement.new(sql, format: @response_format)
               result = nil
               @lock.synchronize do
-                req = Net::HTTP::Post.new("/?#{settings_params(settings)}", {
-                  'Content-Type' => 'application/x-www-form-urlencoded',
-                  'User-Agent' => ClickhouseAdapter::USER_AGENT,
-                })
+                req = Net::HTTP::Post.new("/?#{settings_params(settings)}", build_request_headers)
                 @connection.start unless @connection.started?
                 @connection.request(req, statement.formatted_sql) do |response|
                   result = statement.streaming_response(response)
@@ -303,8 +304,7 @@ module ActiveRecord
           @lock.synchronize do
             @connection.post("/?#{settings_params(settings, except: except_params)}",
                              statement.formatted_sql,
-                             'Content-Type' => 'application/x-www-form-urlencoded',
-                             'User-Agent' => ClickhouseAdapter::USER_AGENT)
+                             build_request_headers(include_database: !except_params.include?(:database)))
           end
         end
 
@@ -316,10 +316,39 @@ module ActiveRecord
         def settings_params(settings = {}, except: [])
           request_params = @connection_config || {}
           block_settings = @block_settings || {}
+
+          case @http_auth
+          when HTTP_AUTH_BASIC
+            request_params = request_params.except(:user, :password)
+          when HTTP_AUTH_X_HEADERS
+            request_params = request_params.except(:user, :password, :database)
+          end
+
           request_params.merge(block_settings)
                         .merge(settings)
                         .except(*except)
                         .to_param
+        end
+
+        def build_request_headers(include_database: true)
+          request_headers = {
+            'Content-Type' => 'application/x-www-form-urlencoded',
+            'User-Agent' => ClickhouseAdapter::USER_AGENT
+          }
+
+          case @http_auth
+          when HTTP_AUTH_BASIC
+            if @config[:username] && @config[:password]
+              credentials = Base64.strict_encode64("#{@config[:username]}:#{@config[:password]}")
+              request_headers['Authorization'] = "Basic #{credentials}"
+            end
+          when HTTP_AUTH_X_HEADERS
+            request_headers['X-ClickHouse-User'] = @config[:username].to_s if @config[:username]
+            request_headers['X-ClickHouse-Key'] = @config[:password].to_s if @config[:password]
+            request_headers['X-ClickHouse-Database'] = @config[:database].to_s if include_database && @config[:database]
+          end
+
+          request_headers
         end
 
         # Returns a hash of table names to their engine types

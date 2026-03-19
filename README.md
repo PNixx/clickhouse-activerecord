@@ -28,6 +28,7 @@ default: &default
   port: 8123
   username: username
   password: password
+  http_auth: x_clickhouse_headers # optional, supports basic and x_clickhouse_headers
   ssl: true # optional for using ssl connection
   debug: true # use for showing in to log technical information
   migrations_paths: db/clickhouse # optional, default: db/migrate_clickhouse
@@ -52,6 +53,27 @@ class ActionView < ActiveRecord::Base
   )
 end
 ```
+
+### HTTP authentication mode
+
+By default, the adapter sends `user` and `password` as URL parameters.
+You can switch to header-based HTTP auth using `http_auth`:
+
+```yml
+clickhouse:
+  adapter: clickhouse
+  host: localhost
+  port: 8123
+  database: my_db
+  username: app_user
+  password: secret
+  http_auth: x_clickhouse_headers # or basic
+```
+
+- Use YAML string values: `http_auth: basic` or `http_auth: x_clickhouse_headers`.
+- Both strings and Ruby symbols are accepted internally.
+- `http_auth: basic` sends `Authorization: Basic ...` and keeps `database` in URL params.
+- `http_auth: x_clickhouse_headers` sends `X-ClickHouse-User`, `X-ClickHouse-Key`, and `X-ClickHouse-Database` headers.
 
 ## Usage in Rails
 

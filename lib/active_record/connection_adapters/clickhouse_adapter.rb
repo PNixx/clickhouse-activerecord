@@ -32,6 +32,13 @@ module ActiveRecord
           raise ArgumentError, 'No database specified. Missing argument: database.'
         end
 
+        if config[:http_auth]
+          unless ConnectionAdapters::Clickhouse::SchemaStatements::HTTP_AUTH_TYPES.include?(config[:http_auth]&.to_sym)
+            raise ArgumentError, "Unknown :http_auth mode #{config[:http_auth].inspect}. " \
+              + "Use one of #{ConnectionAdapters::Clickhouse::SchemaStatements::HTTP_AUTH_TYPES}."
+          end
+        end
+
         ConnectionAdapters::ClickhouseAdapter.new(config)
       end
     end
@@ -143,6 +150,7 @@ module ActiveRecord
         @connection_config = { user: @config[:username], password: @config[:password], database: @config[:database] }.compact
         @debug = @config[:debug] || false
         @response_format = @config[:format] || DEFAULT_RESPONSE_FORMAT
+        @http_auth = @config[:http_auth]&.to_sym
 
         @prepared_statements = false
 
