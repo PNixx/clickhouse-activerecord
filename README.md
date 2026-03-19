@@ -28,7 +28,7 @@ default: &default
   port: 8123
   username: username
   password: password
-  http_auth: x_clickhouse_headers # optional, supports basic and x_clickhouse_headers
+  http_auth: query_params # optional, supports query_params, basic, x_clickhouse_headers
   ssl: true # optional for using ssl connection
   debug: true # use for showing in to log technical information
   migrations_paths: db/clickhouse # optional, default: db/migrate_clickhouse
@@ -57,7 +57,7 @@ end
 ### HTTP authentication mode
 
 By default, the adapter sends `user` and `password` as URL parameters.
-You can switch to header-based HTTP auth using `http_auth`:
+You can set `http_auth` explicitly (or omit it and keep the same default behavior):
 
 ```yml
 clickhouse:
@@ -67,13 +67,14 @@ clickhouse:
   database: my_db
   username: app_user
   password: secret
-  http_auth: x_clickhouse_headers # or basic
+  http_auth: x_clickhouse_headers # or basic / query_params
 ```
 
-- Use YAML string values: `http_auth: basic` or `http_auth: x_clickhouse_headers`.
+- Use YAML string values: `http_auth: query_params`, `http_auth: basic`, or `http_auth: x_clickhouse_headers`.
 - Both strings and Ruby symbols are accepted internally.
-- `http_auth: basic` sends `Authorization: Basic ...` and keeps `database` in URL params.
 - `http_auth: x_clickhouse_headers` sends `X-ClickHouse-User`, `X-ClickHouse-Key`, and `X-ClickHouse-Database` headers.
+- `http_auth: basic` sends `Authorization: Basic ...` and keeps `database` in URL params.
+- `http_auth: query_params` sends `user`, `password`, and `database` in URL params (same as omitting `http_auth`).
 
 ## Usage in Rails
 

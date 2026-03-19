@@ -67,6 +67,39 @@ RSpec.describe 'HTTP auth modes' do
     end
   end
 
+  context 'query params mode' do
+    let(:config) { base_config.merge(http_auth: :query_params) }
+
+    it 'uses url query auth explicitly' do
+      payload = request_payload_for
+
+      expect(payload[:query_params]).to include(
+        'user' => config[:username],
+        'password' => config[:password],
+        'database' => config[:database],
+        'max_threads' => request_settings[:max_threads].to_s
+      )
+      expect(payload[:headers]).to_not have_key('Authorization')
+      expect(payload[:headers]).to_not have_key('X-ClickHouse-User')
+    end
+
+    context 'mode as string' do
+      let(:config) { base_config.merge(http_auth: 'query_params') }
+
+      it 'uses url query auth explicitly' do
+        payload = request_payload_for
+
+        expect(payload[:query_params]).to include(
+          'user' => config[:username],
+          'password' => config[:password],
+          'database' => config[:database]
+        )
+        expect(payload[:headers]).to_not have_key('Authorization')
+        expect(payload[:headers]).to_not have_key('X-ClickHouse-User')
+      end
+    end
+  end
+
   context 'basic auth mode' do
     let(:config) { base_config.merge(http_auth: :basic) }
 

@@ -7,9 +7,10 @@ module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       module SchemaStatements
+        HTTP_AUTH_QUERY_PARAMS = :query_params
         HTTP_AUTH_BASIC = :basic
         HTTP_AUTH_X_HEADERS = :x_clickhouse_headers
-        HTTP_AUTH_TYPES = [HTTP_AUTH_BASIC, HTTP_AUTH_X_HEADERS].freeze
+        HTTP_AUTH_TYPES = [HTTP_AUTH_QUERY_PARAMS, HTTP_AUTH_BASIC, HTTP_AUTH_X_HEADERS].freeze
 
         def with_settings(**settings)
           @block_settings ||= {}
