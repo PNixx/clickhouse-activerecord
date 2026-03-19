@@ -366,6 +366,38 @@ Donations to this project are going directly to [PNixx](https://github.com/PNixx
 
 After checking out the repo, run `bin/setup` to install dependencies. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
 
+### Run locally
+
+1. Start ClickHouse (single node):
+
+```bash
+docker compose -f .docker/docker-compose.yml up -d
+```
+
+2. Run single-node specs:
+
+```bash
+bin/test-single
+```
+
+If your local workflow expects `bin/single_test`, use the same command format as `bin/test-single`:
+
+```bash
+CLICKHOUSE_PORT=18123 CLICKHOUSE_DATABASE=default bundle exec rspec spec/single --format progress
+```
+
+3. Start ClickHouse cluster:
+
+```bash
+docker compose -f .docker/docker-compose.cluster.yml up -d
+```
+
+4. Run cluster specs:
+
+```bash
+CLICKHOUSE_PORT=28123 CLICKHOUSE_DATABASE=default CLICKHOUSE_CLUSTER=test_cluster bundle exec rspec spec/cluster --format progress
+```
+
 To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
 
 Testing github actions:
