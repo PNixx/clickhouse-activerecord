@@ -61,14 +61,16 @@ module ActiveRecord
               statement = Statement.new(sql, format: @response_format)
               result = nil
               @lock.synchronize do
+                ensure_connection_active!
+
                 req = Net::HTTP::Post.new("/?#{settings_params(settings)}", {
                   'Content-Type' => 'application/x-www-form-urlencoded',
                   'User-Agent' => ClickhouseAdapter::USER_AGENT,
                 })
-                @connection.start unless @connection.started?
                 @connection.request(req, statement.formatted_sql) do |response|
                   result = statement.streaming_response(response)
                 end
+                @last_request_at = Time.now
               end
               result
             end
@@ -294,17 +296,23 @@ module ActiveRecord
           statement.processed_response(response)
         end
 
-        # Make HTTP request to ClickHouse server
+        # Make HTTP request to ClickHouse server.
+        # Checks that the connection is still alive before sending the request,
+        # reconnecting proactively if it has been idle longer than keep_alive_timeout.
         # @param [ActiveRecord::ConnectionAdapters::Clickhouse::Statement] statement
         # @param [Hash] settings
         # @param [Array] except_params
         # @return [Net::HTTPResponse]
         def request(statement, settings: {}, except_params: [])
           @lock.synchronize do
-            @connection.post("/?#{settings_params(settings, except: except_params)}",
+            ensure_connection_active!
+
+            response = @connection.post("/?#{settings_params(settings, except: except_params)}",
                              statement.formatted_sql,
                              'Content-Type' => 'application/x-www-form-urlencoded',
                              'User-Agent' => ClickhouseAdapter::USER_AGENT)
+            @last_request_at = Time.now
+            response
           end
         end
 

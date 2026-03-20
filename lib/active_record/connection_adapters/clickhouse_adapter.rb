@@ -151,6 +151,7 @@ module ActiveRecord
 
       def disconnect!
         @connection.finish if @connection&.started?
+        @last_request_at = nil
         super
       end
 
@@ -561,11 +562,29 @@ module ActiveRecord
         # Use clickhouse default keep_alive_timeout value of 10, rather than Net::HTTP's default of 2
         @connection.keep_alive_timeout = @connection_parameters[:keep_alive_timeout] || 10
 
+        @last_request_at = nil
         @connection
       end
 
       def reconnect
         connect
+      end
+
+      # Returns true if the connection has been idle for less than keep_alive_timeout.
+      # When the connection has been idle longer, the server may have already closed it,
+      # and reusing it would result in an EOFError.
+      def connection_fresh?
+        return true unless @last_request_at
+
+        keep_alive = @connection_parameters[:keep_alive_timeout] || 10
+        (Time.now - @last_request_at) < keep_alive
+      end
+
+      # Ensures the connection is active and fresh before making a request.
+      # Reconnects proactively if the connection is not started or has been idle
+      # longer than the keep_alive_timeout.
+      def ensure_connection_active!
+        reconnect unless @connection&.started? && connection_fresh?
       end
 
       def apply_replica(table, options)
