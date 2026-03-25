@@ -661,6 +661,33 @@ RSpec.describe 'Model', :migrations do
         expect(record.map_array_datetime['c'][1]).to eq(DateTime.parse('2024-01-01 12:00:08'))
       end
     end
+
+    describe 'TimeZoneConverter compatibility' do
+      it 'does not crash when time_zone_aware_attributes is enabled' do
+        Time.use_zone('UTC') do
+          ActiveRecord::Base.time_zone_aware_attributes = true
+          model.reset_column_information
+
+          begin
+            model.create!(
+              map_datetime: {a: Time.now},
+              map_string: {a: 'test'},
+              map_int: {a: 1},
+              map_array_datetime: {a: []},
+              map_array_string: {a: []},
+              map_array_int: {a: []},
+              date: Date.today
+            )
+
+            expect { model.first.map_datetime }.to_not raise_error
+            expect(model.first.map_datetime['a']).to be_a DateTime
+          ensure
+            ActiveRecord::Base.time_zone_aware_attributes = false
+            model.reset_column_information
+          end
+        end
+      end
+    end
   end
 
   if Model.connection.server_version.to_f > 24.6
