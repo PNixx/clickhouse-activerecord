@@ -99,7 +99,7 @@ module ClickhouseActiverecord
             end
           end
 
-          indexes = sql.scan(/INDEX \S+ \S+ TYPE .*? GRANULARITY \d+/)
+          indexes = sql.scan(/INDEX \S+ .+? TYPE .*? GRANULARITY \d+/)
           if indexes.any?
             tbl.puts ''
             indexes.flatten.map!(&:strip).each do |index|

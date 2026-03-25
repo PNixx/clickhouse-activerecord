@@ -311,6 +311,25 @@ RSpec.describe 'Migration', :migrations do
 
             ActiveRecord::Base.connection.clear_index('some', 'idx2')
           end
+
+          it 'dumps indexes' do
+            require 'clickhouse-activerecord/schema_dumper'
+
+            quietly { migration_context.up(1) }
+
+            current_schema = StringIO.new
+            ClickhouseActiverecord::SchemaDumper.dump(ActiveRecord::Base.connection, current_schema)
+
+            expect(current_schema.string).to include('t.index "(int1 * int2, date)", name: "idx", type: "minmax", granularity: 3')
+
+            quietly { migration_context.up(4) }
+
+            current_schema = StringIO.new
+            ClickhouseActiverecord::SchemaDumper.dump(ActiveRecord::Base.connection, current_schema)
+
+            expect(current_schema.string).to include('t.index "int1 * int2", name: "idx2", type: "set(10)", granularity: 4')
+            expect(current_schema.string).to include('t.index "date", name: "simple_idx", type: "minmax", granularity: 1')
+          end
         end
       end
     end
