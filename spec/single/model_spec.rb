@@ -660,6 +660,28 @@ RSpec.describe 'Model', :migrations do
         expect(record.map_array_datetime['c'][0]).to eq(DateTime.parse('2022-12-05 15:22:49'))
         expect(record.map_array_datetime['c'][1]).to eq(DateTime.parse('2024-01-01 12:00:08'))
       end
+
+      it 'handles already deserialized DateTime/Time map values without re-parsing' do
+        now = Time.now
+        instance = model.instantiate({
+          'id' => '1',
+          'map_datetime' => {'t1' => now, 't2' => DateTime.now},
+          'map_date' => {'d' => Date.current},
+          'map_string' => {'x' => 'test'},
+          'map_int' => {'n' => 1},
+          'map_array_datetime' => {'a' => []},
+          'map_array_string' => {'a' => []},
+          'map_array_int' => {'a' => []},
+          'date' => Date.today
+        })
+
+        expect { instance.map_datetime }.to_not raise_error
+        expect(instance.map_datetime['t1']).to be_a(Time).or be_a(DateTime)
+        expect(instance.map_datetime['t2']).to be_a DateTime
+
+        expect { instance.map_date }.to_not raise_error
+        expect(instance.map_date['d']).to be_a Date
+      end
     end
   end
 
