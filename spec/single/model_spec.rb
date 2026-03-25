@@ -663,6 +663,133 @@ RSpec.describe 'Model', :migrations do
     end
   end
 
+  context 'map with float and bool' do
+    let!(:model) do
+      Class.new(ActiveRecord::Base) do
+        self.table_name = 'map_test'
+      end
+    end
+
+    before do
+      migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_map_float_bool')
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
+    end
+
+    describe 'Float subtype support' do
+      it 'creates and retrieves Float32 map values' do
+        model.create!(
+          map_float32: {a: 1.5, b: 2.7, c: 3.14},
+          map_float64: {x: 1.0, y: 2.0},
+          map_bool: {flag: true},
+          date: date
+        )
+
+        record = model.first
+        expect(record.map_float32).to be_a Hash
+        expect(record.map_float32['a']).to eq(1.5)
+        expect(record.map_float32['b']).to eq(2.7)
+        expect(record.map_float32['c']).to eq(3.14)
+      end
+
+      it 'creates and retrieves Float64 map values' do
+        model.create!(
+          map_float32: {a: 1.0},
+          map_float64: {x: 123.456789, y: 987.654321},
+          map_bool: {flag: false},
+          date: date
+        )
+
+        record = model.first
+        expect(record.map_float64).to be_a Hash
+        expect(record.map_float64['x']).to eq(123.456789)
+        expect(record.map_float64['y']).to eq(987.654321)
+      end
+
+      it 'insert with insert_all' do
+        model.insert_all([{
+          map_float32: {a: 4.5},
+          map_float64: {x: 5.5},
+          map_bool: {flag: true},
+          date: date
+        }])
+
+        record = model.first
+        expect(record.map_float32['a']).to eq(4.5)
+        expect(record.map_float64['x']).to eq(5.5)
+      end
+
+      it 'retrieves float values without quoting in SQL' do
+        model.connection.insert("INSERT INTO #{model.table_name} (id, map_float32, map_float64, map_bool, date) VALUES (1, {'price': 99.99}, {'rate': 0.075}, {'active': true}, '2022-12-06')")
+
+        record = model.first
+        expect(record.map_float32['price']).to eq(99.99)
+        expect(record.map_float64['rate']).to eq(0.075)
+      end
+    end
+
+    describe 'Bool subtype support' do
+      it 'creates and retrieves Bool map values' do
+        model.create!(
+          map_float32: {a: 1.0},
+          map_float64: {x: 1.0},
+          map_bool: {enabled: true, active: false, verified: true},
+          date: date
+        )
+
+        record = model.first
+        expect(record.map_bool).to be_a Hash
+        expect(record.map_bool['enabled']).to eq(true)
+        expect(record.map_bool['active']).to eq(false)
+        expect(record.map_bool['verified']).to eq(true)
+      end
+
+      it 'handles boolean type casting' do
+        model.create!(
+          map_float32: {a: 1.0},
+          map_float64: {x: 1.0},
+          map_bool: {flag1: 1, flag2: 0, flag3: 'true', flag4: 'false'},
+          date: date
+        )
+
+        record = model.first
+        expect(record.map_bool['flag1']).to eq(true)
+        expect(record.map_bool['flag2']).to eq(false)
+        expect(record.map_bool['flag3']).to eq(true)
+        expect(record.map_bool['flag4']).to eq(false)
+      end
+
+      it 'retrieves bool values without quoting in SQL' do
+        model.connection.insert("INSERT INTO #{model.table_name} (id, map_float32, map_float64, map_bool, date) VALUES (1, {'a': 1.0}, {'x': 1.0}, {'is_active': true, 'is_deleted': false}, '2022-12-06')")
+
+        record = model.first
+        expect(record.map_bool['is_active']).to eq(true)
+        expect(record.map_bool['is_deleted']).to eq(false)
+      end
+    end
+
+    describe 'deserialize' do
+      it 'deserializes string float values from map_float32 type' do
+        type = model.type_for_attribute('map_float32')
+        expect(type.deserialize({'price' => '1.5', 'tax' => '0.25'})).to eq({'price' => 1.5, 'tax' => 0.25})
+      end
+
+      it 'deserializes string float values from map_float64 type' do
+        type = model.type_for_attribute('map_float64')
+        expect(type.deserialize({'rate' => '123.456789'})).to eq({'rate' => 123.456789})
+      end
+
+      it 'deserializes string bool values from map_bool type' do
+        type = model.type_for_attribute('map_bool')
+        expect(type.deserialize({'a' => 'true', 'b' => 'false', 'c' => '1', 'd' => '0'})).to eq({'a' => true, 'b' => false, 'c' => true, 'd' => false})
+      end
+
+      it 'deserializes integer bool values from map_bool type' do
+        type = model.type_for_attribute('map_bool')
+        expect(type.deserialize({'a' => 1, 'b' => 0})).to eq({'a' => true, 'b' => false})
+      end
+    end
+  end
+
   if Model.connection.server_version.to_f > 24.6
     context 'json' do
       let!(:json_model) do
