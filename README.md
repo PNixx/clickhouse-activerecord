@@ -28,6 +28,7 @@ default: &default
   port: 8123
   username: username
   password: password
+  http_auth: query_params # optional, supports query_params, basic, x_clickhouse_headers
   ssl: true # optional for using ssl connection
   debug: true # use for showing in to log technical information
   migrations_paths: db/clickhouse # optional, default: db/migrate_clickhouse
@@ -52,6 +53,28 @@ class ActionView < ActiveRecord::Base
   )
 end
 ```
+
+### HTTP authentication mode
+
+By default, the adapter sends `user` and `password` as URL parameters.
+You can set `http_auth` explicitly (or omit it and keep the same default behavior):
+
+```yml
+clickhouse:
+  adapter: clickhouse
+  host: localhost
+  port: 8123
+  database: my_db
+  username: app_user
+  password: secret
+  http_auth: x_clickhouse_headers # or basic / query_params
+```
+
+- Use YAML string values: `http_auth: query_params`, `http_auth: basic`, or `http_auth: x_clickhouse_headers`.
+- Both strings and Ruby symbols are accepted internally.
+- `http_auth: x_clickhouse_headers` sends `X-ClickHouse-User`, `X-ClickHouse-Key`, and `X-ClickHouse-Database` headers.
+- `http_auth: basic` sends `Authorization: Basic ...` and keeps `database` in URL params.
+- `http_auth: query_params` sends `user`, `password`, and `database` in URL params (same as omitting `http_auth`).
 
 ## Usage in Rails
 
@@ -342,6 +365,38 @@ Donations to this project are going directly to [PNixx](https://github.com/PNixx
 ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+
+### Run locally
+
+1. Start ClickHouse (single node):
+
+```bash
+docker compose -f .docker/docker-compose.yml up -d
+```
+
+2. Run single-node specs:
+
+```bash
+bin/test-single
+```
+
+If your local workflow expects `bin/single_test`, use the same command format as `bin/test-single`:
+
+```bash
+CLICKHOUSE_PORT=18123 CLICKHOUSE_DATABASE=default bundle exec rspec spec/single --format progress
+```
+
+3. Start ClickHouse cluster:
+
+```bash
+docker compose -f .docker/docker-compose.cluster.yml up -d
+```
+
+4. Run cluster specs:
+
+```bash
+CLICKHOUSE_PORT=28123 CLICKHOUSE_DATABASE=default CLICKHOUSE_CLUSTER=test_cluster bundle exec rspec spec/cluster --format progress
+```
 
 To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
 
