@@ -146,6 +146,7 @@ RSpec.describe 'Migration', :migrations do
 
           context 'ttl' do
             let(:directory) { 'dsl_table_with_ttl' }
+
             it 'creates a table with table-level and column-level TTL' do
               subject
 
@@ -161,6 +162,63 @@ RSpec.describe 'Migration', :migrations do
               # Verify table-level TTL in SHOW CREATE TABLE
               create_sql = ActiveRecord::Base.connection.show_create_table('some')
               expect(create_sql).to include('TTL date + toIntervalDay(30)')
+            end
+
+            it 'creates a table with TTL using correct statement order' do
+              subject
+
+              current_schema = schema(model)
+
+              # Verify TTL comes after ENGINE
+              create_sql = ActiveRecord::Base.connection.show_create_table('some')
+              engine_idx = create_sql.index('ENGINE = MergeTree')
+              ttl_idx = create_sql.index('TTL date + toIntervalDay(30)')
+              expect(engine_idx).to be < ttl_idx
+            end
+          end
+
+          context 'settings' do
+            let(:directory) { 'dsl_table_with_settings' }
+
+            it 'creates a table with table-level SETTINGS' do
+              subject
+
+              current_schema = schema(model)
+
+              expect(current_schema.keys.count).to eq(3)
+              expect(current_schema).to have_key('an_id')
+              expect(current_schema).to have_key('date')
+              expect(current_schema).to have_key('data')
+
+              # Verify table-level SETTINGS in SHOW CREATE TABLE
+              create_sql = ActiveRecord::Base.connection.show_create_table('some')
+              expect(create_sql).to include('SETTINGS allow_nullable_key = 1, index_granularity = 8192')
+            end
+
+            it 'creates a table with SETTINGS using correct statement order' do
+              subject
+
+              current_schema = schema(model)
+
+              # Verify TTL comes before SETTINGS
+              create_sql = ActiveRecord::Base.connection.show_create_table('some')
+              ttl_idx = create_sql.index('TTL date')
+              settings_idx = create_sql.index('SETTINGS')
+              expect(ttl_idx).to be < settings_idx
+            end
+
+            it 'dumps SETTINGS as separate option' do
+              require 'clickhouse-activerecord/schema_dumper'
+
+              subject
+
+              schema = StringIO.new
+              ClickhouseActiverecord::SchemaDumper.dump(ActiveRecord::Base.connection, schema)
+              schema_string = schema.string
+
+              expect(schema_string).to include('options: "MergeTree ORDER BY an_id"')
+              expect(schema_string).to include('ttl: "date + toIntervalDay(30)"')
+              expect(schema_string).to include('settings: "allow_nullable_key = 1, index_granularity = 8192"')
             end
           end
 

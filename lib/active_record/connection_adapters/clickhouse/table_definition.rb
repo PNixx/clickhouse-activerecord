@@ -5,7 +5,7 @@ module ActiveRecord
     module Clickhouse
       class TableDefinition < ActiveRecord::ConnectionAdapters::TableDefinition
 
-        attr_reader :view, :materialized, :if_not_exists, :to, :ttl
+        attr_reader :view, :materialized, :if_not_exists, :to, :ttl, :settings
 
         def initialize(
             conn,
@@ -19,6 +19,7 @@ module ActiveRecord
             materialized: false,
             to: nil,
             ttl: nil,
+            settings: nil,
             **
           )
           @conn = conn
@@ -36,6 +37,7 @@ module ActiveRecord
           @materialized = materialized
           @to = to
           @ttl = ttl
+          @settings = settings
         end
 
         def integer(*args, **options)

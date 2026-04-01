@@ -157,7 +157,29 @@ module ActiveRecord
 
         def table_options(table)
           sql = show_create_table(table)
-          { options: sql.gsub(/^(?:.*?)(?:ENGINE = (.*?))?( AS SELECT .*?)?$/, '\\1').presence, as: sql.match(/^CREATE (?:.*?) AS (SELECT .*?)$/).try(:[], 1) }.compact
+          result = {}
+
+          result[:as] = sql.match(/^CREATE (?:.*?) AS (SELECT .*?)$/).try(:[], 1)
+
+          engine_part = sql.gsub(/^(?:.*?)(?:ENGINE = (.*?))?( AS SELECT .*?)?$/, '\\1').presence
+
+          if engine_part
+            # Extract SETTINGS (always last if present)
+            if (settings_match = engine_part.match(/\s+SETTINGS\s+(.+)$/i))
+              result[:settings] = settings_match[1].strip
+              engine_part = engine_part[0...settings_match.begin(0)]
+            end
+
+            # Extract TTL (between engine/ordering clauses and SETTINGS)
+            if (ttl_match = engine_part.match(/\s+TTL\s+(.+)$/i))
+              result[:ttl] = ttl_match[1].strip
+              engine_part = engine_part[0...ttl_match.begin(0)]
+            end
+
+            result[:options] = engine_part.presence
+          end
+
+          result.compact
         end
 
         # Not indexes on clickhouse

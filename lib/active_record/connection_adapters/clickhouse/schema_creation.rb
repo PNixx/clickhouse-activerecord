@@ -78,6 +78,13 @@ module ActiveRecord
           create_sql << " TTL #{ttl}"
         end
 
+        def add_settings_clause!(create_sql, options)
+          settings = options.respond_to?(:settings) ? options.settings : options[:settings]
+          return unless settings.present?
+
+          create_sql << " SETTINGS #{settings}"
+        end
+
         def add_as_clause!(create_sql, options)
           return unless options.as
 
@@ -132,6 +139,7 @@ module ActiveRecord
           add_table_options!(create_sql, o) if !o.view || o.view && o.materialized && !o.to
           add_as_clause!(create_sql, o) if o.as && o.view
           add_ttl_clause!(create_sql, o) if o.ttl
+          add_settings_clause!(create_sql, o) if o.settings
           create_sql
         end
 
