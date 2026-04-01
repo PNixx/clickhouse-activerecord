@@ -1,3 +1,7 @@
+### Version 1.6.7 (Mar 5, 2026)
+
+* Fix insert with default values in Ruby 4.0 and Rails 8.1
+
 ### Version 1.6.6 (Feb 16, 2026)
 
 * Fix error: EOFError (end of file reached)
