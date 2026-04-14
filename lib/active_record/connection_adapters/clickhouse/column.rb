@@ -1,6 +1,13 @@
 module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
+      DescribedColumn =
+        Data.define(:name, :sql_type, :default_type, :default_expression, :comment, :codec) do
+          def ephemeral?
+            default_type.to_s.downcase == 'ephemeral'
+          end
+        end
+
       class Column < ActiveRecord::ConnectionAdapters::Column
         attr_reader :codec, :default_kind
 
