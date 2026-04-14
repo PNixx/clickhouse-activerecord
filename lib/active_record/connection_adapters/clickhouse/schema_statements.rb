@@ -245,7 +245,10 @@ module ActiveRecord
 
           raise ActiveRecord::StatementInvalid, "Could not find table '#{table_name}'"
         end
-        alias column_definitions table_structure
+
+        def column_definitions(table_name)
+          table_structure(table_name).reject { |field| field[2].to_s.downcase == 'ephemeral' }
+        end
 
         private
 
@@ -269,7 +272,7 @@ module ActiveRecord
           args << cast_type if ::ActiveRecord::version >= Gem::Version.new('8.1')
           args += [default_value, type_metadata, field[1].include?('Nullable'), default_function]
 
-          Clickhouse::Column.new(*args, codec: field[5].presence)
+          Clickhouse::Column.new(*args, codec: field[5].presence, default_kind: default_type)
         end
 
         def extract_value_from_default(default_expression, default_type)
