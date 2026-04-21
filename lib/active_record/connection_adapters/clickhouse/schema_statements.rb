@@ -241,11 +241,23 @@ module ActiveRecord
           result = do_system_execute("DESCRIBE TABLE `#{table_name}`", table_name)
           data = result['data']
 
-          return data unless data.empty?
+          raise ActiveRecord::StatementInvalid, "Could not find table '#{table_name}'" if data.empty?
 
-          raise ActiveRecord::StatementInvalid, "Could not find table '#{table_name}'"
+          data.map do |row|
+            Clickhouse::DescribedColumn.new(
+              name: row[0],
+              sql_type: row[1],
+              default_type: row[2],
+              default_expression: row[3],
+              comment: row[4],
+              codec: row[5],
+            )
+          end
         end
-        alias column_definitions table_structure
+
+        def column_definitions(table_name)
+          table_structure(table_name).reject(&:ephemeral?)
+        end
 
         private
 
@@ -258,18 +270,17 @@ module ActiveRecord
         end
 
         def new_column_from_field(table_name, field, _definitions)
-          column_name, sql_type, default_type, default_expression = field
-          type_metadata = fetch_type_metadata(sql_type)
-          default_value = extract_value_from_default(default_expression, default_type)
-          default_function = extract_default_function(default_expression)
-          cast_type = lookup_cast_type(sql_type)
+          type_metadata = fetch_type_metadata(field.sql_type)
+          default_value = extract_value_from_default(field.default_expression, field.default_type)
+          default_function = extract_default_function(field.default_expression)
+          cast_type = lookup_cast_type(field.sql_type)
           default_value = cast_type.cast(default_value)
 
-          args = [column_name]
+          args = [field.name]
           args << cast_type if ::ActiveRecord::version >= Gem::Version.new('8.1')
-          args += [default_value, type_metadata, field[1].include?('Nullable'), default_function]
+          args += [default_value, type_metadata, field.sql_type.include?('Nullable'), default_function]
 
-          Clickhouse::Column.new(*args, codec: field[5].presence)
+          Clickhouse::Column.new(*args, codec: field.codec.presence, default_kind: field.default_type)
         end
 
         def extract_value_from_default(default_expression, default_type)
