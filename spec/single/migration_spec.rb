@@ -348,13 +348,15 @@ RSpec.describe 'Migration', :migrations do
 
         current_schema = schema(model)
 
-        expect(current_schema.keys.count).to eq(3)
+        expect(current_schema.keys.count).to eq(4)
         expect(current_schema).to have_key('id')
         expect(current_schema).to have_key('date')
         expect(current_schema).to have_key('new_column')
+        expect(current_schema).to have_key('new_uint16')
         expect(current_schema['id'].sql_type).to eq('UInt32')
         expect(current_schema['date'].sql_type).to eq('Date')
         expect(current_schema['new_column'].sql_type).to eq('Nullable(UInt64)')
+        expect(current_schema['new_uint16'].sql_type).to eq('Nullable(UInt16)')
       end
     end
 
