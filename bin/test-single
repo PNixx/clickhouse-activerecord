@@ -3,5 +3,7 @@ set -euo pipefail
 
 export CLICKHOUSE_PORT="${CLICKHOUSE_PORT:-18123}"
 export CLICKHOUSE_DATABASE="${CLICKHOUSE_DATABASE:-default}"
+export CLICKHOUSE_USER="${CLICKHOUSE_USER:-test}"
+export CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD:-test}"
 
 exec bundle exec rspec spec/single --format progress "$@"
