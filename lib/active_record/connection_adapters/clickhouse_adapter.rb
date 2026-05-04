@@ -20,6 +20,7 @@ require 'active_record/connection_adapters/clickhouse/statement'
 require 'active_record/connection_adapters/clickhouse/table_definition'
 require 'net/http'
 require 'openssl'
+require 'uri'
 
 module ActiveRecord
   class Base
@@ -27,6 +28,11 @@ module ActiveRecord
       # Establishes a connection to the database that's used by all Active Record objects
       def clickhouse_connection(config)
         config = config.symbolize_keys
+
+        if config[:url]
+          url_config = parse_clickhouse_url(config.delete(:url))
+          config = url_config.merge(config)
+        end
 
         unless config.key?(:database)
           raise ArgumentError, 'No database specified. Missing argument: database.'
@@ -40,6 +46,39 @@ module ActiveRecord
         end
 
         ConnectionAdapters::ClickhouseAdapter.new(config)
+      end
+
+      private
+
+      def parse_clickhouse_url(url)
+        uri = URI.parse(url)
+        config = {}
+
+        config[:host]     = uri.host                                    if uri.host
+        config[:port]     = uri.port                                    if uri.port
+        config[:username] = URI.decode_www_form_component(uri.user)     if uri.user
+        config[:password] = URI.decode_www_form_component(uri.password) if uri.password
+
+        if uri.path && uri.path.length > 1
+          config[:database] = uri.path.delete_prefix('/')
+        end
+
+        if uri.query
+          URI.decode_www_form(uri.query).each do |key, value|
+            case key
+            when 'ssl'                then config[:ssl]                = (value == 'true')
+            when 'debug'              then config[:debug]              = (value == 'true')
+            when 'read_timeout'       then config[:read_timeout]       = value.to_i
+            when 'write_timeout'      then config[:write_timeout]      = value.to_i
+            when 'keep_alive_timeout' then config[:keep_alive_timeout] = value.to_i
+            when 'http_auth'          then config[:http_auth]          = value
+            when 'cluster_name'       then config[:cluster_name]       = value
+            when 'sslca'              then config[:sslca]              = value
+            end
+          end
+        end
+
+        config
       end
     end
   end
