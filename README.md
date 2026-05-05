@@ -1,7 +1,7 @@
 # Clickhouse::Activerecord
 
 A Ruby database ActiveRecord driver for ClickHouse. Support Rails >= 7.1.
-Support ClickHouse version from 22.0 LTS.
+Support ClickHouse version from 22.0 LTS (Testing on 24.6).
 
 ## Installation
 
@@ -28,6 +28,7 @@ default: &default
   port: 8123
   username: username
   password: password
+  http_auth: query_params # optional, supports query_params, basic, x_clickhouse_headers
   ssl: true # optional for using ssl connection
   debug: true # use for showing in to log technical information
   migrations_paths: db/clickhouse # optional, default: db/migrate_clickhouse
@@ -52,6 +53,28 @@ class ActionView < ActiveRecord::Base
   )
 end
 ```
+
+### HTTP authentication mode
+
+By default, the adapter sends `user` and `password` as URL parameters.
+You can set `http_auth` explicitly (or omit it and keep the same default behavior):
+
+```yml
+clickhouse:
+  adapter: clickhouse
+  host: localhost
+  port: 8123
+  database: my_db
+  username: app_user
+  password: secret
+  http_auth: x_clickhouse_headers # or basic / query_params
+```
+
+- Use YAML string values: `http_auth: query_params`, `http_auth: basic`, or `http_auth: x_clickhouse_headers`.
+- Both strings and Ruby symbols are accepted internally.
+- `http_auth: x_clickhouse_headers` sends `X-ClickHouse-User`, `X-ClickHouse-Key`, and `X-ClickHouse-Database` headers.
+- `http_auth: basic` sends `Authorization: Basic ...` and keeps `database` in URL params.
+- `http_auth: query_params` sends `user`, `password`, and `database` in URL params (same as omitting `http_auth`).
 
 ## Usage in Rails
 
@@ -158,10 +181,18 @@ Structure load from `db/clickhouse_structure.sql` file:
 
 For auto truncate tables before each test add to `spec/rails_helper.rb` file:
 
-```
+```ruby
 require 'clickhouse-activerecord/rspec'
 ```
-    
+
+### Minitest
+
+For auto truncate tables before each test add to `test/test_helper.rb` file:
+
+```ruby
+require 'clickhouse-activerecord/minitest'
+```
+
 ### Insert and select data
 
 ```ruby
@@ -192,6 +223,47 @@ User.joins(:actions).using(:group_id)
 User.window('x', order: 'date', partition: 'name', rows: 'UNBOUNDED PRECEDING').select('sum(value) OVER x')
 # SELECT sum(value) OVER x FROM users WINDOW x AS (PARTITION BY name ORDER BY date ROWS UNBOUNDED PRECEDING)
 #=> #<ActiveRecord::Relation [#<User *** >]>
+```
+
+### CTE and CSE examples
+
+For activation CSE ([Common Scalar Expressions](https://clickhouse.com/docs/sql-reference/statements/select/with#common-scalar-expressions)) in ClickHouse `value` in hash must be a `Symbol` class.
+`key` in a hash must be converting to:
+
+* `String` -> quoted string
+* `Symbol` -> raw data
+* `Relation` -> sql query
+
+See in examples:
+
+```ruby
+# CTE
+Action.with(t: ActionView.where(event_name: 'test')).where(event_name: Action.from('t').select('event_name'))
+# Clickhouse (10.3ms)  WITH t AS (SELECT action_view.* FROM action_view WHERE action_view.event_name = \'test\') SELECT actions.* FROM actions WHERE actions.event_name IN (SELECT event_name FROM t)
+#=> #<ActiveRecord::Relation [#<Action *** >]>
+
+# CSE with string key
+Action.with('2026-01-01 15:23:00' => :t).where(Arel.sql('date = toDate(t)'))
+# Clickhouse (10.3ms)  WITH '2026-01-01 15:23:00' AS t SELECT actions.* FROM actions WHERE (date = toDate(t))
+#=> #<ActiveRecord::Relation [#<Action *** >]>
+
+# CSE with symbol key
+Action.with('(id, extension) -> concat(lower(id), extension)': :t).where(Arel.sql('date = toDate(t)'))
+# Clickhouse (10.3ms)  WITH (id, extension) -> concat(lower(id), extension) AS t SELECT actions.* FROM actions WHERE (date = toDate(t))
+#=> #<ActiveRecord::Relation [#<Action *** >]>
+
+# CSE with ActiveRecord relation key
+Action.with(ActionView.select(Arel.sql('min(date)')) => :min_date).where(Arel.sql('date = min_date'))
+# Clickhouse (10.3ms)  WITH (SELECT min(date) FROM action_view) AS min_date SELECT actions.* FROM actions WHERE (date = min_date)
+#=> #<ActiveRecord::Relation [#<Action *** >]>
+```
+
+### Streaming request
+
+```ruby
+path = Action.connection.execute_to_file(Action.where(date: Date.current), format: 'CSVWithNames')
+# Clickhouse Stream (10.3ms)  SELECT actions.* FROM actions WHERE actions.date = '2017-11-29'
+file = File.open(path)
 ```
 
 
@@ -285,14 +357,46 @@ Engines `MergeTree` and all support replication engines will be replaced to `Rep
 
 Donations to this project are going directly to [PNixx](https://github.com/PNixx), the original author of this project:
 
-* BTC address: `1H3rhpf7WEF5JmMZ3PVFMQc7Hm29THgUfN`
+* BTC address: `bc1qr73vls0kv2ujk4ugqmpqj6j0qtqvdr3nx25xdl`
 * ETH address: `0x6F094365A70fe7836A633d2eE80A1FA9758234d5`
 * XMR address: `42gP71qLB5M43RuDnrQ3vSJFFxis9Kw9VMURhpx9NLQRRwNvaZRjm2TFojAMC8Fk1BQhZNKyWhoyJSn5Ak9kppgZPjE17Zh`
-* TON address: `UQBt0-s1igIpJoEup0B1yAUkZ56rzbpruuAjNhQ26MVCaNlC`
+* TON address: `UQBCnxOfBsHPZ3PesGgMedVMEf5UHnm0jrSq-042pMWw08Ux`
 
 ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+
+### Run locally
+
+1. Start ClickHouse (single node):
+
+```bash
+docker compose -f .docker/docker-compose.yml up -d
+```
+
+2. Run single-node specs:
+
+```bash
+bin/test-single
+```
+
+If your local workflow expects `bin/single_test`, use the same command format as `bin/test-single`:
+
+```bash
+CLICKHOUSE_PORT=18123 CLICKHOUSE_DATABASE=default bundle exec rspec spec/single --format progress
+```
+
+3. Start ClickHouse cluster:
+
+```bash
+docker compose -f .docker/docker-compose.cluster.yml up -d
+```
+
+4. Run cluster specs:
+
+```bash
+CLICKHOUSE_PORT=28123 CLICKHOUSE_DATABASE=default CLICKHOUSE_CLUSTER=test_cluster bundle exec rspec spec/cluster --format progress
+```
 
 To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
 

@@ -1,6 +1,6 @@
 services:
   clickhouse1:
-    image: 'clickhouse/clickhouse-server:${CLICKHOUSE_VERSION-23.11-alpine}'
+    image: 'clickhouse/clickhouse-server:${CLICKHOUSE_VERSION}'
     ulimits:
       nofile:
         soft: 262144
@@ -18,7 +18,7 @@ services:
       interval: 5s
 
   clickhouse2:
-    image: 'clickhouse/clickhouse-server:${CLICKHOUSE_VERSION-23.11-alpine}'
+    image: 'clickhouse/clickhouse-server:${CLICKHOUSE_VERSION}'
     ulimits:
       nofile:
         soft: 262144
