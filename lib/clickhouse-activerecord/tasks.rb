@@ -15,9 +15,6 @@ module ClickhouseActiverecord
     def create
       establish_master_connection
       connection.create_database @configuration.database
-
-      connection.schema_migration.create_table
-      connection.internal_metadata.create_table
     rescue ActiveRecord::StatementInvalid => e
       if e.cause.to_s.include?('already exists')
         raise ActiveRecord::DatabaseAlreadyExists
@@ -42,7 +39,6 @@ module ClickhouseActiverecord
 
       # get all tables
       tables = connection.execute("SHOW TABLES FROM #{@configuration.database} WHERE name NOT LIKE '.inner_id.%'")['data'].flatten.map do |table|
-        next if %w[schema_migrations ar_internal_metadata].include?(table)
         connection.show_create_table(table, single_line: false).gsub("#{@configuration.database}.", '')
       end.compact
 
@@ -69,9 +65,9 @@ module ClickhouseActiverecord
         if sql.gsub(/[a-z]/i, '').blank?
           next
         elsif sql =~ /^INSERT INTO/
-          connection.do_execute(sql, nil, format: nil)
+          connection.execute(sql, nil, format: nil)
         elsif sql =~ /^CREATE .*?FUNCTION/
-          connection.do_execute(sql, nil, format: nil)
+          connection.execute(sql, nil, format: nil)
         else
           connection.execute(sql)
         end
@@ -92,7 +88,33 @@ module ClickhouseActiverecord
       ActiveRecord::Migration.verbose = verbose_was
     end
 
+    def check_current_protected_environment!(db_config, migration_class = ActiveRecord::Migration)
+      with_temporary_pool(db_config, migration_class) do |pool|
+        migration_context = pool.migration_context
+        current = migration_context.current_environment
+        stored  = migration_context.last_stored_environment
+
+        if migration_context.protected_environment?
+          raise ActiveRecord::ProtectedEnvironmentError.new(stored)
+        end
+
+        if stored && stored != current
+          raise ActiveRecord::EnvironmentMismatchError.new(current: current, stored: stored)
+        end
+      rescue ActiveRecord::NoDatabaseError
+      end
+    end
+
     private
+
+    def with_temporary_pool(db_config, migration_class, clobber: false)
+      original_db_config = migration_class.connection_db_config
+      pool = migration_class.connection_handler.establish_connection(db_config, clobber: clobber)
+
+      yield pool
+    ensure
+      migration_class.connection_handler.establish_connection(original_db_config, clobber: clobber)
+    end
 
     def establish_master_connection
       establish_connection @configuration

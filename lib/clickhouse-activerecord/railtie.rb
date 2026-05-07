@@ -9,7 +9,5 @@ module ClickhouseActiverecord
         ClickhouseActiverecord.load
       end
     end
-
-    rake_tasks { load 'tasks/clickhouse.rake' }
   end
 end
