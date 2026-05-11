@@ -319,7 +319,7 @@ module ActiveRecord
               @connection.post("/?#{settings_params(settings, except: except_params)}",
                                statement.formatted_sql,
                                build_request_headers(include_database: !except_params.include?(:database)))
-            rescue EOFError, Errno::ECONNRESET
+            rescue EOFError, Errno::ECONNRESET, SocketError
               retries -= 1
               retry if retries > 0
               raise
