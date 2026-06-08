@@ -101,8 +101,19 @@ module ActiveRecord
 
         private
 
+        def create_column_definition(name, type, options)
+          unless options[:_skip_validate_options]
+            options.except(:_uses_legacy_reference_index_name, :_skip_validate_options).assert_valid_keys(valid_column_definition_options)
+          end
+
+          sql_type = @conn.type_to_sql(type, **options)
+          cast_type = @conn.lookup_cast_type(sql_type)
+
+          ColumnDefinition.new(name, type, options, sql_type, cast_type)
+        end
+
         def valid_column_definition_options
-          super + [:array, :low_cardinality, :fixed_string, :value, :type, :map, :codec, :unsigned]
+          super + [:array, :low_cardinality, :fixed_string, :value, :type, :map, :codec, :unsigned, :first, :after]
         end
       end
 

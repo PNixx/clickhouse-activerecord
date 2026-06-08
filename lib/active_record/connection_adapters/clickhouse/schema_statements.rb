@@ -302,9 +302,44 @@ module ActiveRecord
         end
 
         def raw_execute(sql, settings: {}, except_params: [])
+          return raw_execute_with_retry(sql, settings: {}, except_params: []) if @config&.fetch(:request_retries_on_fail)
+
           statement = Statement.new(sql, format: @response_format)
           response = request(statement, settings: settings, except_params: except_params)
           statement.processed_response(response)
+        end
+
+        def raw_execute_with_retry(sql, settings: {}, except_params: [])
+          resolved_sql = resolve_hidden_credentials(sql)
+          retries_count = (@config || {}).fetch(:request_retries_on_fail, 1).to_i
+          retries_count = 1 unless retries_count&.positive?
+          result = nil
+          retries_count.times do |retry_num|
+            begin
+              statement = Statement.new(resolved_sql, format: @response_format)
+              response = request(statement, settings: settings, except_params: except_params)
+              result = statement.processed_response(response)
+              break
+            rescue ActiveRecord::ConnectionTimeoutError, ActiveRecord::LockWaitTimeout => e
+              raise(e) unless (retry_num + 1) < retries_count
+              sleep(0.1 * (retry_num + 1))
+            end
+          end
+          result
+        end
+
+        MYSQL_ENGINE_RE = /MySQL\('[^']*'\s*,\s*'[^']*'\s*,\s*'[^']*'\s*,\s*'[^']*'\s*,\s*'[^']*'\)/i.freeze
+
+        def resolve_hidden_credentials(sql)
+          return sql unless sql.include?('[HIDDEN]')
+          sql.gsub(MYSQL_ENGINE_RE) do |match|
+            table_name = match.match(/MySQL\('([^']*)'\s*,\s*'([^']*)'\s*,\s*'([^']*)'\s*,\s*'([^']*)'\s*,\s*'([^']*)'\)/i)[3]
+            if ClickhouseActiverecord.mysql_credential_resolver
+              ClickhouseActiverecord.mysql_credential_resolver.call(table_name)
+            else
+              match
+            end
+          end
         end
 
         # Make HTTP request to ClickHouse server
@@ -383,7 +418,7 @@ module ActiveRecord
 
         # @see https://clickhouse.com/docs/sql-reference/statements/truncate
         # Additionally add 'Dictionary' because it is returned from 'show tables'.
-        TRUNCATE_UNSUPPORTED_ENGINES = %w[View File URL Buffer Null Dictionary].freeze
+        TRUNCATE_UNSUPPORTED_ENGINES = %w[View File URL Buffer Null Dictionary MySQL].freeze
 
         def build_truncate_statements(table_names)
           engines = table_engines(table_names)

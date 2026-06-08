@@ -1,6 +1,8 @@
 module ClickhouseActiverecord
   class SchemaDumper < ::ActiveRecord::ConnectionAdapters::SchemaDumper
 
+    MYSQL_ENGINE_TABLE_CONNECTION_REGEX = /MySQL\('[^']*'\s*,\s*'[^']*'\s*,\s*'[^']*'\s*,\s*'[^']*'\s*,\s*'[^']*'\)/i.freeze
+
     attr_accessor :simple
 
     class << self
@@ -22,10 +24,10 @@ module ClickhouseActiverecord
 
       view_tables = @connection.views.sort
       materialized_view_tables = @connection.materialized_views.sort
-      sorted_tables = @connection.tables.sort - view_tables - materialized_view_tables
+      sorted_tables = @connection.tables.sort - view_tables - materialized_view_tables - dictionary_names
 
       (sorted_tables + view_tables + materialized_view_tables).each do |table_name|
-        table(table_name, stream) unless ignored?(table_name)
+        table(table_name, stream) unless ignored?(table_name) || dictionary_names.include?(table_name)
       end
     end
 
@@ -36,6 +38,10 @@ module ClickhouseActiverecord
         unless simple
           stream.puts "  # TABLE: #{table}"
           sql = @connection.show_create_table(table)
+          sql.gsub!(MYSQL_ENGINE_TABLE_CONNECTION_REGEX) do |match|
+            table_name = match.match(/MySQL\('([^']*)'\s*,\s*'([^']*)'\s*,\s*'([^']*)'\s*,\s*'([^']*)'\s*,\s*'([^']*)'\)/i)[3]
+            "MySQL('[HIDDEN]', '[HIDDEN]', '#{table_name}', '[HIDDEN]', '[HIDDEN]')"
+          end
           stream.puts "  # SQL: #{sql.gsub(/ENGINE = Replicated(.*?)\('[^']+',\s*'[^']+',?\s?([^\)]*)?\)/, "ENGINE = \\1(\\2)")}" if sql
           # super(table.gsub(/^\.inner\./, ''), stream)
 
@@ -143,7 +149,12 @@ module ClickhouseActiverecord
       if options && options[:options]
         options[:options].gsub!(/^Replicated(.*?)\('[^']+',\s*'[^']+',?\s?([^\)]*)?\)/, "\\1(\\2)")
       end
-      super
+      result = super(options)
+      result.gsub!(MYSQL_ENGINE_TABLE_CONNECTION_REGEX) do |match|
+        table_name = match.match(/MySQL\('([^']*)'\s*,\s*'([^']*)'\s*,\s*'([^']*)'\s*,\s*'([^']*)'\s*,\s*'([^']*)'\)/i)[3]
+        "MySQL('[HIDDEN]', '[HIDDEN]', '#{table_name}', '[HIDDEN]', '[HIDDEN]')"
+      end
+      result
     end
 
     def format_colspec(colspec)
@@ -203,6 +214,13 @@ module ClickhouseActiverecord
       ]
       index_parts << "granularity: #{idx['granularity']}" if idx['granularity']
       index_parts
+    end
+
+    def dictionary_names
+      @dictionary_names ||= begin
+        res = @connection.do_system_execute("SELECT name FROM system.tables WHERE engine = 'Dictionary' AND database = currentDatabase()")
+        (res['data'] || []).flatten
+      end
     end
   end
 end

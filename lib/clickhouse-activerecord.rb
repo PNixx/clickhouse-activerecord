@@ -20,6 +20,10 @@ if defined?(Rails::Railtie)
 end
 
 module ClickhouseActiverecord
+  class << self
+    attr_accessor :mysql_credential_resolver
+  end
+
   def self.load
     ActiveRecord::InternalMetadata.prepend(CoreExtensions::ActiveRecord::InternalMetadata)
     ActiveRecord::Migration::CommandRecorder.include(CoreExtensions::ActiveRecord::Migration::CommandRecorder)
