@@ -312,7 +312,7 @@ module ActiveRecord
         end
 
         pk = table_structure(table_name).first
-        return ['id'] if pk.present? && pk[0] == 'id'
+        return ['id'] if pk.present? && pk.name == 'id'
         []
       end
 
@@ -434,9 +434,9 @@ module ActiveRecord
       end
 
       def change_column_null(table_name, column_name, null, default = nil)
-        structure = table_structure(table_name).select{|v| v[0] == column_name.to_s}.first
+        structure = table_structure(table_name).find { |col| col.name == column_name.to_s }
         raise "Column #{column_name} not found in table #{table_name}" if structure.nil?
-        change_column table_name, column_name, structure[1].gsub(/(Nullable\()?(.*?)\)?/, '\2'), {null: null, default: default}.compact
+        change_column table_name, column_name, structure.sql_type.gsub(/(Nullable\()?(.*?)\)?/, '\2'), {null: null, default: default}.compact
       end
 
       def change_column_default(table_name, column_name, default)
