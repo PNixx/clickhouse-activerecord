@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe 'Cluster Migration', :migrations do
+RSpec.describe 'Cluster Migration', :migrations, cluster: true do
   describe 'performs migrations' do
     let(:model) do
       Class.new(ActiveRecord::Base) do

@@ -3,6 +3,7 @@
 require 'bundler/setup'
 require 'active_record'
 require 'clickhouse-activerecord'
+require 'active_support/notifications'
 require 'active_support/testing/stream'
 
 ClickhouseActiverecord.load
@@ -30,17 +31,21 @@ RSpec.configure do |config|
 
     clear_consts
     clear_db
+    ActiveRecord::Base.connection.schema_cache.clear!
   end
+
+  config.filter_run_excluding cluster: !ENV.key?('CLICKHOUSE_CLUSTER')
 end
 
 ActiveRecord::Base.configurations = HashWithIndifferentAccess.new(
   default: {
     adapter: 'clickhouse',
     host: 'localhost',
-    port: ENV['CLICKHOUSE_PORT'] || 8123,
-    database: ENV['CLICKHOUSE_DATABASE'] || 'test',
+    port: ENV.fetch('CLICKHOUSE_PORT', 8123),
+    database: ENV.fetch('CLICKHOUSE_DATABASE', 'test'),
     username: ENV['CLICKHOUSE_USER'],
     password: ENV['CLICKHOUSE_PASSWORD'],
+    use_metadata_table: !ENV['CLICKHOUSE_CLUSTER'],
     cluster_name: ENV['CLICKHOUSE_CLUSTER'],
   }
 )
@@ -69,5 +74,23 @@ def clear_consts
 
     Object.send(:remove_const, const.to_s) if const
     $LOADED_FEATURES.delete(file)
+  end
+end
+
+class SqlCapture
+  def initialize(&block)
+    @block = block
+  end
+
+  def captured
+    trap = ->(_name, _started, _finished, _unique_id, payload) { store_captured(payload[:sql]) }
+    ActiveSupport::Notifications.subscribed(trap, 'sql.active_record') { @block.call }
+    @captured
+  end
+
+  private
+
+  def store_captured(sql)
+    @captured = sql
   end
 end

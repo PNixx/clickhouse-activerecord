@@ -39,6 +39,33 @@ default: &default
   keep_alive_timeout: 300
 ```
 
+### URL-based configuration
+
+You can configure the adapter with a single `url` key instead of individual fields:
+
+```yml
+default: &default
+  adapter: clickhouse
+  url: clickhouse://username:password@localhost:8123/database
+```
+
+Optional settings can be passed as query parameters:
+
+```
+clickhouse://username:password@localhost:8123/database?ssl=true&http_auth=basic&read_timeout=300&write_timeout=300&keep_alive_timeout=300&debug=false&cluster_name=my_cluster
+```
+
+Supported query parameters: `ssl` (true/false), `debug` (true/false), `http_auth` (query_params/basic/x_clickhouse_headers), `read_timeout`, `write_timeout`, `keep_alive_timeout` (integers), `cluster_name`, `sslca`.
+
+If both a `url` and explicit keys are provided, the explicit keys take precedence:
+
+```yml
+default: &default
+  adapter: clickhouse
+  url: clickhouse://username:password@localhost:8123/database
+  host: production.db.internal  # overrides the host from the URL
+```
+
 Alternatively if you wish to pass a custom `Net::HTTP` transport (or any other
 object which supports a `.post()` function with the same parameters as
 `Net::HTTP`'s), you can do this directly instead of specifying
