@@ -149,7 +149,7 @@ module ActiveRecord
 
         @connection_config = { user: @config[:username], password: @config[:password], database: @config[:database] }.compact
         @debug = @config[:debug] || false
-        @response_format = @config[:format] || DEFAULT_RESPONSE_FORMAT
+        @default_response_format = @config[:format] || DEFAULT_RESPONSE_FORMAT
         @http_auth = @config[:http_auth]&.to_sym
 
         @prepared_statements = false
