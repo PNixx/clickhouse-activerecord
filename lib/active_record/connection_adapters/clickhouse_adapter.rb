@@ -589,8 +589,13 @@ module ActiveRecord
 
       protected
 
-      def last_inserted_id(result)
-        result
+      def last_inserted_id(_result)
+        # Rails 7.1 persistence.rb:1258:
+        # _write_attribute(column, value)  # wrote true directly — ugly but no crash
+
+        # Rails 8.0 persistence.rb:933:
+        # _write_attribute(column, type_for_attribute(column).deserialize(value))  # now deserializes first
+        nil
       end
 
       def change_column_for_alter(table_name, column_name, type, **options)
