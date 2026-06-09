@@ -11,6 +11,10 @@ module ActiveRecord
             when /U?Int(\d+)/
               @subtype = :integer
               @limit = bits_to_limit(Regexp.last_match(1)&.to_i)
+            when /Float/
+              @subtype = :float
+            when /Bool/
+              @subtype = :boolean
             when /DateTime/
               @subtype = :datetime
             when /Date/
@@ -34,6 +38,10 @@ module ActiveRecord
               case @subtype
                 when :integer
                   value.to_i
+                when :float
+                  value.to_f
+                when :boolean
+                  ActiveRecord::Type::Boolean.new.cast(value)
                 when :datetime
                   ::DateTime.parse(value)
                 when :date
@@ -51,6 +59,8 @@ module ActiveRecord
               value.map { |item| serialize(item) }
             else
               return value if value.nil?
+              return value.to_f if @subtype == :float
+              return ActiveRecord::Type::Boolean.new.cast(value) if @subtype == :boolean
               case @subtype
                 when :integer
                   value.to_i
