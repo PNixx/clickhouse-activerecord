@@ -21,6 +21,10 @@ module CoreExtensions
           distributed_suffix = ''
         end
 
+        if full_config[:cluster_name]
+          table_options.merge!(options: 'ReplicatedReplacingMergeTree(ver) ORDER BY (version)')
+        end
+
         connection.create_table(table_name + distributed_suffix.to_s, **table_options) do |t|
           t.string :version, **version_options
           t.column :active, 'Int8', null: false, default: '1'
@@ -44,6 +48,7 @@ module CoreExtensions
         sm.project(arel_table[primary_key])
         sm.order(arel_table[primary_key].asc)
         sm.where([arel_table['active'].eq(1)])
+        sm.settings({max_replica_delay_for_distributed_queries: 1})
 
         connection.select_values(sm, "#{self.class} Load")
       end

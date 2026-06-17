@@ -44,14 +44,6 @@ module ActiveRecord
           stack.pop
         end
 
-        def execute(sql, name = nil, format: response_format, settings: {})
-          with_response_format(format) do
-            log(sql, [adapter_name, name].compact.join(' ')) do
-              raw_execute(sql, settings: settings)
-            end
-          end
-        end
-
         def truncate_tables(*table_names)
           table_names -= views
           table_names -= dictionaries
@@ -60,7 +52,19 @@ module ActiveRecord
 
         def execute_batch(statements, name = nil, **kwargs)
           statements.each do |statement|
-            execute(statement, name, **kwargs)
+            intent = QueryIntent.new(
+              adapter: self,
+              processed_sql: statement,
+              name: name,
+              batch: true,
+              binds: kwargs[:binds] || [],
+              prepare: kwargs[:prepare] || false,
+              allow_async: kwargs[:async] || false,
+              allow_retry: kwargs[:allow_retry] || false,
+              materialize_transactions: kwargs[:materialize_transactions] != false
+            )
+            intent.execute!
+            intent.finish
           end
         end
 
@@ -83,31 +87,36 @@ module ActiveRecord
           end
         end
 
-        def exec_insert(sql, name = nil, _binds = [], _pk = nil, _sequence_name = nil, returning: nil)
-          new_sql = sql.sub(/ (DEFAULT )?VALUES/, " VALUES")
-          with_response_format(nil) { execute(new_sql, name) }
-          nil
+        def affected_rows(result)
+          0
+        end
+
+        def _exec_insert(intent, pk = nil, sequence_name = nil, returning: nil) # :nodoc:
+          sql, binds = sql_for_insert(intent.raw_sql, pk, intent.binds, returning)
+          intent.raw_sql = sql
+          intent.binds = binds
+
+          with_response_format(nil) do
+            intent.execute!
+            intent.raw_result
+          end
         end
 
         def internal_exec_query(sql, name = nil, binds = [], prepare: false, async: false, allow_retry: false)
-          result = execute(sql, name)
-          columns = result['meta'].map { |m| m['name'] }
-          types = {}
-          result['meta'].each_with_index do |m, i|
-            # need use column name and index after commit in 7.2:
-            # https://github.com/rails/rails/commit/24dbf7637b1d5cd6eb3d7100b8d0f6872c3fee3c
-            types[m['name']] = types[i] = type_map.lookup(m['type'])
-          end
-          ActiveRecord::Result.new(columns, result['data'], types)
+          cast_result(execute(sql, name))
         rescue ActiveRecord::ActiveRecordError => e
           raise e
         rescue StandardError => e
           raise ActiveRecord::ActiveRecordError, "Response: #{e.message}"
         end
 
-        def exec_insert_all(sql, name)
-          with_response_format(nil) { execute(sql, name) }
-          true
+        def exec_insert_all(inserter, name) # :nodoc:
+          intent = internal_build_intent(inserter.to_sql, name)
+
+          with_response_format(nil) do
+            intent.execute!
+            intent.raw_result
+          end
         end
 
         # @link https://clickhouse.com/docs/en/sql-reference/statements/alter/update
@@ -116,10 +125,12 @@ module ActiveRecord
           0
         end
 
-        # @link https://clickhouse.com/docs/en/sql-reference/statements/delete
-        def exec_delete(sql, name = nil, _binds = [])
-          log(sql, "#{adapter_name} #{name}") do
-            statement = Statement.new(sql, format: response_format)
+        # # @link https://clickhouse.com/docs/en/sql-reference/statements/delete
+        def delete(arel, name = nil, binds = [])
+          intent = QueryIntent.new(adapter: self, arel: arel, name: name, binds: binds)
+
+          log(intent, "#{adapter_name} #{name}") do
+            statement = Statement.new(intent.processed_sql, format: response_format)
             res = request(statement)
             begin
               data = JSON.parse(res.header['x-clickhouse-summary'])
@@ -131,7 +142,7 @@ module ActiveRecord
         end
 
         def tables(name = nil)
-          result = do_system_execute("SHOW TABLES WHERE name NOT LIKE '.inner_id.%'", name)
+          result = do_system_execute("SHOW TABLES WHERE name NOT LIKE '.inner_id.%'", format: 'JSONCompactEachRowWithNamesAndTypes')
           return [] if result.nil?
           result['data'].flatten
         end
@@ -189,9 +200,11 @@ module ActiveRecord
           tables
         end
 
-        def do_system_execute(sql, name = nil, except_params: [])
-          log_with_debug(sql, [adapter_name, name].compact.join(' ')) do
-            raw_execute(sql, except_params: except_params)
+        def do_system_execute(sql, name = nil, format: response_format, settings: {}, except_params: [])
+          with_response_format(format) do
+            log_with_debug(sql, [adapter_name, name].compact.join(' ')) do
+              _raw_execute(sql, settings: settings, except_params: except_params)
+            end
           end
         end
 
@@ -233,7 +246,7 @@ module ActiveRecord
             if (duplicate = inserting.detect { |v| inserting.count(v) > 1 })
               raise "Duplicate migration #{duplicate}. Please renumber your migrations to resolve the conflict."
             end
-            execute(insert_versions_sql(inserting), nil, format: nil, settings: {max_partitions_per_insert_block: [100, inserting.size].max})
+            do_system_execute(insert_versions_sql(inserting), nil, format: nil, settings: {max_partitions_per_insert_block: [100, inserting.size].max})
           end
         end
 
@@ -250,7 +263,7 @@ module ActiveRecord
         protected
 
         def table_structure(table_name)
-          result = do_system_execute("DESCRIBE TABLE `#{table_name}`", table_name)
+          result = do_system_execute("DESCRIBE TABLE `#{table_name}`", format: "JSONCompactEachRowWithNamesAndTypes")
           data = result['data']
 
           raise ActiveRecord::StatementInvalid, "Could not find table '#{table_name}'" if data.empty?
@@ -272,6 +285,27 @@ module ActiveRecord
         end
 
         private
+
+        def perform_query(raw_connection, intent)
+          _raw_execute(intent.processed_sql)
+        end
+
+        def _raw_execute(sql, settings: {}, except_params: {})
+          statement = Statement.new(sql, format: response_format)
+          response = request(statement, settings: settings, except_params: except_params)
+          statement.processed_response(response)
+        end
+
+        def cast_result(raw_result)
+          columns = raw_result['meta'].map { |m| m['name'] }
+          types = {}
+          raw_result['meta'].each_with_index do |m, i|
+            # need use column name and index after commit in 7.2:
+            # https://github.com/rails/rails/commit/24dbf7637b1d5cd6eb3d7100b8d0f6872c3fee3c
+            types[m['name']] = types[i] = type_map.lookup(m['type'])
+          end
+          ActiveRecord::Result.new(columns, raw_result['data'], types)
+        end
 
         def schema_creation
           Clickhouse::SchemaCreation.new(self)
@@ -311,12 +345,6 @@ module ActiveRecord
 
         def has_default_function?(default) # :nodoc:
           (%r{\w+\(.*\)} === default)
-        end
-
-        def raw_execute(sql, settings: {}, except_params: [])
-          statement = Statement.new(sql, format: response_format)
-          response = request(statement, settings: settings, except_params: except_params)
-          statement.processed_response(response)
         end
 
         # Make HTTP request to ClickHouse server
@@ -400,7 +428,7 @@ module ActiveRecord
             #{table_names_sql}
           SQL
 
-          result = do_system_execute(sql)
+          result = execute(sql)
           return {} if result.nil?
 
           result['data'].to_h { |row| [row[0], row[1]] }

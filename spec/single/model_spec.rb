@@ -44,7 +44,7 @@ RSpec.describe 'Model', :migrations do
       end
 
       it 'also works when a different format is passed as a keyword' do
-        result = Model.connection.execute('SELECT 1 AS t', format: 'JSONCompact')
+        result = Model.connection.do_system_execute('SELECT 1 AS t', format: 'JSONCompact')
         expect(result['data']).to eq([[1]])
         expect(result['meta']).to eq([{ 'name' => 't', 'type' => 'UInt8' }])
       end
@@ -850,7 +850,7 @@ RSpec.describe 'Model', :migrations do
       before do
         # Create table with JSON column
         json_model.connection.execute('DROP TABLE IF EXISTS json_test_table')
-        json_model.connection.execute(<<~SQL, nil, settings: { allow_experimental_json_type: 1 })
+        json_model.connection.do_system_execute(<<~SQL, nil, settings: { allow_experimental_json_type: 1 })
           CREATE TABLE json_test_table (
             id UInt64,
             properties JSON,
