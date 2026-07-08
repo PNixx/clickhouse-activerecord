@@ -71,8 +71,10 @@ module ActiveRecord
         # Execute an SQL query and save the result to a file in stream mode
         # @return [Tempfile]
         def execute_to_file(sql, name = nil, format: response_format, settings: {})
+          intent = internal_build_intent(sql, name)
+
           with_response_format(format) do
-            log(sql, [adapter_name, 'Stream', name].compact.join(' ')) do
+            log(intent, [adapter_name, 'Stream', name].compact.join(' ')) do
               statement = Statement.new(sql, format: response_format)
               result = nil
               @lock.synchronize do
@@ -85,10 +87,6 @@ module ActiveRecord
               result
             end
           end
-        end
-
-        def affected_rows(result)
-          0
         end
 
         def _exec_insert(intent, pk = nil, sequence_name = nil, returning: nil) # :nodoc:
@@ -119,13 +117,17 @@ module ActiveRecord
           end
         end
 
+        def affected_rows(result)
+          0
+        end
+
         # @link https://clickhouse.com/docs/en/sql-reference/statements/alter/update
         def exec_update(sql, name = nil, _binds = [])
           execute(sql, name)
           0
         end
 
-        # # @link https://clickhouse.com/docs/en/sql-reference/statements/delete
+        # @link https://clickhouse.com/docs/en/sql-reference/statements/delete
         def delete(arel, name = nil, binds = [])
           intent = QueryIntent.new(adapter: self, arel: arel, name: name, binds: binds)
 
@@ -238,7 +240,7 @@ module ActiveRecord
           versions = migration_context.migrations.map(&:version)
 
           unless migrated.include?(version)
-            exec_insert "INSERT INTO #{sm_table} (version) VALUES (#{quote(version.to_s)})", nil, nil
+            _exec_insert("INSERT INTO #{sm_table} (version) VALUES (#{quote(version.to_s)})")
           end
 
           inserting = (versions - migrated).select { |v| v < version }
@@ -290,12 +292,6 @@ module ActiveRecord
           _raw_execute(intent.processed_sql)
         end
 
-        def _raw_execute(sql, settings: {}, except_params: {})
-          statement = Statement.new(sql, format: response_format)
-          response = request(statement, settings: settings, except_params: except_params)
-          statement.processed_response(response)
-        end
-
         def cast_result(raw_result)
           columns = raw_result['meta'].map { |m| m['name'] }
           types = {}
@@ -345,6 +341,12 @@ module ActiveRecord
 
         def has_default_function?(default) # :nodoc:
           (%r{\w+\(.*\)} === default)
+        end
+
+        def _raw_execute(sql, settings: {}, except_params: {})
+          statement = Statement.new(sql, format: response_format)
+          response = request(statement, settings: settings, except_params: except_params)
+          statement.processed_response(response)
         end
 
         # Make HTTP request to ClickHouse server
