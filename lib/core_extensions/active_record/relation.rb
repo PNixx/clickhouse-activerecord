@@ -7,7 +7,8 @@ module CoreExtensions
       end
 
       def reverse_order!
-        return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+        conn = respond_to?(:lease_connection) ? lease_connection : connection
+        return super unless conn.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
 
         orders = order_values.uniq.reject(&:blank?)
         return super unless orders.empty? && !primary_key
