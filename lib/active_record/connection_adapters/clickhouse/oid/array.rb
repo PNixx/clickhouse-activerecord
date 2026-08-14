@@ -14,7 +14,7 @@ module ActiveRecord
                          :json
                        else
                          case sql_type
-                         when /U?Int\d+/
+                         when /U?Int\d+/, /U?Float\d+/
                            :integer
                          when /DateTime/
                            :datetime
