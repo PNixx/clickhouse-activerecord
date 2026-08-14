@@ -587,6 +587,86 @@ RSpec.describe 'Model', :migrations do
     end
   end
 
+  context 'array with float' do
+    let!(:model) do
+      Class.new(ActiveRecord::Base) do
+        self.table_name = 'array_float_test'
+      end
+    end
+
+    before do
+      migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_array_float')
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
+    end
+
+    describe 'Float subtype support' do
+      it 'creates and retrieves Float32 array values' do
+        model.create!(
+          array_float32: [1.5, 2.7, 3.14],
+          array_float64: [1.0, 2.0],
+          date: date
+        )
+
+        record = model.first
+        expect(record.array_float32).to be_a Array
+        expect(record.array_float32).to all(be_a(Float))
+        expect(record.array_float32).to eq([1.5, 2.7, 3.14])
+      end
+
+      it 'creates and retrieves Float64 array values' do
+        model.create!(
+          array_float32: [1.0],
+          array_float64: [123.456789, 987.654321],
+          date: date
+        )
+
+        record = model.first
+        expect(record.array_float64).to be_a Array
+        expect(record.array_float64).to all(be_a(Float))
+        expect(record.array_float64).to eq([123.456789, 987.654321])
+      end
+
+      it 'insert with insert_all' do
+        model.insert_all([{
+          array_float32: [4.5],
+          array_float64: [5.5],
+          date: date
+        }])
+
+        record = model.first
+        expect(record.array_float32).to eq([4.5])
+        expect(record.array_float64).to eq([5.5])
+      end
+
+      it 'retrieves float values without quoting in SQL' do
+        model.connection.insert("INSERT INTO #{model.table_name} (id, array_float32, array_float64, date) VALUES (1, [99.99, 0.5], [0.075], '2022-12-06')")
+
+        record = model.first
+        expect(record.array_float32).to eq([99.99, 0.5])
+        expect(record.array_float64).to eq([0.075])
+      end
+    end
+
+    describe 'deserialize' do
+      it 'deserializes string float values from array_float32 type' do
+        type = model.type_for_attribute('array_float32')
+        expect(type.type).to eq(:float)
+        expect(type.deserialize(['1.5', '0.25'])).to eq([1.5, 0.25])
+      end
+
+      it 'deserializes string float values from array_float64 type' do
+        type = model.type_for_attribute('array_float64')
+        expect(type.type).to eq(:float)
+        expect(type.deserialize(['123.456789'])).to eq([123.456789])
+      end
+
+      it 'serializes float array values as numbers' do
+        type = model.type_for_attribute('array_float32')
+        expect(type.serialize([1.5, '2.25'])).to eq([1.5, 2.25])
+      end
+    end
+  end
+
   context 'map' do
     let!(:model) do
       Class.new(ActiveRecord::Base) do
