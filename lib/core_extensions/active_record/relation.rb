@@ -2,10 +2,6 @@ module CoreExtensions
   module ActiveRecord
     module Relation
 
-      def self.prepended(base)
-        base::VALID_UNSCOPING_VALUES << :final << :settings
-      end
-
       def reverse_order!
         conn = respond_to?(:lease_connection) ? lease_connection : connection
         return super unless conn.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
@@ -170,6 +166,35 @@ module CoreExtensions
         self
       end
 
+      def unscope!(*args) # :nodoc:
+        self.unscope_values |= args
+
+        args.each do |scope|
+          case scope
+          when Symbol
+            scope = :left_outer_joins if scope == :left_joins
+            if !_valid_unscoping_values.include?(scope)
+              raise ArgumentError, "Called unscope() with invalid unscoping argument ':#{scope}'. Valid arguments are :#{valid_unscoping_values.to_a.join(", :")}."
+            end
+            assert_modifiable!
+            @values.delete(scope)
+          when Hash
+            scope.each do |key, target_value|
+              if key != :where
+                raise ArgumentError, "Hash arguments in .unscope(*args) must have :where as the key."
+              end
+
+              target_values = resolve_arel_attributes(Array.wrap(target_value))
+              self.where_clause = where_clause.except(*target_values)
+            end
+          else
+            raise ArgumentError, "Unrecognized scoping: #{args.inspect}. Use .unscope(where: :attribute_name) or .unscope(:order), for example."
+          end
+        end
+
+        self
+      end
+
       private
 
       def check_command!(cmd)
@@ -218,6 +243,11 @@ module CoreExtensions
         else
           super
         end
+      end
+
+      # alternative method to avoid redefining the const +VALID_UNSCOPING_VALUES+
+      def _valid_unscoping_values
+        Set.new(::ActiveRecord::Relation::VALID_UNSCOPING_VALUES.to_a + [:settings, :final])
       end
     end
   end
