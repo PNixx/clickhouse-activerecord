@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'base64'
+require 'net/http'
 require 'clickhouse-activerecord/version'
 
 module ActiveRecord
@@ -11,6 +12,9 @@ module ActiveRecord
         HTTP_AUTH_BASIC = :basic
         HTTP_AUTH_X_HEADERS = :x_clickhouse_headers
         HTTP_AUTH_TYPES = [HTTP_AUTH_QUERY_PARAMS, HTTP_AUTH_BASIC, HTTP_AUTH_X_HEADERS].freeze
+
+        # Connection-level failures worth a single retry on a fresh connection.
+        RETRYABLE_CONNECTION_ERRORS = [Net::OpenTimeout, EOFError, Errno::ECONNRESET, IOError].freeze
 
         def with_settings(**settings)
           @block_settings ||= {}
@@ -84,19 +88,35 @@ module ActiveRecord
         end
 
         def internal_exec_query(sql, name = nil, binds = [], prepare: false, async: false, allow_retry: false)
-          result = execute(sql, name)
-          columns = result['meta'].map { |m| m['name'] }
-          types = {}
-          result['meta'].each_with_index do |m, i|
-            # need use column name and index after commit in 7.2:
-            # https://github.com/rails/rails/commit/24dbf7637b1d5cd6eb3d7100b8d0f6872c3fee3c
-            types[m['name']] = types[i] = type_map.lookup(m['type'])
+          connection_retries = 0
+          begin
+            result = execute(sql, name)
+            columns = result['meta'].map { |m| m['name'] }
+            types = {}
+            result['meta'].each_with_index do |m, i|
+              # need use column name and index after commit in 7.2:
+              # https://github.com/rails/rails/commit/24dbf7637b1d5cd6eb3d7100b8d0f6872c3fee3c
+              types[m['name']] = types[i] = type_map.lookup(m['type'])
+            end
+            ActiveRecord::Result.new(columns, result['data'], types)
+          rescue ActiveRecord::ActiveRecordError => e
+            raise e
+          rescue Net::ReadTimeout => e
+            raise ActiveRecord::AdapterTimeout, "Response: #{e.message}"
+          rescue *RETRYABLE_CONNECTION_ERRORS => e
+            raise ActiveRecord::ConnectionFailed, "Response: #{e.message}" if connection_retries.positive?
+
+            connection_retries += 1
+            logger&.warn("[clickhouse-activerecord] retrying read query after connection failure (#{e.class}: #{e.message})")
+            begin
+              reconnect
+            rescue StandardError
+              nil
+            end
+            retry
+          rescue StandardError => e
+            raise ActiveRecord::ActiveRecordError, "Response: #{e.message}"
           end
-          ActiveRecord::Result.new(columns, result['data'], types)
-        rescue ActiveRecord::ActiveRecordError => e
-          raise e
-        rescue StandardError => e
-          raise ActiveRecord::ActiveRecordError, "Response: #{e.message}"
         end
 
         def exec_insert_all(sql, name)
