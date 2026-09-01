@@ -150,7 +150,9 @@ module ActiveRecord
             host: @config[:host] || 'localhost',
             port: port,
             ssl: @config[:ssl].present? ? @config[:ssl] : port == 443,
+            insecure: @config.fetch(:insecure, true),
             sslca: @config[:sslca],
+            open_timeout: @config[:open_timeout],
             read_timeout: @config[:read_timeout],
             write_timeout: @config[:write_timeout],
             keep_alive_timeout: @config[:keep_alive_timeout]
@@ -158,7 +160,13 @@ module ActiveRecord
         end
         @connection_parameters = connection
 
-        @connection_config = { user: @config[:username], password: @config[:password], database: @config[:database] }.compact
+        @connection_config = {
+          user: @config[:username],
+          password: @config[:password],
+          database: @config[:database],
+          max_execution_time: @config[:max_execution_time],
+          cancel_http_readonly_queries_on_client_close: @config[:cancel_http_readonly_queries_on_client_close],
+        }.compact
         @debug = @config[:debug] || false
         @default_response_format = @config[:format] || DEFAULT_RESPONSE_FORMAT
         @http_auth = @config[:http_auth]&.to_sym
@@ -227,12 +235,17 @@ module ActiveRecord
               case key
               when 'ssl'                then config[:ssl]                = (value == 'true')
               when 'debug'              then config[:debug]              = (value == 'true')
+              when 'insecure'           then config[:insecure]           = (value == 'true')
+              when 'open_timeout'       then config[:open_timeout]       = value.to_i
               when 'read_timeout'       then config[:read_timeout]       = value.to_i
               when 'write_timeout'      then config[:write_timeout]      = value.to_i
               when 'keep_alive_timeout' then config[:keep_alive_timeout] = value.to_i
               when 'http_auth'          then config[:http_auth]          = value
               when 'cluster_name'       then config[:cluster_name]       = value
               when 'sslca'              then config[:sslca]              = value
+              when 'max_execution_time' then config[:max_execution_time] = value.to_i
+              when 'cancel_http_readonly_queries_on_client_close'
+                config[:cancel_http_readonly_queries_on_client_close] = (value == 'true')
               end
             end
           end
@@ -607,9 +620,15 @@ module ActiveRecord
       private
 
       def connect
-        @connection = @connection_parameters[:connection] || Net::HTTP.start(@connection_parameters[:host], @connection_parameters[:port], use_ssl: @connection_parameters[:ssl], verify_mode: OpenSSL::SSL::VERIFY_NONE)
+        @connection = @connection_parameters[:connection] || Net::HTTP.start(
+          @connection_parameters[:host],
+          @connection_parameters[:port],
+          use_ssl: @connection_parameters[:ssl],
+          verify_mode: @connection_parameters[:insecure] ? OpenSSL::SSL::VERIFY_NONE : OpenSSL::SSL::VERIFY_PEER,
+          **{ open_timeout: @connection_parameters[:open_timeout] }.compact
+        )
 
-        @connection.ca_file = @connection_parameters[:ca_file] if @connection_parameters[:ca_file]
+        @connection.ca_file = @connection_parameters[:sslca] if @connection_parameters[:sslca]
         @connection.read_timeout = @connection_parameters[:read_timeout] if @connection_parameters[:read_timeout]
         @connection.write_timeout = @connection_parameters[:write_timeout] if @connection_parameters[:write_timeout]
 
