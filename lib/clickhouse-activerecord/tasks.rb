@@ -14,7 +14,7 @@ module ClickhouseActiverecord
 
     def create
       establish_master_connection
-      connection.create_database @configuration.database
+      connection.create_database database_name
     rescue ActiveRecord::StatementInvalid => e
       if e.cause.to_s.include?('already exists')
         raise ActiveRecord::DatabaseAlreadyExists
@@ -25,7 +25,7 @@ module ClickhouseActiverecord
 
     def drop
       establish_master_connection
-      connection.drop_database @configuration.database
+      connection.drop_database database_name
     end
 
     def purge
@@ -43,9 +43,9 @@ module ClickhouseActiverecord
                             .map { |function| function.gsub('\\n', "\n") }
 
       # get all tables
-      table_defs = connection.execute("SHOW TABLES FROM #{@configuration.database} WHERE name NOT LIKE '.inner_id.%'")['data']
+      table_defs = connection.execute("SHOW TABLES FROM #{database_name} WHERE name NOT LIKE '.inner_id.%'")['data']
                              .flatten
-                             .map { |name| connection.show_create_table(name, single_line: false).gsub("#{@configuration.database}.", '') }
+                             .map { |name| connection.show_create_table(name, single_line: false).gsub("#{database_name}.", '') }
 
       # separate views from tables
       views, tables = table_defs.partition { |sql| sql.match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) }
@@ -122,6 +122,11 @@ module ClickhouseActiverecord
 
     def establish_master_connection
       establish_connection @configuration
+    end
+
+    def database_name
+      @configuration.database.presence ||
+        URI.parse(@configuration.configuration_hash[:url]).path.delete_prefix('/')
     end
 
     def check_target_version
