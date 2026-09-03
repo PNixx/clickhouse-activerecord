@@ -279,6 +279,13 @@ User.joins(:actions).using(:group_id)
 # Clickhouse User Load (10.3ms)  SELECT users.* FROM users INNER JOIN actions USING group_id
 #=> #<ActiveRecord::Relation [#<User *** >]>
 
+# `final` only applies the FINAL modifier to the primary FROM table. Use
+# `joins_final` to also apply FINAL to a joined table (the join is added for
+# you, like `joins`). Pass association names; joins are matched by table name.
+User.final.joins_final(:actions)
+# Clickhouse User Load (10.3ms)  SELECT users.* FROM users FINAL INNER JOIN actions FINAL ON actions.user_id = users.id
+#=> #<ActiveRecord::Relation [#<User *** >]>
+
 User.window('x', order: 'date', partition: 'name', rows: 'UNBOUNDED PRECEDING').select('sum(value) OVER x')
 # SELECT sum(value) OVER x FROM users WINDOW x AS (PARTITION BY name ORDER BY date ROWS UNBOUNDED PRECEDING)
 #=> #<ActiveRecord::Relation [#<User *** >]>

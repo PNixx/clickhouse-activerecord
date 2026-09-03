@@ -2,6 +2,7 @@
 
 require 'arel/visitors/clickhouse'
 require 'arel/nodes/final'
+require 'arel/nodes/final_table'
 require 'arel/nodes/grouping_sets'
 require 'arel/nodes/settings'
 require 'arel/nodes/using'
@@ -65,6 +66,8 @@ module ActiveRecord
   module ModelSchema
     module ClassMethods
       delegate :final, :final!,
+               :joins_final, :joins_final!,
+               :left_joins_final, :left_joins_final!,
                :group_by_grouping_sets, :group_by_grouping_sets!,
                :settings, :settings!,
                :window, :window!,

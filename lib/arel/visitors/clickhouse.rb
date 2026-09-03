@@ -88,6 +88,16 @@ module Arel
         collector
       end
 
+      # Renders the FINAL modifier for a single JOIN source, e.g.
+      # `INNER JOIN espm_binaries FINAL ON ...`. The join visitors inherited
+      # from ToSql all emit their table via `visit o.left`, so wrapping that
+      # table in a FinalTable node is enough to add FINAL to any join type.
+      def visit_Arel_Nodes_FinalTable(o, collector)
+        collector = visit o.expr, collector
+        collector << ' FINAL'
+        collector
+      end
+
       def visit_Arel_Nodes_GroupingSets(o, collector)
         collector << 'GROUPING SETS '
         grouping_array_or_grouping_element(o.expr, collector)
