@@ -154,11 +154,6 @@ module ClickhouseActiverecord
       end
     end
 
-    def schema_limit(column)
-      return nil if column.type == :float
-      super
-    end
-
     def schema_unsigned(column)
       return nil unless column.type == :integer && !simple
       (column.sql_type =~ /(Nullable)?\(?UInt\d+\)?/).nil? ? false : nil
