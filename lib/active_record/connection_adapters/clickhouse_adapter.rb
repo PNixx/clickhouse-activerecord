@@ -103,6 +103,7 @@ module ActiveRecord
         integer: { name: 'UInt32' },
         big_integer: { name: 'UInt64' },
         float: { name: 'Float32' },
+        float64: { name: 'Float64' },
         decimal: { name: 'Decimal' },
         datetime: { name: 'DateTime' },
         datetime64: { name: 'DateTime64' },
@@ -212,6 +213,14 @@ module ActiveRecord
         !native_database_types[type].nil?
       end
 
+      # Rails appends the limit to the native type name (e.g. "Float32(8)"), which is not valid in ClickHouse.
+      # Resolve the float width by limit here so that add_column / change_column behave like TableDefinition#float.
+      def type_to_sql(type, limit: nil, precision: nil, scale: nil, **)
+        return native_database_types[limit == 8 ? :float64 : :float][:name] if type.to_s == 'float'
+
+        super
+      end
+
       def supports_indexes_in_create?
         true
       end
@@ -267,6 +276,10 @@ module ActiveRecord
               8
             when /(Nullable)?\(?U?Int128\)?/
               16
+            when /(Nullable)?\(?Float32\)?/
+              nil
+            when /(Nullable)?\(?Float64\)?/
+              8
             else
               super
           end
