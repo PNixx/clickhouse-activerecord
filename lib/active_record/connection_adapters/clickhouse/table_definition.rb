@@ -63,6 +63,12 @@ module ActiveRecord
           args.each { |name| column(name, kind, **options.except(:limit, :unsigned)) }
         end
 
+        def float(*args, **options)
+          kind = options[:limit] == 8 ? :float64 : :float
+
+          args.each { |name| column(name, kind, **options.except(:limit)) }
+        end
+
         def datetime(*args, **options)
           kind = :datetime
 
