@@ -89,6 +89,19 @@ module ActiveRecord
             "#{current_database}.#{match[:table_name].sub('.', '')}"
         end
 
+        def add_materialized_to_clause!(create_sql, options)
+          if !options.to
+            create_sql << " ENGINE = Memory()"
+          else
+            target_table = options.to.split('.').last
+            table_structure = @conn.execute("DESCRIBE TABLE #{target_table}")['data']
+            column_definitions = table_structure.map do |field|
+              "`#{field[0]}` #{field[1]}"
+            end
+            create_sql << "TO #{options.to} (#{column_definitions.join(', ')}) "
+          end
+        end
+
         def add_to_clause!(create_sql, options)
           # If you do not specify a database explicitly, ClickHouse will use the "default" database.
           return unless options.to
@@ -104,23 +117,34 @@ module ActiveRecord
           create_sql = +"CREATE#{table_modifier_in_create(o)} #{o.view ? "VIEW" : "TABLE"} "
           create_sql << "IF NOT EXISTS " if o.if_not_exists
           create_sql << "#{quote_table_name(o.name)} "
-          add_as_clause!(create_sql, o) if o.as && !o.view
-          add_to_clause!(create_sql, o) if o.materialized
 
-          statements = o.columns.map { |c| accept c }
-          statements << accept(o.primary_keys) if o.primary_keys
+          # Add column definitions for regular tables only
+          if !o.view && o.columns.present?
+            statements = o.columns.map { |c| accept c }
+            statements << accept(o.primary_keys) if o.primary_keys
 
-          if supports_indexes_in_create?
-            indexes = o.indexes.map do |expression, options|
-              accept(@conn.add_index_options(o.name, expression, **options))
+            if supports_indexes_in_create?
+              indexes = o.indexes.map do |expression, options|
+                accept(@conn.add_index_options(o.name, expression, **options))
+              end
+              statements.concat(indexes)
             end
-            statements.concat(indexes)
+
+            create_sql << "(#{statements.join(', ')})"
           end
 
-          create_sql << "(#{statements.join(', ')})" if statements.present?
-          # Attach options for only table or materialized view without TO section
-          add_table_options!(create_sql, o) if !o.view || o.view && o.materialized && !o.to
-          add_as_clause!(create_sql, o) if o.as && o.view
+          # Add TO clause for materialized views before AS clause
+          add_materialized_to_clause!(create_sql, o) if o.materialized && o.view
+
+          # Add AS clause for all views
+          add_as_clause!(create_sql, o) if o.as
+
+          # Add TO clause for regular views (non-materialized) after AS clause
+          add_to_clause!(create_sql, o) if o.to && !o.materialized
+
+          # Add table options for regular tables
+          add_table_options!(create_sql, o) if !o.view
+
           create_sql
         end
 
