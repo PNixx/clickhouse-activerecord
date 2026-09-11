@@ -543,6 +543,18 @@ RSpec.describe 'Model', :migrations do
       quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
     end
 
+    describe '#array' do
+      it 'reports array columns as arrays' do
+        expect(model.columns_hash['array_datetime'].array).to be_truthy
+        expect(model.columns_hash['array_string'].array).to be_truthy
+        expect(model.columns_hash['array_int'].array).to be_truthy
+      end
+
+      it 'does not report scalar columns as arrays' do
+        expect(model.columns_hash['date'].array).to be_falsey
+      end
+    end
+
     describe '#create' do
       it 'creates a new record' do
         expect {
@@ -597,6 +609,13 @@ RSpec.describe 'Model', :migrations do
     before do
       migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'add_map_datetime')
       quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
+    end
+
+    describe '#array' do
+      it 'does not report map columns as arrays' do
+        expect(model.columns_hash['map_string'].array).to be_falsey
+        expect(model.columns_hash['map_array_string'].array).to be_falsey
+      end
     end
 
     describe '#create' do
