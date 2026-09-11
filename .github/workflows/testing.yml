@@ -32,10 +32,10 @@ jobs:
             rails: 7.2.3
           - ruby: 4.0
             rails: 8.1
-        clickhouse: [ '24.6', '24.9', '25.10' ]
+        clickhouse: [ '24.9', '25.10' ]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Start ClickHouse ${{ matrix.clickhouse }}
         uses: hoverkraft-tech/compose-action@v2.5.0
@@ -82,7 +82,7 @@ jobs:
         clickhouse: [ '24.9', '25.10' ]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Start ClickHouse Cluster ${{ matrix.clickhouse }}
         uses: hoverkraft-tech/compose-action@v2.5.0

@@ -31,7 +31,7 @@ default: &default
   http_auth: query_params # optional, supports query_params, basic, x_clickhouse_headers
   ssl: true # optional for using ssl connection
   debug: true # use for showing in to log technical information
-  migrations_paths: db/clickhouse # optional, default: db/migrate_clickhouse
+  migrations_paths: db/clickhouse # optional
   cluster_name: 'cluster_name' # optional for creating tables in cluster 
   replica_name: '{replica}' # replica macros name, optional for creating replicated tables
   read_timeout: 300 # change network timeouts, by default 60 seconds
