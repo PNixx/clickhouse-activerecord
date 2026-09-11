@@ -3,7 +3,7 @@ module CoreExtensions
     module Relation
 
       def self.prepended(base)
-        base::VALID_UNSCOPING_VALUES << :final << :settings
+        base::VALID_UNSCOPING_VALUES << :final << :settings << :joins_final
       end
 
       def reverse_order!
@@ -91,6 +91,79 @@ module CoreExtensions
         @values.fetch(:final, nil)
       end
 
+      # Apply the FINAL modifier to one or more joined tables. Unlike #final,
+      # which only adds FINAL to the query's primary FROM table, #joins_final
+      # adds the join(s) and renders FINAL on the joined table so ClickHouse
+      # merges those rows before joining.
+      # For example:
+      #
+      #   AppControlEvent.final.joins_final(:espm_binary)
+      #   # SELECT ... FROM espm_app_control_events FINAL
+      #   #   INNER JOIN espm_binaries FINAL ON ...
+      #
+      # Each argument is an association name and is added as a join (like
+      # #joins); FINAL is then rendered on the joined table. Joins are matched
+      # by table name, so if the same table is joined more than once every join
+      # of that table receives FINAL. An
+      # <tt>ActiveRecord::ActiveRecordError</tt> will be raised if the database
+      # is not ClickHouse.
+      #
+      # @param [Array] args
+      def joins_final(*args)
+        spawn.joins_final!(*args)
+      end
+
+      # @param [Array] args
+      def joins_final!(*args)
+        check_command!('FINAL')
+        joins!(*args)
+        self.joins_final_values |= args
+        self
+      end
+
+      # Like #joins_final, but adds the join(s) as LEFT OUTER JOINs (via
+      # #left_outer_joins) and renders FINAL on the joined table. Use this when
+      # the joined rows must be preserved even with no match (e.g. an optional
+      # catalog lookup) while still merging the joined table with FINAL.
+      # For example:
+      #
+      #   AppControlEvent.left_joins_final(:espm_binary)
+      #   # SELECT ... FROM espm_app_control_events
+      #   #   LEFT OUTER JOIN espm_binaries FINAL ON ...
+      #
+      # Each argument is an association name and is added as a left outer join
+      # (like #left_outer_joins); FINAL is then rendered on the joined table.
+      # Joins are matched by table name, so if the same table is joined more
+      # than once every join of that table receives FINAL. An
+      # <tt>ActiveRecord::ActiveRecordError</tt> will be raised if the database
+      # is not ClickHouse.
+      #
+      # @param [Array] args
+      def left_joins_final(*args)
+        spawn.left_joins_final!(*args)
+      end
+
+      # @param [Array] args
+      def left_joins_final!(*args)
+        check_command!('FINAL')
+        left_outer_joins!(*args)
+        self.joins_final_values |= args
+        self
+      end
+
+      def joins_final_values
+        @values.fetch(:joins_final, ::ActiveRecord::QueryMethods::FROZEN_EMPTY_ARRAY)
+      end
+
+      def joins_final_values=(value)
+        if ::ActiveRecord::version >= Gem::Version.new('7.2')
+          assert_modifiable!
+        else
+          assert_mutability!
+        end
+        @values[:joins_final] = value
+      end
+
       # GROUPING SETS allows you to specify multiple groupings in the GROUP BY clause.
       # Whereas GROUP BY CUBE generates all possible groupings, GROUP BY GROUPING SETS generates only the specified groupings.
       # For example:
@@ -176,6 +249,50 @@ module CoreExtensions
         raise ::ActiveRecord::ActiveRecordError, cmd + ' is a ClickHouse specific query clause' unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
       end
 
+      # Wrap the left (table) side of every join source that matches a
+      # requested #joins_final argument in an Arel::Nodes::FinalTable so the
+      # ClickHouse visitor renders FINAL on that join. Called before
+      # +arel.final!+ so the join source is still the plain JoinSource (and not
+      # yet wrapped in the FROM-level Final node).
+      def mark_final_joins!(arel)
+        names = final_join_table_names
+        return if names.empty?
+
+        arel.join_sources.each do |join|
+          next unless join.respond_to?(:left) && join.respond_to?(:left=)
+
+          left = join.left
+          next if left.is_a?(::Arel::Nodes::FinalTable)
+          next unless final_join_match?(left, names)
+
+          join.left = ::Arel::Nodes::FinalTable.new(left)
+        end
+      end
+
+      # Resolve the #joins_final arguments to the set of table names that
+      # should carry FINAL. Association names are mapped to their table;
+      # anything else is treated as a literal table name.
+      def final_join_table_names
+        joins_final_values.flatten.filter_map do |arg|
+          case arg
+          when Symbol, String
+            reflection = klass.reflect_on_association(arg.to_sym)
+            reflection ? reflection.table_name : arg.to_s
+          end
+        end.to_set
+      end
+
+      # Does the join's table source match one of the requested FINAL names?
+      # Handles both Arel::Table (name) and Arel::Nodes::TableAlias (alias name
+      # plus the underlying relation's name).
+      def final_join_match?(left, names)
+        candidates = []
+        candidates << left.name if left.respond_to?(:name)
+        candidates << left.table_alias if left.respond_to?(:table_alias) && left.table_alias
+        candidates << left.relation.name if left.respond_to?(:relation) && left.relation.respond_to?(:name)
+        candidates.any? { |c| names.include?(c.to_s) }
+      end
+
       def build_arel(connection_or_aliases = nil, aliases = nil)
         requirement = Gem::Requirement.new('>= 7.2', '< 8.1')
 
@@ -185,6 +302,7 @@ module CoreExtensions
           arel = super(connection_or_aliases)
         end
 
+        mark_final_joins!(arel) if joins_final_values.present?
         arel.final! if final_value
         arel.limit_by(*@values[:limit_by]) if @values[:limit_by].present?
         arel.settings(settings_values) unless settings_values.empty?
