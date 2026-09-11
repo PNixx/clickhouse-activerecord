@@ -11,6 +11,7 @@ require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
 require 'active_record/connection_adapters/clickhouse/oid/big_integer'
 require 'active_record/connection_adapters/clickhouse/oid/map'
+require 'active_record/connection_adapters/clickhouse/oid/json'
 require 'active_record/connection_adapters/clickhouse/oid/uuid'
 require 'active_record/connection_adapters/clickhouse/column'
 require 'active_record/connection_adapters/clickhouse/quoting'
@@ -317,7 +318,7 @@ module ActiveRecord
             Clickhouse::OID::Map.new(sql_type)
           end
 
-          m.register_type %r(JSON)i, ActiveRecord::Type::Json.new
+          m.register_type(%r(JSON)) { Clickhouse::OID::Json.new }
         end
       end
 
