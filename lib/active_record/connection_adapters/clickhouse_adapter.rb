@@ -134,6 +134,9 @@ module ActiveRecord
 
       include Clickhouse::SchemaStatements
 
+      # our `execute` shadows the wrapper `QueryCache` installs on `AbstractAdapter`
+      ActiveRecord::ConnectionAdapters::QueryCache.dirties_query_cache(self, :execute)
+
       # Initializes and connects a Clickhouse adapter.
       def initialize(config_or_deprecated_connection, deprecated_logger = nil, deprecated_connection_options = nil, deprecated_config = nil)
         if config_or_deprecated_connection.is_a?(Hash) && config_or_deprecated_connection[:url]
