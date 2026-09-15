@@ -90,9 +90,7 @@ module ActiveRecord
         end
 
         def _exec_insert(intent, sequence_name = nil, returning: nil) # :nodoc:
-          sql, binds = sql_for_insert(intent.raw_sql, intent.binds, returning)
-          intent.raw_sql = sql
-          intent.binds = binds
+          apply_returning_to!(intent, returning)
 
           with_response_format(nil) do
             intent.execute!
