@@ -305,6 +305,7 @@ module ActiveRecord
 
         def extract_value_from_default(default_expression, default_type)
           return nil if default_type != 'DEFAULT' || default_expression.blank?
+          return nil if default_expression == 'NULL'
           return nil if has_default_function?(default_expression)
 
           # Convert string
