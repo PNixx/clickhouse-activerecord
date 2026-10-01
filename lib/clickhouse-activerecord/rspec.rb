@@ -7,6 +7,7 @@ RSpec.configure do |config|
       ActiveRecord::Base.establish_connection(db_config)
       ActiveRecord::Base.connection.execute("TRUNCATE ALL TABLES FROM #{db_config.database}")
     end
-    ActiveRecord::Base.establish_connection(original_connection_config)
+  ensure
+    ActiveRecord::Base.establish_connection(original_connection_config) if original_connection_config
   end
 end
