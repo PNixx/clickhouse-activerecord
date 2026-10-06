@@ -9,7 +9,6 @@ RSpec.describe 'Connection hardening' do
     allow(http_connection).to receive(:keep_alive_timeout=)
     allow(http_connection).to receive(:read_timeout=)
     allow(http_connection).to receive(:write_timeout=)
-    allow(http_connection).to receive(:ca_file=)
     allow(http_connection).to receive(:started?).and_return(true)
   end
 
@@ -59,9 +58,8 @@ RSpec.describe 'Connection hardening' do
     context 'with sslca configured' do
       let(:config) { { adapter: 'clickhouse', host: 'localhost', database: 'db', sslca: '/path/to/ca.pem' } }
 
-      it 'sets ca_file on the connection' do
-        net_http_start_args
-        expect(http_connection).to have_received(:ca_file=).with('/path/to/ca.pem')
+      it 'passes it to Net::HTTP.start, so the TLS handshake verifies against it' do
+        expect(net_http_start_args[:kwargs][:ca_file]).to eq('/path/to/ca.pem')
       end
     end
   end
