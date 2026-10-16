@@ -2,6 +2,9 @@
 
 module ClickhouseActiverecord
   class Tasks
+    # formatQuery is available since ClickHouse 23.10
+    FORMAT_QUERY_MIN_VERSION = Gem::Version.new('23.10')
+
     delegate :connection, :establish_connection, to: ActiveRecord::Base
 
     def self.using_database_configurations?
@@ -43,9 +46,7 @@ module ClickhouseActiverecord
                             .map { |function| function.gsub('\\n', "\n") }
 
       # get all tables
-      table_defs = connection.execute("SHOW TABLES FROM #{@configuration.database} WHERE name NOT LIKE '.inner_id.%'")['data']
-                             .flatten
-                             .map { |name| connection.show_create_table(name, single_line: false).gsub("#{@configuration.database}.", '') }
+      table_defs = table_definitions
 
       # separate views from tables
       views, tables = table_defs.partition { |sql| sql.match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) }
@@ -122,6 +123,31 @@ module ClickhouseActiverecord
 
     def establish_master_connection
       establish_connection @configuration
+    end
+
+    def table_definitions
+      if Gem::Version.new(connection.server_version) >= FORMAT_QUERY_MIN_VERSION
+        table_definitions_from_system_tables
+      else
+        table_definitions_per_table
+      end
+    end
+
+    # A single query, so a table dropped concurrently cannot fail the dump
+    def table_definitions_from_system_tables
+      connection.execute(<<~SQL.squish)['data']
+        SELECT formatQuery(create_table_query)
+        FROM system.tables
+        WHERE database = #{connection.quote(@configuration.database)} AND name NOT LIKE '.inner_id.%'
+      SQL
+                .flatten
+                .map { |sql| sql.gsub("#{@configuration.database}.", '') }
+    end
+
+    def table_definitions_per_table
+      connection.execute("SHOW TABLES FROM #{@configuration.database} WHERE name NOT LIKE '.inner_id.%'")['data']
+                .flatten
+                .map { |name| connection.show_create_table(name, single_line: false).gsub("#{@configuration.database}.", '') }
     end
 
     def check_target_version
