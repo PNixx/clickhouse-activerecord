@@ -381,7 +381,7 @@ module ActiveRecord
       # SCHEMA STATEMENTS ========================================
 
       def primary_keys(table_name)
-        if server_version.to_f >= 23.4
+        if Gem::Version.new(server_version) >= Gem::Version.new('23.4')
           structure = do_system_execute("SHOW COLUMNS FROM `#{table_name}`")
           return structure['data'].select {|m| m[3]&.include?('PRI') }.pluck(0)
         end

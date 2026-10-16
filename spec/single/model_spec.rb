@@ -17,7 +17,7 @@ RSpec.describe 'Model', :migrations do
     self.table_name = 'sample'
     self.primary_key = 'event_name'
   end
-  IS_NEW_CLICKHOUSE_SERVER = Model.connection.server_version.to_f >= 23.4
+  IS_NEW_CLICKHOUSE_SERVER = Gem::Version.new(Model.connection.server_version) >= Gem::Version.new('23.4')
 
   let(:date) { Date.today }
 
@@ -961,7 +961,7 @@ RSpec.describe 'Model', :migrations do
     end
   end
 
-  if Model.connection.server_version.to_f > 24.6
+  if Gem::Version.new(Model.connection.server_version) > Gem::Version.new('24.6')
     context 'json' do
       let!(:json_model) do
         Class.new(ActiveRecord::Base) do
