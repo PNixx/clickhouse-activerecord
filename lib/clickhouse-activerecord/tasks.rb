@@ -13,8 +13,9 @@ module ClickhouseActiverecord
     end
 
     def create
-      establish_master_connection
-      connection.create_database @configuration.database
+      with_master_connection do
+        connection.create_database @configuration.database
+      end
     rescue ActiveRecord::StatementInvalid => e
       if e.cause.to_s.include?('already exists')
         raise ActiveRecord::DatabaseAlreadyExists
@@ -24,56 +25,58 @@ module ClickhouseActiverecord
     end
 
     def drop
-      establish_master_connection
-      connection.drop_database @configuration.database
+      with_master_connection do
+        connection.drop_database @configuration.database
+      end
     end
 
     def purge
-      ActiveRecord::Base.connection_handler.clear_active_connections!(:all)
       drop
       create
     end
 
     def structure_dump(path, *)
-      establish_master_connection
+      with_master_connection do
+        # get all functions
+        functions = connection.execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' ORDER BY name")['data']
+                              .flatten
+                              .map { |function| function.gsub('\\n', "\n") }
 
-      # get all functions
-      functions = connection.execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' ORDER BY name")['data']
-                            .flatten
-                            .map { |function| function.gsub('\\n', "\n") }
+        # get all tables
+        table_defs = connection.execute("SHOW TABLES FROM #{@configuration.database} WHERE name NOT LIKE '.inner_id.%'")['data']
+                               .flatten
+                               .map { |name| connection.show_create_table(name, single_line: false).gsub("#{@configuration.database}.", '') }
 
-      # get all tables
-      table_defs = connection.execute("SHOW TABLES FROM #{@configuration.database} WHERE name NOT LIKE '.inner_id.%'")['data']
-                             .flatten
-                             .map { |name| connection.show_create_table(name, single_line: false).gsub("#{@configuration.database}.", '') }
+        # separate views from tables
+        views, tables = table_defs.partition { |sql| sql.match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) }
 
-      # separate views from tables
-      views, tables = table_defs.partition { |sql| sql.match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) }
+        # separate materialized from regular views
+        mat_views, views = views.partition { |sql| sql.match(/^CREATE\s+MATERIALIZED\s+VIEW/) }
 
-      # separate materialized from regular views
-      mat_views, views = views.partition { |sql| sql.match(/^CREATE\s+MATERIALIZED\s+VIEW/) }
+        # sort: UDFs -> tables -> materialized views -> views
+        ordered_definitions = functions.sort + tables.sort + mat_views.sort + views.sort
 
-      # sort: UDFs -> tables -> materialized views -> views
-      ordered_definitions = functions.sort + tables.sort + mat_views.sort + views.sort
-
-      # puts to file
-      File.open(path, 'w:utf-8') do |file|
-        ordered_definitions.each do |sql|
-          file.puts "#{sql};\n\n"
+        # puts to file
+        File.open(path, 'w:utf-8') do |file|
+          ordered_definitions.each do |sql|
+            file.puts "#{sql};\n\n"
+          end
         end
       end
     end
 
     def structure_load(*args)
-      File.read(args.first).split(";\n\n").each do |sql|
-        if sql.gsub(/[a-z]/i, '').blank?
-          next
-        elsif sql =~ /^INSERT INTO/
-          connection.execute(sql, nil, format: nil)
-        elsif sql =~ /^CREATE .*?FUNCTION/
-          connection.execute(sql, nil, format: nil)
-        else
-          connection.execute(sql)
+      with_master_connection do
+        File.read(args.first).split(";\n\n").each do |sql|
+          if sql.gsub(/[a-z]/i, '').blank?
+            next
+          elsif sql =~ /^INSERT INTO/
+            connection.execute(sql, nil, format: nil)
+          elsif sql =~ /^CREATE .*?FUNCTION/
+            connection.execute(sql, nil, format: nil)
+          else
+            connection.execute(sql)
+          end
         end
       end
     end
@@ -84,10 +87,12 @@ module ClickhouseActiverecord
       verbose = ENV["VERBOSE"] ? ENV["VERBOSE"] != "false" : true
       scope = ENV["SCOPE"]
       verbose_was, ActiveRecord::Migration.verbose = ActiveRecord::Migration.verbose, verbose
-      connection.migration_context.migrate(target_version) do |migration|
-        scope.blank? || scope == migration.scope
+      with_master_connection do
+        connection.migration_context.migrate(target_version) do |migration|
+          scope.blank? || scope == migration.scope
+        end
+        ActiveRecord::Base.clear_cache!
       end
-      ActiveRecord::Base.clear_cache!
     ensure
       ActiveRecord::Migration.verbose = verbose_was
     end
@@ -120,8 +125,15 @@ module ClickhouseActiverecord
       migration_class.connection_handler.establish_connection(original_db_config, clobber: clobber)
     end
 
-    def establish_master_connection
+    # Establish the ClickHouse connection for the duration of the block, then
+    # restore whatever the default (e.g. PostgreSQL) connection was before, so
+    # rake tasks do not leave ActiveRecord::Base pointed at ClickHouse.
+    def with_master_connection
+      original_db_config = ActiveRecord::Base.connection_db_config
       establish_connection @configuration
+      yield
+    ensure
+      ActiveRecord::Base.establish_connection(original_db_config) if original_db_config
     end
 
     def check_target_version
