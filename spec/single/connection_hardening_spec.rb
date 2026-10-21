@@ -133,7 +133,7 @@ RSpec.describe 'Connection hardening' do
       end
 
       it 'only retries once, then raises ActiveRecord::ConnectionFailed' do
-        allow(http_connection).to receive(:post).and_raise(Net::OpenTimeout)
+        allow(http_connection).to receive(:post).and_raise(Errno::ECONNREFUSED)
 
         expect { adapter.exec_query('SELECT 1') }.to raise_error(ActiveRecord::ConnectionFailed)
         expect(http_connection).to have_received(:post).twice
@@ -194,8 +194,8 @@ RSpec.describe 'Connection hardening' do
       end
     end
 
-    [EOFError, Errno::ECONNRESET].each do |error|
-      context "when the connection drops after the request is sent (#{error})" do
+    [EOFError, Errno::ECONNRESET, IOError].each do |error|
+      context "when an open connection drops (#{error})" do
         it 'does not retry, so the server cannot apply the insert twice' do
           allow(http_connection).to receive(:post).and_raise(error)
 

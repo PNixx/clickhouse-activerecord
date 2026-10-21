@@ -121,8 +121,9 @@ clickhouse:
   never completes the TCP handshake (a dead route, a security group silently dropping packets)
   previously had no bound here at all.
 - **Every statement is retried once** when the connection fails to open (`Net::OpenTimeout`,
-  `SocketError`, `ECONNREFUSED`). `Net::HTTP` raises these before it writes the request, so the
-  server never received it and a write is safe to send again.
+  `SocketError`, `ECONNREFUSED`), except a result streamed to a file by `execute_to_file`.
+  `Net::HTTP` raises these before it writes the request, so the server never received it and a
+  write is safe to send again.
 - **Read queries (`SELECT`) are also retried once** on a fresh connection when an open connection
   fails before the server responds (`EOFError`, `ECONNRESET`, `IOError`) - the kind of failure a
   stale pooled connection produces. Writes are not retried on these, because the server may have
@@ -137,7 +138,7 @@ clickhouse:
     `max_execution_time` or `cancel_http_readonly_queries_on_client_close`.
   - `ActiveRecord::AdapterTimeout` - the client gave up waiting for a response
     (`Net::ReadTimeout`); the query may still be running server-side.
-  - `ActiveRecord::ConnectionFailed` - the connection-retry above was exhausted.
+  - `ActiveRecord::ConnectionFailed` - a retry above also failed.
 
 ## Usage in Rails
 

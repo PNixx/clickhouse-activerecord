@@ -13,8 +13,8 @@ module ActiveRecord
         HTTP_AUTH_X_HEADERS = :x_clickhouse_headers
         HTTP_AUTH_TYPES = [HTTP_AUTH_QUERY_PARAMS, HTTP_AUTH_BASIC, HTTP_AUTH_X_HEADERS].freeze
 
-        # Connection-level failures after the request may have reached the server. Only reads retry
-        # on these, because sending a write again can apply it twice.
+        # Failures on an open connection, where the request may have reached the server. Only reads
+        # retry on these, because sending a write again can apply it twice.
         RETRYABLE_CONNECTION_ERRORS = [EOFError, Errno::ECONNRESET, IOError].freeze
 
         # Failures while Net::HTTP opens the connection, before it writes the request. Nothing reached
