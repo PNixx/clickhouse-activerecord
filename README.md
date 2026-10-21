@@ -120,12 +120,16 @@ clickhouse:
   `read_timeout`/`write_timeout` which only apply once a connection exists - a network path that
   never completes the TCP handshake (a dead route, a security group silently dropping packets)
   previously had no bound here at all.
-- **Read queries (`SELECT`) are retried once** on a fresh connection when the failure happens
-  before the server responds at all (`Net::OpenTimeout`, `EOFError`, `ECONNRESET`, `IOError`) -
-  the kind of failure a stale pooled connection produces. Writes are never retried, and
-  `Net::ReadTimeout` (the server received the query and hasn't answered yet) is deliberately
-  **not** retried on any query - re-sending a query that's already loading the server doesn't
-  help. If the retry also fails, `ActiveRecord::ConnectionFailed` is raised.
+- **Every statement is retried once** when the connection fails to open (`Net::OpenTimeout`,
+  `SocketError`, `ECONNREFUSED`). `Net::HTTP` raises these before it writes the request, so the
+  server never received it and a write is safe to send again.
+- **Read queries (`SELECT`) are also retried once** on a fresh connection when an open connection
+  fails before the server responds (`EOFError`, `ECONNRESET`, `IOError`) - the kind of failure a
+  stale pooled connection produces. Writes are not retried on these, because the server may have
+  received them already, and `Net::ReadTimeout` (the server received the query and hasn't
+  answered yet) is deliberately **not** retried on any query - re-sending a query that's already
+  loading the server doesn't help. If a retry also fails, `ActiveRecord::ConnectionFailed` is
+  raised.
 - **Timeouts and cancellations now raise distinct, Rails-standard error classes** instead of a
   generic `ActiveRecord::ActiveRecordError`, so callers can `rescue` them the same way they
   would for any other adapter:

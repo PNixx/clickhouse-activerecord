@@ -120,6 +120,26 @@ RSpec.describe 'Connection hardening' do
       end
     end
 
+    context 'when the connection never opens' do
+      it 'retries once on SocketError and succeeds' do
+        call_count = 0
+        allow(http_connection).to receive(:post) do
+          call_count += 1
+          call_count == 1 ? raise(SocketError) : success_response
+        end
+
+        expect(adapter.exec_query('SELECT 1').rows).to eq([[1]])
+        expect(call_count).to eq(2)
+      end
+
+      it 'only retries once, then raises ActiveRecord::ConnectionFailed' do
+        allow(http_connection).to receive(:post).and_raise(Net::OpenTimeout)
+
+        expect { adapter.exec_query('SELECT 1') }.to raise_error(ActiveRecord::ConnectionFailed)
+        expect(http_connection).to have_received(:post).twice
+      end
+    end
+
     context 'on Net::ReadTimeout' do
       it 'does not retry and raises ActiveRecord::AdapterTimeout instead' do
         allow(http_connection).to receive(:post).and_raise(Net::ReadTimeout)
@@ -139,6 +159,49 @@ RSpec.describe 'Connection hardening' do
         allow(http_connection).to receive(:post).and_return(response)
 
         expect { adapter.exec_query('SELECT 1') }.to raise_error(ActiveRecord::StatementTimeout)
+      end
+    end
+  end
+
+  describe '#exec_insert_all' do
+    let(:config) { { adapter: 'clickhouse', host: 'localhost', database: 'db' } }
+    let(:insert) { 'INSERT INTO t (id) VALUES (1)' }
+    let(:insert_response) { instance_double(Net::HTTPResponse, code: '200', body: '') }
+
+    subject(:adapter) { ActiveRecord::Base.clickhouse_connection(config) }
+
+    before { allow(Net::HTTP).to receive(:start).and_return(http_connection) }
+
+    [Net::OpenTimeout, SocketError, Errno::ECONNREFUSED].each do |error|
+      context "when the connection never opens (#{error})" do
+        it 'retries once and succeeds' do
+          call_count = 0
+          allow(http_connection).to receive(:post) do
+            call_count += 1
+            call_count == 1 ? raise(error) : insert_response
+          end
+
+          expect(adapter.exec_insert_all(insert, 'Bulk Insert')).to be(true)
+          expect(call_count).to eq(2)
+        end
+
+        it 'only retries once, then raises ActiveRecord::ConnectionFailed' do
+          allow(http_connection).to receive(:post).and_raise(error)
+
+          expect { adapter.exec_insert_all(insert, 'Bulk Insert') }.to raise_error(ActiveRecord::ConnectionFailed)
+          expect(http_connection).to have_received(:post).twice
+        end
+      end
+    end
+
+    [EOFError, Errno::ECONNRESET].each do |error|
+      context "when the connection drops after the request is sent (#{error})" do
+        it 'does not retry, so the server cannot apply the insert twice' do
+          allow(http_connection).to receive(:post).and_raise(error)
+
+          expect { adapter.exec_insert_all(insert, 'Bulk Insert') }.to raise_error(error)
+          expect(http_connection).to have_received(:post).once
+        end
       end
     end
   end
