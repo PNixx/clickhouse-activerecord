@@ -7,7 +7,7 @@ module CoreExtensions
 
         return if table_exists?
 
-        version_options = connection.internal_string_options_for_primary_key
+        version_options = { primary_key: true }
         table_options = {
           id: false, options: 'ReplacingMergeTree(ver) ORDER BY (version)', if_not_exists: true
         }
