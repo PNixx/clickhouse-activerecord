@@ -53,8 +53,8 @@ module ClickhouseActiverecord
       # separate materialized from regular views
       mat_views, views = views.partition { |sql| sql.match(/^CREATE\s+MATERIALIZED\s+VIEW/) }
 
-      # sort: UDFs -> materialized views -> tables -> views
-      ordered_definitions = functions.sort + mat_views.sort + tables.sort + views.sort
+      # sort: UDFs -> tables -> materialized views -> views
+      ordered_definitions = functions.sort + tables.sort + mat_views.sort + views.sort
 
       # puts to file
       File.open(path, 'w:utf-8') do |file|

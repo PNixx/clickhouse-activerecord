@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'base64'
+require 'net/http'
 require 'clickhouse-activerecord/version'
 
 module ActiveRecord
@@ -11,6 +12,9 @@ module ActiveRecord
         HTTP_AUTH_BASIC = :basic
         HTTP_AUTH_X_HEADERS = :x_clickhouse_headers
         HTTP_AUTH_TYPES = [HTTP_AUTH_QUERY_PARAMS, HTTP_AUTH_BASIC, HTTP_AUTH_X_HEADERS].freeze
+
+        # Connection-level failures worth a single retry on a fresh connection.
+        RETRYABLE_CONNECTION_ERRORS = [Net::OpenTimeout, EOFError, Errno::ECONNRESET, IOError].freeze
 
         def with_settings(**settings)
           @block_settings ||= {}
@@ -99,11 +103,27 @@ module ActiveRecord
         end
 
         def internal_exec_query(sql, name = nil, binds = [], prepare: false, async: false, allow_retry: false)
-          cast_result(execute(sql, name))
-        rescue ActiveRecord::ActiveRecordError => e
-          raise e
-        rescue StandardError => e
-          raise ActiveRecord::ActiveRecordError, "Response: #{e.message}"
+          connection_retries = 0
+          begin
+            cast_result(execute(sql, name))
+          rescue ActiveRecord::ActiveRecordError => e
+            raise e
+          rescue Net::ReadTimeout => e
+            raise ActiveRecord::AdapterTimeout, "Response: #{e.message}"
+          rescue *RETRYABLE_CONNECTION_ERRORS => e
+            raise ActiveRecord::ConnectionFailed, "Response: #{e.message}" if connection_retries.positive?
+
+            connection_retries += 1
+            logger&.warn("[clickhouse-activerecord] retrying read query after connection failure (#{e.class}: #{e.message})")
+            begin
+              reconnect
+            rescue StandardError
+              nil
+            end
+            retry
+          rescue StandardError => e
+            raise ActiveRecord::ActiveRecordError, "Response: #{e.message}"
+          end
         end
 
         def exec_insert_all(inserter, name) # :nodoc:
@@ -326,6 +346,7 @@ module ActiveRecord
 
         def extract_value_from_default(default_expression, default_type)
           return nil if default_type != 'DEFAULT' || default_expression.blank?
+          return nil if default_expression == 'NULL'
           return nil if has_default_function?(default_expression)
 
           # Convert string

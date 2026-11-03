@@ -54,7 +54,7 @@ module ActiveRecord
 
           # @return [String, Hash, Array]
           def process_successful_response
-            raise_generic!(@sql) if @body.include?('DB::Exception') && @body.match?(DB_EXCEPTION_REGEXP)
+            raise_database_error!(@sql) if @body.include?('DB::Exception') && @body.match?(DB_EXCEPTION_REGEXP)
 
             format_body_response
           end
@@ -103,14 +103,17 @@ module ActiveRecord
             JSON.parse(payload, decimal_class: BigDecimal)
           end
 
-          def raise_database_error!
+          def raise_database_error!(sql = nil)
             case @body
             when /DB::Exception:.*\(UNKNOWN_DATABASE\)/
               raise ActiveRecord::NoDatabaseError
             when /DB::Exception:.*\(DATABASE_ALREADY_EXISTS\)/
               raise ActiveRecord::DatabaseAlreadyExists
+            when /DB::Exception:.*\(TIMEOUT_EXCEEDED\)/
+              # server-side cancellation, vs. ActiveRecord::AdapterTimeout (client gave up)
+              raise ActiveRecord::StatementTimeout, "Response code: #{@raw_response.code}:\n#{@body}#{"\nQuery: #{sql}" if sql}"
             else
-              raise_generic!
+              raise_generic!(sql)
             end
           end
 

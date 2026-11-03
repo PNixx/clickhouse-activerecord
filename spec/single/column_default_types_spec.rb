@@ -113,4 +113,55 @@ RSpec.describe 'Column default types', :migrations do
       expect(record.display).to eq('hello')
     end
   end
+
+  describe 'DEFAULT NULL' do
+    before do
+      connection.execute('DROP TABLE IF EXISTS column_default_null_test')
+      connection.execute(<<~SQL.squish)
+        CREATE TABLE column_default_null_test (
+          id UInt64,
+          nullable_string Nullable(String) DEFAULT NULL,
+          low_cardinality_string LowCardinality(Nullable(String)) DEFAULT NULL,
+          nullable_int Nullable(Int64) DEFAULT NULL,
+          null_literal_string Nullable(String) DEFAULT 'NULL'
+        ) ENGINE = MergeTree ORDER BY id
+      SQL
+    end
+
+    after do
+      connection.execute('DROP TABLE IF EXISTS column_default_null_test')
+    end
+
+    let!(:null_model) do
+      Class.new(ActiveRecord::Base) do
+        self.table_name = 'column_default_null_test'
+      end
+    end
+
+    it 'exposes a nil default for DEFAULT NULL columns' do
+      expect(null_model.columns_hash['nullable_string'].default).to be_nil
+      expect(null_model.columns_hash['low_cardinality_string'].default).to be_nil
+      expect(null_model.columns_hash['nullable_int'].default).to be_nil
+    end
+
+    it 'keeps a quoted NULL string default as a string' do
+      expect(null_model.columns_hash['null_literal_string'].default).to eq('NULL')
+    end
+
+    it 'initializes new records with nil for DEFAULT NULL columns' do
+      record = null_model.new(id: 1)
+      expect(record.nullable_string).to be_nil
+      expect(record.low_cardinality_string).to be_nil
+      expect(record.nullable_int).to be_nil
+      expect(record.null_literal_string).to eq('NULL')
+    end
+
+    it 'inserts NULL for DEFAULT NULL columns when partial inserts are disabled' do
+      null_model.partial_inserts = false
+      null_model.create!(id: 1)
+
+      expect(null_model.where(nullable_string: nil, low_cardinality_string: nil, nullable_int: nil).count).to eq(1)
+      expect(null_model.find_by(id: 1).null_literal_string).to eq('NULL')
+    end
+  end
 end

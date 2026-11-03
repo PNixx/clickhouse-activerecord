@@ -31,12 +31,17 @@ default: &default
   http_auth: query_params # optional, supports query_params, basic, x_clickhouse_headers
   ssl: true # optional for using ssl connection
   debug: true # use for showing in to log technical information
-  migrations_paths: db/clickhouse # optional, default: db/migrate_clickhouse
+  migrations_paths: db/clickhouse # optional
   cluster_name: 'cluster_name' # optional for creating tables in cluster 
   replica_name: '{replica}' # replica macros name, optional for creating replicated tables
   read_timeout: 300 # change network timeouts, by default 60 seconds
   write_timeout: 300
   keep_alive_timeout: 300
+  open_timeout: 5 # timeout for establishing the TCP connection itself, optional (Net::HTTP's default applies if unset)
+  insecure: false # optional, skip TLS certificate verification (default: true, matching prior behavior - set to false to verify)
+  sslca: /path/to/ca.pem # optional, custom CA bundle for TLS verification
+  max_execution_time: 25 # optional, server-side query time limit in seconds, sent as a ClickHouse session setting
+  cancel_http_readonly_queries_on_client_close: true # optional, tell the server to abort a SELECT once the client disconnects
 ```
 
 ### URL-based configuration
@@ -52,10 +57,10 @@ default: &default
 Optional settings can be passed as query parameters:
 
 ```
-clickhouse://username:password@localhost:8123/database?ssl=true&http_auth=basic&read_timeout=300&write_timeout=300&keep_alive_timeout=300&debug=false&cluster_name=my_cluster
+clickhouse://username:password@localhost:8123/database?ssl=true&http_auth=basic&read_timeout=300&write_timeout=300&keep_alive_timeout=300&open_timeout=5&debug=false&cluster_name=my_cluster
 ```
 
-Supported query parameters: `ssl` (true/false), `debug` (true/false), `http_auth` (query_params/basic/x_clickhouse_headers), `read_timeout`, `write_timeout`, `keep_alive_timeout` (integers), `cluster_name`, `sslca`.
+Supported query parameters: `ssl` (true/false), `debug` (true/false), `insecure` (true/false), `http_auth` (query_params/basic/x_clickhouse_headers), `open_timeout`, `read_timeout`, `write_timeout`, `keep_alive_timeout`, `max_execution_time` (integers), `cancel_http_readonly_queries_on_client_close` (true/false), `cluster_name`, `sslca`.
 
 If both a `url` and explicit keys are provided, the explicit keys take precedence:
 
@@ -102,6 +107,33 @@ clickhouse:
 - `http_auth: x_clickhouse_headers` sends `X-ClickHouse-User`, `X-ClickHouse-Key`, and `X-ClickHouse-Database` headers.
 - `http_auth: basic` sends `Authorization: Basic ...` and keeps `database` in URL params.
 - `http_auth: query_params` sends `user`, `password`, and `database` in URL params (same as omitting `http_auth`).
+
+### Connection hardening
+
+- **TLS verification is now configurable.** Every connection has always been made with
+  `verify_mode: OpenSSL::SSL::VERIFY_NONE`, so an SSL connection to ClickHouse never actually
+  checked the server's certificate. That remains the default (`insecure: true`) to avoid
+  breaking existing setups; set `insecure: false` to turn verification on, optionally with
+  `sslca` pointing at your CA bundle.
+- **`open_timeout`** bounds how long establishing the underlying TCP connection is allowed to
+  take. It's optional and unset by default (`Net::HTTP`'s own default applies), unlike
+  `read_timeout`/`write_timeout` which only apply once a connection exists - a network path that
+  never completes the TCP handshake (a dead route, a security group silently dropping packets)
+  previously had no bound here at all.
+- **Read queries (`SELECT`) are retried once** on a fresh connection when the failure happens
+  before the server responds at all (`Net::OpenTimeout`, `EOFError`, `ECONNRESET`, `IOError`) -
+  the kind of failure a stale pooled connection produces. Writes are never retried, and
+  `Net::ReadTimeout` (the server received the query and hasn't answered yet) is deliberately
+  **not** retried on any query - re-sending a query that's already loading the server doesn't
+  help. If the retry also fails, `ActiveRecord::ConnectionFailed` is raised.
+- **Timeouts and cancellations now raise distinct, Rails-standard error classes** instead of a
+  generic `ActiveRecord::ActiveRecordError`, so callers can `rescue` them the same way they
+  would for any other adapter:
+  - `ActiveRecord::StatementTimeout` - the server killed the query server-side, via
+    `max_execution_time` or `cancel_http_readonly_queries_on_client_close`.
+  - `ActiveRecord::AdapterTimeout` - the client gave up waiting for a response
+    (`Net::ReadTimeout`); the query may still be running server-side.
+  - `ActiveRecord::ConnectionFailed` - the connection-retry above was exhausted.
 
 ## Usage in Rails
 
@@ -245,6 +277,13 @@ Action.settings(optimize_read_in_order: 1).where(date: Date.current).limit(10)
 
 User.joins(:actions).using(:group_id)
 # Clickhouse User Load (10.3ms)  SELECT users.* FROM users INNER JOIN actions USING group_id
+#=> #<ActiveRecord::Relation [#<User *** >]>
+
+# `final` only applies the FINAL modifier to the primary FROM table. Use
+# `joins_final` to also apply FINAL to a joined table (the join is added for
+# you, like `joins`). Pass association names; joins are matched by table name.
+User.final.joins_final(:actions)
+# Clickhouse User Load (10.3ms)  SELECT users.* FROM users FINAL INNER JOIN actions FINAL ON actions.user_id = users.id
 #=> #<ActiveRecord::Relation [#<User *** >]>
 
 User.window('x', order: 'date', partition: 'name', rows: 'UNBOUNDED PRECEDING').select('sum(value) OVER x')

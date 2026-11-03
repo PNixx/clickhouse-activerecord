@@ -2,6 +2,7 @@
 
 require 'arel/visitors/clickhouse'
 require 'arel/nodes/final'
+require 'arel/nodes/final_table'
 require 'arel/nodes/grouping_sets'
 require 'arel/nodes/settings'
 require 'arel/nodes/using'
@@ -11,6 +12,7 @@ require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
 require 'active_record/connection_adapters/clickhouse/oid/big_integer'
 require 'active_record/connection_adapters/clickhouse/oid/map'
+require 'active_record/connection_adapters/clickhouse/oid/json'
 require 'active_record/connection_adapters/clickhouse/oid/uuid'
 require 'active_record/connection_adapters/clickhouse/column'
 require 'active_record/connection_adapters/clickhouse/quoting'
@@ -65,6 +67,8 @@ module ActiveRecord
   module ModelSchema
     module ClassMethods
       delegate :final, :final!,
+               :joins_final, :joins_final!,
+               :left_joins_final, :left_joins_final!,
                :group_by_grouping_sets, :group_by_grouping_sets!,
                :settings, :settings!,
                :window, :window!,
@@ -103,6 +107,7 @@ module ActiveRecord
         integer: { name: 'UInt32' },
         big_integer: { name: 'UInt64' },
         float: { name: 'Float32' },
+        float64: { name: 'Float64' },
         decimal: { name: 'Decimal' },
         datetime: { name: 'DateTime' },
         datetime64: { name: 'DateTime64' },
@@ -132,6 +137,9 @@ module ActiveRecord
 
       include Clickhouse::SchemaStatements
 
+      # our `execute` shadows the wrapper `QueryCache` installs on `AbstractAdapter`
+      ActiveRecord::ConnectionAdapters::QueryCache.dirties_query_cache(self, :execute)
+
       # Initializes and connects a Clickhouse adapter.
       def initialize(config_or_deprecated_connection, deprecated_logger = nil, deprecated_connection_options = nil, deprecated_config = nil)
         if config_or_deprecated_connection.is_a?(Hash) && config_or_deprecated_connection[:url]
@@ -150,7 +158,9 @@ module ActiveRecord
             host: @config[:host] || 'localhost',
             port: port,
             ssl: @config[:ssl].present? ? @config[:ssl] : port == 443,
+            insecure: @config.fetch(:insecure, true),
             sslca: @config[:sslca],
+            open_timeout: @config[:open_timeout],
             read_timeout: @config[:read_timeout],
             write_timeout: @config[:write_timeout],
             keep_alive_timeout: @config[:keep_alive_timeout]
@@ -158,7 +168,13 @@ module ActiveRecord
         end
         @connection_parameters = connection
 
-        @connection_config = { user: @config[:username], password: @config[:password], database: @config[:database] }.compact
+        @connection_config = {
+          user: @config[:username],
+          password: @config[:password],
+          database: @config[:database],
+          max_execution_time: @config[:max_execution_time],
+          cancel_http_readonly_queries_on_client_close: @config[:cancel_http_readonly_queries_on_client_close],
+        }.compact
         @debug = @config[:debug] || false
         @default_response_format = @config[:format] || DEFAULT_RESPONSE_FORMAT
         @http_auth = @config[:http_auth]&.to_sym
@@ -204,6 +220,14 @@ module ActiveRecord
         !native_database_types[type].nil?
       end
 
+      # Rails appends the limit to the native type name (e.g. "Float32(8)"), which is not valid in ClickHouse.
+      # Resolve the float width by limit here so that add_column / change_column behave like TableDefinition#float.
+      def type_to_sql(type, limit: nil, precision: nil, scale: nil, **)
+        return native_database_types[limit == 8 ? :float64 : :float][:name] if type.to_s == 'float'
+
+        super
+      end
+
       def supports_indexes_in_create?
         true
       end
@@ -227,12 +251,17 @@ module ActiveRecord
               case key
               when 'ssl'                then config[:ssl]                = (value == 'true')
               when 'debug'              then config[:debug]              = (value == 'true')
+              when 'insecure'           then config[:insecure]           = (value == 'true')
+              when 'open_timeout'       then config[:open_timeout]       = value.to_i
               when 'read_timeout'       then config[:read_timeout]       = value.to_i
               when 'write_timeout'      then config[:write_timeout]      = value.to_i
               when 'keep_alive_timeout' then config[:keep_alive_timeout] = value.to_i
               when 'http_auth'          then config[:http_auth]          = value
               when 'cluster_name'       then config[:cluster_name]       = value
               when 'sslca'              then config[:sslca]              = value
+              when 'max_execution_time' then config[:max_execution_time] = value.to_i
+              when 'cancel_http_readonly_queries_on_client_close'
+                config[:cancel_http_readonly_queries_on_client_close] = (value == 'true')
               end
             end
           end
@@ -254,6 +283,10 @@ module ActiveRecord
               8
             when /(Nullable)?\(?U?Int128\)?/
               16
+            when /(Nullable)?\(?Float32\)?/
+              nil
+            when /(Nullable)?\(?Float64\)?/
+              8
             else
               super
           end
@@ -304,7 +337,7 @@ module ActiveRecord
             Clickhouse::OID::Map.new(sql_type)
           end
 
-          m.register_type %r(JSON)i, ActiveRecord::Type::Json.new
+          m.register_type(%r(JSON)) { Clickhouse::OID::Json.new }
         end
       end
 
@@ -348,7 +381,7 @@ module ActiveRecord
       # SCHEMA STATEMENTS ========================================
 
       def primary_keys(table_name)
-        if server_version.to_f >= 23.4
+        if Gem::Version.new(server_version) >= Gem::Version.new('23.4')
           structure = do_system_execute("SHOW COLUMNS FROM `#{table_name}`", format: 'JSONCompact')
           return structure['data'].select {|m| m[3]&.include?('PRI') }.pluck(0)
         end
@@ -607,9 +640,15 @@ module ActiveRecord
       private
 
       def connect
-        @connection = @connection_parameters[:connection] || Net::HTTP.start(@connection_parameters[:host], @connection_parameters[:port], use_ssl: @connection_parameters[:ssl], verify_mode: OpenSSL::SSL::VERIFY_NONE)
+        @connection = @connection_parameters[:connection] || Net::HTTP.start(
+          @connection_parameters[:host],
+          @connection_parameters[:port],
+          use_ssl: @connection_parameters[:ssl],
+          verify_mode: @connection_parameters[:insecure] ? OpenSSL::SSL::VERIFY_NONE : OpenSSL::SSL::VERIFY_PEER,
+          **{ open_timeout: @connection_parameters[:open_timeout] }.compact
+        )
 
-        @connection.ca_file = @connection_parameters[:ca_file] if @connection_parameters[:ca_file]
+        @connection.ca_file = @connection_parameters[:sslca] if @connection_parameters[:sslca]
         @connection.read_timeout = @connection_parameters[:read_timeout] if @connection_parameters[:read_timeout]
         @connection.write_timeout = @connection_parameters[:write_timeout] if @connection_parameters[:write_timeout]
 
