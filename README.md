@@ -275,6 +275,16 @@ Action.settings(optimize_read_in_order: 1).where(date: Date.current).limit(10)
 # Clickhouse Action Load (10.3ms)  SELECT actions.* FROM actions FINAL WHERE actions.date = '2017-11-29' LIMIT 10 SETTINGS optimize_read_in_order = 1
 #=> #<ActiveRecord::Relation [#<Action *** >]>
 
+# PREWHERE is read first, and the remaining columns are only read for the
+# granules that pass it. Accepts the same arguments as `where`.
+Action.prewhere(event_type: 'click').where(url: 'http://example.com')
+# Clickhouse Action Load (10.3ms)  SELECT actions.* FROM actions PREWHERE actions.event_type = 'click' WHERE actions.url = 'http://example.com'
+#=> #<ActiveRecord::Relation [#<Action *** >]>
+
+Action.final.prewhere.not(status: 'deleted')
+# Clickhouse Action Load (10.3ms)  SELECT actions.* FROM actions FINAL PREWHERE actions.status != 'deleted'
+#=> #<ActiveRecord::Relation [#<Action *** >]>
+
 User.joins(:actions).using(:group_id)
 # Clickhouse User Load (10.3ms)  SELECT users.* FROM users INNER JOIN actions USING group_id
 #=> #<ActiveRecord::Relation [#<User *** >]>

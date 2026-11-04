@@ -3,7 +3,7 @@ module CoreExtensions
     module Relation
 
       def self.prepended(base)
-        base::VALID_UNSCOPING_VALUES << :final << :settings << :joins_final
+        base::VALID_UNSCOPING_VALUES << :final << :settings << :joins_final << :prewhere
       end
 
       def reverse_order!
@@ -56,6 +56,81 @@ module CoreExtensions
           assert_mutability!
         end
         @values[:settings] = value
+      end
+
+      # Add conditions to the PREWHERE clause. ClickHouse evaluates PREWHERE
+      # first and only reads the remaining columns for the granules that pass
+      # it, so a selective filter on a small column can avoid reading most of
+      # a wide table. Accepts the same arguments as #where (hash, string with
+      # binds, array, Arel node); multiple calls are joined with AND.
+      # For example:
+      #
+      #   users = User.prewhere(active: true).where(name: 'Ivan')
+      #   # SELECT users.* FROM users PREWHERE users.active = TRUE WHERE users.name = 'Ivan'
+      #
+      #   users = User.prewhere.not(status: 'deleted')
+      #   # SELECT users.* FROM users PREWHERE users.status != 'deleted'
+      #
+      # +update_all+ and +delete_all+ have no PREWHERE, so the conditions are
+      # moved into their WHERE clause there. Remove them with
+      # <tt>unscope(:prewhere)</tt>.
+      #
+      # An <tt>ActiveRecord::ActiveRecordError</tt> will be raised if database not ClickHouse.
+      def prewhere(*args)
+        if args.empty?
+          PrewhereChain.new(spawn)
+        elsif args.length == 1 && args.first.blank?
+          self
+        else
+          spawn.prewhere!(*args)
+        end
+      end
+
+      def prewhere!(opts, *rest) # :nodoc:
+        check_command!('PREWHERE')
+        self.prewhere_clause += build_where_clause(opts, rest)
+        self
+      end
+
+      def prewhere_clause # :nodoc:
+        @values.fetch(:prewhere, ::ActiveRecord::Relation::WhereClause.empty)
+      end
+
+      def prewhere_clause=(value) # :nodoc:
+        if ::ActiveRecord::version >= Gem::Version.new('7.2')
+          assert_modifiable!
+        else
+          assert_mutability!
+        end
+        @values[:prewhere] = value
+      end
+
+      # ALTER TABLE ... UPDATE/DELETE have no PREWHERE clause, so fold the
+      # PREWHERE conditions into WHERE instead of silently dropping them.
+      def update_all(updates)
+        return super if prewhere_clause.empty?
+
+        prewhere_as_where.update_all(updates)
+      end
+
+      def delete_all
+        return super if prewhere_clause.empty?
+
+        prewhere_as_where.delete_all
+      end
+
+      # Returned by #prewhere with no arguments, so <tt>prewhere.not(...)</tt>
+      # works like <tt>where.not(...)</tt>.
+      class PrewhereChain
+        def initialize(scope) # :nodoc:
+          @scope = scope
+        end
+
+        def not(opts, *rest)
+          @scope.send(:check_command!, 'PREWHERE')
+          @scope.prewhere_clause += @scope.send(:build_where_clause, opts, rest).invert
+          @scope
+        end
       end
 
       # When FINAL is specified, ClickHouse fully merges the data before returning the result and thus performs all data transformations that happen during merges for the given table engine.
@@ -245,6 +320,12 @@ module CoreExtensions
 
       private
 
+      def prewhere_as_where
+        relation = except(:prewhere)
+        relation.where_clause = prewhere_clause + where_clause
+        relation
+      end
+
       def check_command!(cmd)
         raise ::ActiveRecord::ActiveRecordError, cmd + ' is a ClickHouse specific query clause' unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
       end
@@ -303,6 +384,7 @@ module CoreExtensions
         end
 
         mark_final_joins!(arel) if joins_final_values.present?
+        arel.prewhere(prewhere_clause.ast) unless prewhere_clause.empty?
         arel.final! if final_value
         arel.limit_by(*@values[:limit_by]) if @values[:limit_by].present?
         arel.settings(settings_values) unless settings_values.empty?

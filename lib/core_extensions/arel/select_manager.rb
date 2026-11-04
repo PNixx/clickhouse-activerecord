@@ -7,6 +7,13 @@ module CoreExtensions
         self
       end
 
+      # Add a condition to the PREWHERE clause of the current SELECT core.
+      # Multiple calls are joined with AND, like #where.
+      def prewhere(expr)
+        @ctx.prewheres << expr
+        self
+      end
+
       # @param [Hash] values
       def settings(values)
         @ast.settings = ::Arel::Nodes::Settings.new(values)
