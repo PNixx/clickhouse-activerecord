@@ -31,7 +31,7 @@ default: &default
   http_auth: query_params # optional, supports query_params, basic, x_clickhouse_headers
   ssl: true # optional for using ssl connection
   debug: true # use for showing in to log technical information
-  migrations_paths: db/clickhouse # optional, default: db/migrate_clickhouse
+  migrations_paths: db/clickhouse # optional
   cluster_name: 'cluster_name' # optional for creating tables in cluster 
   replica_name: '{replica}' # replica macros name, optional for creating replicated tables
   read_timeout: 300 # change network timeouts, by default 60 seconds
@@ -277,6 +277,13 @@ Action.settings(optimize_read_in_order: 1).where(date: Date.current).limit(10)
 
 User.joins(:actions).using(:group_id)
 # Clickhouse User Load (10.3ms)  SELECT users.* FROM users INNER JOIN actions USING group_id
+#=> #<ActiveRecord::Relation [#<User *** >]>
+
+# `final` only applies the FINAL modifier to the primary FROM table. Use
+# `joins_final` to also apply FINAL to a joined table (the join is added for
+# you, like `joins`). Pass association names; joins are matched by table name.
+User.final.joins_final(:actions)
+# Clickhouse User Load (10.3ms)  SELECT users.* FROM users FINAL INNER JOIN actions FINAL ON actions.user_id = users.id
 #=> #<ActiveRecord::Relation [#<User *** >]>
 
 User.window('x', order: 'date', partition: 'name', rows: 'UNBOUNDED PRECEDING').select('sum(value) OVER x')

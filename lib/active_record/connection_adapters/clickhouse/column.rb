@@ -21,6 +21,15 @@ module ActiveRecord
           default_kind.materialized? || default_kind.alias?
         end
 
+        # Whether the column holds a ClickHouse `Array(...)` type.
+        #
+        # ActiveRecord core never calls this, but tooling such as annotaterb
+        # detects array columns via `column.respond_to?(:array) && column.array`,
+        # so the base adapter's missing `array` reader left them undetected.
+        def array
+          sql_type.start_with?('Array(')
+        end
+
         private
 
         def deduplicated

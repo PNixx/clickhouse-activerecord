@@ -154,22 +154,17 @@ module ClickhouseActiverecord
       end
     end
 
-    def schema_limit(column)
-      return nil if column.type == :float
-      super
-    end
-
     def schema_unsigned(column)
       return nil unless column.type == :integer && !simple
       (column.sql_type =~ /(Nullable)?\(?UInt\d+\)?/).nil? ? false : nil
     end
 
     def schema_array(column)
-      (column.sql_type =~ /Array\(/).nil? ? nil : true
+      column.array ? true : nil
     end
 
     def schema_map(column)
-      if column.sql_type =~ /Map\(([^,]+),\s*(Array)\)/
+      if column.sql_type =~ /Map\([^,]+,\s*Array\(/
         return :array
       end
 

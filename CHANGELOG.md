@@ -1,3 +1,25 @@
+### Version 1.7.0 (Sep 29, 2026)
+
+* Fix structure dump table sort
+* Add configurable HTTP auth modes for ClickHouse requests in #240
+* Parse column `DEFAULT` kinds in #246
+* Honor unsigned: false on integer columns without a limit in #253
+* Fix `@response_format` thread race in `with_response_format` in #251
+* Implement URL-based configuration in #249
+* Rails 8 compatibility fixes in #245
+* Update specs in #244
+* Add Float and Bool subtype support for Map OID in #237
+* Fix TimeZoneConverter crash for Map OID attributes in #238
+* Fix Map OID deserialize crash for already-parsed Date/DateTime values in #239
+* Fix multi-column indexes in schema dumper in #234
+* Use `lease_connection` instead of `connection` for Rails 7.2+ in #262
+* Harden HTTP connection: open_timeout, TLS verification, retry, query limits in #266
+* Detect Array columns via Column#array in #260
+* Round-trip Float64 columns through the schema dumper in #269
+* Add support for FINAL when joining tables in #261
+* Clear the query cache when a raw statement writes in #271
+* Treat DEFAULT NULL as a nil column default in #272
+
 ### Version 1.6.7 (Mar 5, 2026)
 
 * Fix insert with default values in Ruby 4.0 and Rails 8.1
