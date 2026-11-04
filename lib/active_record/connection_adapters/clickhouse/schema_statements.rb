@@ -49,11 +49,7 @@ module ActiveRecord
         end
 
         def execute(sql, name = nil, format: response_format, settings: {})
-          with_response_format(format) do
-            log(sql, [adapter_name, name].compact.join(' ')) do
-              raw_execute(sql, settings: settings)
-            end
-          end
+          execute_statement(sql, name, format: format, settings: settings)
         end
 
         def execute_batch(statements, name = nil, **kwargs)
@@ -90,7 +86,8 @@ module ActiveRecord
         def internal_exec_query(sql, name = nil, binds = [], prepare: false, async: false, allow_retry: false)
           connection_retries = 0
           begin
-            result = execute(sql, name)
+            # `select_all` reaches here on each cache miss, so this must not clear the cache.
+            result = execute_statement(sql, name)
             columns = result['meta'].map { |m| m['name'] }
             types = {}
             result['meta'].each_with_index do |m, i|
@@ -320,6 +317,16 @@ module ActiveRecord
 
         def has_default_function?(default) # :nodoc:
           (%r{\w+\(.*\)} === default)
+        end
+
+        # `execute` without the cache-clearing wrapper ClickhouseAdapter puts on it. Not named
+        # `internal_execute`: Rails calls that with positional binds and `allow_retry:`.
+        def execute_statement(sql, name = nil, format: response_format, settings: {})
+          with_response_format(format) do
+            log(sql, [adapter_name, name].compact.join(' ')) do
+              raw_execute(sql, settings: settings)
+            end
+          end
         end
 
         def raw_execute(sql, settings: {}, except_params: [])
