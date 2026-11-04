@@ -90,6 +90,26 @@ RSpec.describe ClickhouseActiverecord::StructureDumper, :migrations do
     end
   end
 
+  it 'puts the {database} macro back in replicated paths, so the file loads into any database' do
+    # ClickHouse expands {database} when it creates the table and SHOW CREATE
+    # returns the expanded path, which would tie the dump to this database.
+    expanded = instance_double(ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
+    allow(expanded).to receive(:quote) { |value| "'#{value}'" }
+    allow(expanded).to receive(:execute) do |sql|
+      { 'data' => sql.include?('system.functions') ? [] : [['events', [], [], [], []]] }
+    end
+    allow(expanded).to receive(:show_create_table).and_return(<<~SQL)
+      CREATE TABLE #{database}.events (id UInt64)
+      ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/#{database}/events', '{replica}')
+      ORDER BY id
+    SQL
+
+    sql = described_class.new(expanded, database).statements.first
+
+    expect(sql).to include("ReplicatedMergeTree('/clickhouse/tables/{shard}/{database}/events', '{replica}')")
+    expect(sql).to start_with('CREATE TABLE events ')
+  end
+
   it 'dumps every object even when the dependency graph has a cycle' do
     # ClickHouse rejects a genuine cycle, but a column carrying the name of a
     # table can still close one in the graph.

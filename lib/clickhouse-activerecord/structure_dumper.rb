@@ -71,7 +71,9 @@ module ClickhouseActiverecord
       names = Set.new(rows.map(&:first))
 
       definitions = rows.map do |name, *|
-        sql = @connection.show_create_table(name, single_line: false).gsub("#{@database}.", '')
+        sql = @connection.show_create_table(name, single_line: false)
+                         .gsub("#{@database}.", '')
+                         .gsub("/#{@database}/", '/{database}/')
         Definition.new(name: name, kind: kind_of(sql), sql: sql, dependencies: Set.new)
       end
       by_name = definitions.index_by(&:name)
