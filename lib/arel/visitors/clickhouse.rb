@@ -54,6 +54,33 @@ module Arel
         collector << quote_column_name(o.name)
       end
 
+      # Same as ToSql#visit_Arel_Nodes_SelectCore, plus the ClickHouse
+      # PREWHERE clause, which must come after FROM/JOIN and before WHERE.
+      # https://clickhouse.com/docs/sql-reference/statements/select/prewhere
+      def visit_Arel_Nodes_SelectCore(o, collector)
+        return super if o.prewheres.empty?
+
+        collector << "SELECT"
+
+        collector = collect_optimizer_hints(o, collector)
+        collector = maybe_visit o.set_quantifier, collector
+
+        collect_nodes_for o.projections, collector, " "
+
+        if o.source && !o.source.empty?
+          collector << " FROM "
+          collector = visit o.source, collector
+        end
+
+        collect_nodes_for o.prewheres, collector, " PREWHERE ", " AND "
+        collect_nodes_for o.wheres, collector, " WHERE ", " AND "
+        collect_nodes_for o.groups, collector, " GROUP BY "
+        collect_nodes_for o.havings, collector, " HAVING ", " AND "
+        collect_nodes_for o.windows, collector, " WINDOW "
+
+        maybe_visit o.comment, collector
+      end
+
       def visit_Arel_Nodes_SelectOptions(o, collector)
         maybe_visit o.limit_by, collector
         maybe_visit o.settings, super
