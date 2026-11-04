@@ -6,7 +6,7 @@ module CoreExtensions
         return super unless connection.is_a?(::ActiveRecord::ConnectionAdapters::ClickhouseAdapter)
         return if !enabled? || table_exists?
 
-        key_options = connection.internal_string_options_for_primary_key
+        key_options = { primary_key: true }
         table_options = {
           id: false,
           options: 'ReplacingMergeTree(created_at) PARTITION BY key ORDER BY key',
