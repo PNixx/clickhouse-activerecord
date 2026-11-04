@@ -48,4 +48,10 @@ RSpec.describe 'ActiveRecord::ConnectionAdapters::Clickhouse::SchemaStatements' 
       expect(connection.select_value('SELECT count() FROM truncate_test').to_i).to eq(0)
     end
   end
+
+  describe '#query_value' do
+    it 'returns the value on Rails 8.1, which passes materialize_transactions' do
+      expect(connection.query_value('SELECT 1').to_i).to eq(1)
+    end
+  end
 end

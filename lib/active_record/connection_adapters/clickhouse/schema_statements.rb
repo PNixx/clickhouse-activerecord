@@ -87,7 +87,9 @@ module ActiveRecord
           nil
         end
 
-        def internal_exec_query(sql, name = nil, binds = [], prepare: false, async: false, allow_retry: false)
+        # Rails 8.1's `query` passes `materialize_transactions:`. ClickHouse has no transaction to
+        # materialize, so this method ignores the keyword.
+        def internal_exec_query(sql, name = nil, binds = [], prepare: false, async: false, allow_retry: false, materialize_transactions: true)
           connection_retries = 0
           begin
             result = execute(sql, name)
