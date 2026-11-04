@@ -299,6 +299,21 @@ RSpec.describe 'Model', :migrations do
         sql = Model.settings(max_insert_block_size: :default).to_sql
         expect(sql).to eq('SELECT sample.* FROM sample SETTINGS max_insert_block_size = DEFAULT')
       end
+
+      it 'applies to insert_all' do
+        sql = SqlCapture.new do
+          Model.settings(async_insert: 0).insert_all([{ event_name: 'some event', date: date }])
+        end.captured
+
+        expect(sql).to match(/\AINSERT INTO sample \(.+\) SETTINGS async_insert = 0 VALUES /)
+        expect(Model.count).to eq(1)
+      end
+
+      it 'leaves the SETTINGS clause out of insert_all when no settings are given' do
+        sql = SqlCapture.new { Model.insert_all([{ event_name: 'some event', date: date }]) }.captured
+
+        expect(sql).to match(/\AINSERT INTO sample \(.+\) VALUES /)
+      end
     end
 
     describe 'block-style settings' do
