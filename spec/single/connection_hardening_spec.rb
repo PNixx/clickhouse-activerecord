@@ -11,6 +11,7 @@ RSpec.describe 'Connection hardening' do
     allow(http_connection).to receive(:write_timeout=)
     allow(http_connection).to receive(:ca_file=)
     allow(http_connection).to receive(:started?).and_return(true)
+    allow(http_connection).to receive(:finish)
   end
 
   describe 'connect' do
