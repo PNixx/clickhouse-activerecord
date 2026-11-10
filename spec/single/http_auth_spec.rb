@@ -39,7 +39,7 @@ RSpec.describe 'HTTP auth modes' do
       response
     end
 
-    adapter.execute('SELECT 1', settings: settings)
+    adapter.do_system_execute('SELECT 1', settings: settings)
     request_payload
   end
 
