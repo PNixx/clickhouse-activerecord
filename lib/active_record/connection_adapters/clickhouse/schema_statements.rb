@@ -13,12 +13,12 @@ module ActiveRecord
         HTTP_AUTH_X_HEADERS = :x_clickhouse_headers
         HTTP_AUTH_TYPES = [HTTP_AUTH_QUERY_PARAMS, HTTP_AUTH_BASIC, HTTP_AUTH_X_HEADERS].freeze
 
-        # Failures on an open connection, where the request may have reached the server. Only reads
-        # retry on these, because sending a write again can apply it twice.
-        RETRYABLE_CONNECTION_ERRORS = [EOFError, Errno::ECONNRESET, IOError].freeze
+        # An open connection drops, and the request may have reached the server. Only reads retry on
+        # these, because sending a write again can apply it twice.
+        DROPPED_CONNECTION_ERRORS = [EOFError, Errno::ECONNRESET, IOError].freeze
 
-        # Failures while Net::HTTP opens the connection, before it writes the request. Nothing reached
-        # the server, so every statement, a write included, retries once on these.
+        # The connection fails to open, before Net::HTTP writes the request. Nothing reached the
+        # server, so every statement, a write included, retries once on these.
         CONNECT_ERRORS = [Net::OpenTimeout, SocketError, Errno::ECONNREFUSED].freeze
 
         def with_settings(**settings)
@@ -107,11 +107,11 @@ module ActiveRecord
             raise e
           rescue Net::ReadTimeout => e
             raise ActiveRecord::AdapterTimeout, "Response: #{e.message}"
-          rescue *RETRYABLE_CONNECTION_ERRORS => e
+          rescue *DROPPED_CONNECTION_ERRORS => e
             raise ActiveRecord::ConnectionFailed, "Response: #{e.message}" if connection_retries.positive?
 
             connection_retries += 1
-            logger&.warn("[clickhouse-activerecord] retrying read query after connection failure (#{e.class}: #{e.message})")
+            logger&.warn("[clickhouse-activerecord] retrying read query after the connection dropped (#{e.class}: #{e.message})")
             begin
               reconnect
             rescue StandardError
@@ -345,8 +345,9 @@ module ActiveRecord
           end
         end
 
-        # The open can fail in `start` or, for a session that Net::HTTP must reopen, inside the yielded
-        # request. Both happen before the request is written, so the whole block runs again.
+        # The connection can fail to open in `start` or, when Net::HTTP reopens a stale keep-alive
+        # socket, inside the yielded request. Both happen before Net::HTTP writes the request, so the
+        # whole block runs again on a new session.
         def with_http_session
           connect_retries = 0
           @lock.synchronize do
@@ -355,10 +356,10 @@ module ActiveRecord
               yield
             rescue *CONNECT_ERRORS => e
               @connection.finish if @connection.started?
-              raise ActiveRecord::ConnectionFailed, "Response: #{e.message}" if connect_retries.positive?
+              raise ActiveRecord::ConnectionNotEstablished, "Response: #{e.message}" if connect_retries.positive?
 
               connect_retries += 1
-              logger&.warn("[clickhouse-activerecord] retrying statement after failing to connect (#{e.class}: #{e.message})")
+              logger&.warn("[clickhouse-activerecord] retrying statement after the connection failed to open (#{e.class}: #{e.message})")
               retry
             rescue Exception
               @connection.finish if @connection.started?
