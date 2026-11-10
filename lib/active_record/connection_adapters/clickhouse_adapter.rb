@@ -645,10 +645,9 @@ module ActiveRecord
           @connection_parameters[:port],
           use_ssl: @connection_parameters[:ssl],
           verify_mode: @connection_parameters[:insecure] ? OpenSSL::SSL::VERIFY_NONE : OpenSSL::SSL::VERIFY_PEER,
-          **{ open_timeout: @connection_parameters[:open_timeout] }.compact
+          **{ open_timeout: @connection_parameters[:open_timeout], ca_file: @connection_parameters[:sslca] }.compact
         )
 
-        @connection.ca_file = @connection_parameters[:sslca] if @connection_parameters[:sslca]
         @connection.read_timeout = @connection_parameters[:read_timeout] if @connection_parameters[:read_timeout]
         @connection.write_timeout = @connection_parameters[:write_timeout] if @connection_parameters[:write_timeout]
 
