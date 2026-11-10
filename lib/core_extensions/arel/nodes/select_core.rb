@@ -2,7 +2,17 @@ module CoreExtensions
   module Arel # :nodoc: all
     module Nodes
       module SelectCore
-        attr_accessor :final
+        attr_accessor :final, :prewheres
+
+        def initialize(relation = nil)
+          super
+          @prewheres = []
+        end
+
+        def initialize_copy(other)
+          super
+          @prewheres = @prewheres.clone
+        end
 
         def source
           return super unless final
@@ -13,12 +23,12 @@ module CoreExtensions
         def hash
           [
             @source, @set_quantifier, @projections, @optimizer_hints,
-            @wheres, @groups, @havings, @windows, @comment, @final
+            @prewheres, @wheres, @groups, @havings, @windows, @comment, @final
           ].hash
         end
 
         def eql?(other)
-          super && final == other.final
+          super && final == other.final && prewheres == other.prewheres
         end
       end
     end

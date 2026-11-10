@@ -73,6 +73,7 @@ module ActiveRecord
                :settings, :settings!,
                :window, :window!,
                :limit_by, :limit_by!,
+               :prewhere, :prewhere!,
                to: :all
 
       def is_view
