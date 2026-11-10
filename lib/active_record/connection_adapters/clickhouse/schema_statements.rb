@@ -69,9 +69,8 @@ module ActiveRecord
             log(sql, [adapter_name, 'Stream', name].compact.join(' ')) do
               statement = Statement.new(sql, format: response_format)
               result = nil
-              @lock.synchronize do
+              with_http_session do
                 req = Net::HTTP::Post.new("/?#{settings_params(settings)}", build_request_headers)
-                @connection.start unless @connection.started?
                 @connection.request(req, statement.formatted_sql) do |response|
                   result = statement.streaming_response(response)
                 end
@@ -334,10 +333,22 @@ module ActiveRecord
         # @param [Array] except_params
         # @return [Net::HTTPResponse]
         def request(statement, settings: {}, except_params: [])
-          @lock.synchronize do
+          with_http_session do
             @connection.post("/?#{settings_params(settings, except: except_params)}",
                              statement.formatted_sql,
                              build_request_headers(include_database: !except_params.include?(:database)))
+          end
+        end
+
+        def with_http_session
+          @lock.synchronize do
+            @connection.start unless @connection.started?
+            begin
+              yield
+            rescue Exception
+              @connection.finish if @connection.started?
+              raise
+            end
           end
         end
 
