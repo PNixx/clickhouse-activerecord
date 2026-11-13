@@ -497,12 +497,15 @@ RSpec.describe 'Migration', :migrations do
           expect(ActiveRecord::Base.connection.show_create_function('quoted_fun')).to eq(original)
         end
 
+      end
+
+      context '#function_body' do
         it 'raises on a function definition in an unexpected shape' do
-          ActiveRecord::Base.connection.execute('CREATE FUNCTION odd_fun AS (x) -> x')
           allow(ActiveRecord::Base.connection).to receive(:show_create_function).with('odd_fun')
                                                                                .and_return('CREATE FUNCTION odd_fun AS (x) -> x')
 
-          expect { dump }.to raise_error(ArgumentError, /odd_fun/)
+          expect { ActiveRecord::Base.connection.function_body('odd_fun') }
+            .to raise_error(ActiveRecord::ActiveRecordError, /odd_fun/)
         end
       end
     end

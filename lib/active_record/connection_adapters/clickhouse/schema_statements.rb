@@ -181,7 +181,7 @@ module ActiveRecord
           return if sql.nil?
 
           match = sql.match(/\ACREATE OR REPLACE FUNCTION `?#{Regexp.escape(function)}`? AS (.*)\z/m)
-          raise ArgumentError, "Unexpected definition for function #{function}: #{sql}" unless match
+          raise ActiveRecord::ActiveRecordError, "Unexpected definition for function #{function}: #{sql}" unless match
 
           match[1].strip
         end
