@@ -500,6 +500,10 @@ RSpec.describe 'Migration', :migrations do
       end
 
       context '#function_body' do
+        it 'returns nil for a function that does not exist, whatever its name' do
+          expect(ActiveRecord::Base.connection.function_body("no_such'fun")).to be_nil
+        end
+
         it 'raises on a function definition in an unexpected shape' do
           allow(ActiveRecord::Base.connection).to receive(:show_create_function).with('odd_fun')
                                                                                .and_return('CREATE FUNCTION odd_fun AS (x) -> x')
