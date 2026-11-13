@@ -13,7 +13,7 @@ module CoreExtensions
         }
         full_config = connection.instance_variable_get(:@config) || {}
 
-        if full_config[:distributed_service_tables]
+        if connection.class.type_cast_config_to_boolean(full_config[:distributed_service_tables])
           table_options.merge!(with_distributed: table_name, sharding_key: 'cityHash64(version)')
 
           distributed_suffix = "_#{full_config[:distributed_service_tables_suffix] || 'distributed'}"
