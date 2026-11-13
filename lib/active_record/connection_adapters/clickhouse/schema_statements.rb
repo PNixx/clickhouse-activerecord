@@ -13,7 +13,9 @@ module ActiveRecord
         HTTP_AUTH_X_HEADERS = :x_clickhouse_headers
         HTTP_AUTH_TYPES = [HTTP_AUTH_QUERY_PARAMS, HTTP_AUTH_BASIC, HTTP_AUTH_X_HEADERS].freeze
 
-        # Connection-level failures worth a single retry on a fresh connection.
+        # Connection-level failures worth a single retry of a read on a fresh connection. With
+        # `retry_on_connect_error`, `with_http_session` retries Net::OpenTimeout first, so a read sees
+        # it here only when that setting is off.
         RETRYABLE_CONNECTION_ERRORS = [Net::OpenTimeout, EOFError, Errno::ECONNRESET, IOError].freeze
 
         # The connection fails to open, before Net::HTTP writes the request. Nothing reached the
@@ -359,7 +361,7 @@ module ActiveRecord
               yield
             rescue *CONNECT_ERRORS => e
               @connection.finish if @connection.started?
-              raise unless @config[:retry_on_connect_error]
+              raise unless @retry_on_connect_error
               raise ActiveRecord::ConnectionNotEstablished, "Response: #{e.message}" if connect_retries.positive?
 
               connect_retries += 1

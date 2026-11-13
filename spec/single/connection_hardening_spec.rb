@@ -127,6 +127,24 @@ RSpec.describe 'Connection hardening' do
         expect { adapter.exec_query('SELECT 1') }.to raise_error(ActiveRecord::ActiveRecordError, /refused/)
         expect(http_connection).to have_received(:post).once
       end
+
+      it 'retries a read that times out opening once, then raises ActiveRecord::ConnectionFailed' do
+        allow(http_connection).to receive(:post).and_raise(Net::OpenTimeout)
+
+        expect { adapter.exec_query('SELECT 1') }.to raise_error(ActiveRecord::ConnectionFailed)
+        expect(http_connection).to have_received(:post).twice
+      end
+    end
+
+    context 'when retry_on_connect_error is the string "false", as Rails passes it from a URL' do
+      let(:config) { { adapter: 'clickhouse', host: 'localhost', database: 'db', retry_on_connect_error: 'false' } }
+
+      it 'does not retry a refused connection' do
+        allow(http_connection).to receive(:post).and_raise(Errno::ECONNREFUSED)
+
+        expect { adapter.exec_query('SELECT 1') }.to raise_error(ActiveRecord::ActiveRecordError, /refused/)
+        expect(http_connection).to have_received(:post).once
+      end
     end
 
     context 'with retry_on_connect_error' do
@@ -241,12 +259,14 @@ RSpec.describe 'Connection hardening' do
 
     before { allow(Net::HTTP).to receive(:start).and_return(http_connection) }
 
-    context 'when the connection fails to open, without retry_on_connect_error' do
-      it 'does not retry' do
-        allow(http_connection).to receive(:post).and_raise(Errno::ECONNREFUSED)
+    [Net::OpenTimeout, Errno::ECONNREFUSED].each do |error|
+      context "when the connection fails to open (#{error}), without retry_on_connect_error" do
+        it 'does not retry' do
+          allow(http_connection).to receive(:post).and_raise(error)
 
-        expect { adapter.exec_insert_all(insert, 'Bulk Insert') }.to raise_error(Errno::ECONNREFUSED)
-        expect(http_connection).to have_received(:post).once
+          expect { adapter.exec_insert_all(insert, 'Bulk Insert') }.to raise_error(error)
+          expect(http_connection).to have_received(:post).once
+        end
       end
     end
 

@@ -120,11 +120,12 @@ clickhouse:
   take. It's optional and unset by default (`Net::HTTP`'s own default applies), unlike
   `read_timeout`/`write_timeout` which only apply once a connection exists - a network path that
   never completes the TCP handshake (a dead route, a security group silently dropping packets)
-  previously had no bound here at all. It bounds each attempt to open, so a statement that
-  retries below can wait up to twice as long.
+  previously had no bound here at all. It bounds each attempt to open. A read that retries below
+  can open three times (the request, the reconnect and the retry), so it can wait up to three
+  times as long.
 - **Read queries (`SELECT`) are retried once** on a fresh connection when the failure happens
   before the server responds at all (`Net::OpenTimeout`, `EOFError`, `ECONNRESET`, `IOError`) -
-  the kind of failure a stale pooled connection produces. Writes are never retried, and
+  the kind of failure a stale pooled connection produces. Writes are not retried on these, and
   `Net::ReadTimeout` (the server received the query and hasn't answered yet) is deliberately
   **not** retried on any query - re-sending a query that's already loading the server doesn't
   help. If the retry also fails, `ActiveRecord::ConnectionFailed` is raised.
@@ -134,6 +135,7 @@ clickhouse:
   safe to send again. If the connection fails to open again,
   `ActiveRecord::ConnectionNotEstablished` is raised. It's off by default. When it's on, the read
   retry above still covers a connection that drops, and a read reaches the server at most twice.
+  It doesn't cover the first connection, which opens when the adapter is created.
 - **Timeouts and cancellations now raise distinct, Rails-standard error classes** instead of a
   generic `ActiveRecord::ActiveRecordError`, so callers can `rescue` them the same way they
   would for any other adapter:
@@ -141,7 +143,7 @@ clickhouse:
     `max_execution_time` or `cancel_http_readonly_queries_on_client_close`.
   - `ActiveRecord::AdapterTimeout` - the client gave up waiting for a response
     (`Net::ReadTimeout`); the query may still be running server-side.
-  - `ActiveRecord::ConnectionFailed` - the connection-retry above was exhausted.
+  - `ActiveRecord::ConnectionFailed` - the read retry above failed again.
   - `ActiveRecord::ConnectionNotEstablished` - with `retry_on_connect_error`, the connection failed
     to open twice.
 
