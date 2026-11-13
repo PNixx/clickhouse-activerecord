@@ -262,6 +262,8 @@ module ActiveRecord
               when 'max_execution_time' then config[:max_execution_time] = value.to_i
               when 'cancel_http_readonly_queries_on_client_close'
                 config[:cancel_http_readonly_queries_on_client_close] = (value == 'true')
+              when 'retry_on_connect_error'
+                config[:retry_on_connect_error] = (value == 'true')
               end
             end
           end
