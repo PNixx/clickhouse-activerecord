@@ -287,4 +287,13 @@ RSpec.describe ClickhouseActiverecord::StructureDumper, :migrations do
 
     expect(names).to contain_exactly('a_view', 'b_view')
   end
+
+  it 'skips a function dropped after it was listed' do
+    dropped = instance_double(ActiveRecord::ConnectionAdapters::ClickhouseAdapter, functions: ['gone_fun'])
+    allow(dropped).to receive(:quote) { |value| "'#{value}'" }
+    allow(dropped).to receive(:show_create_function).with('gone_fun').and_return(nil)
+    allow(dropped).to receive(:execute).and_return({ 'data' => [] })
+
+    expect(described_class.new(dropped, database).statements).to eq([])
+  end
 end
