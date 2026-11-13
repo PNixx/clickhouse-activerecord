@@ -153,17 +153,20 @@ module ActiveRecord
             connection: @config[:connection]
           }
         else
-          port = @config[:port] || 8123
+          # Rails passes the query parameters of a clickhouse:// URL through as strings, as it does an
+          # ERB value in database.yml, so each setting is cast where it is read.
+          port = self.class.type_cast_config_to_integer(@config[:port]) || 8123
+          ssl = self.class.type_cast_config_to_boolean(@config[:ssl])
           connection = {
             host: @config[:host] || 'localhost',
             port: port,
-            ssl: @config[:ssl].present? ? @config[:ssl] : port == 443,
-            insecure: @config.fetch(:insecure, true),
+            ssl: ssl.present? ? ssl : port == 443,
+            insecure: self.class.type_cast_config_to_boolean(@config.fetch(:insecure, true)),
             sslca: @config[:sslca],
-            open_timeout: @config[:open_timeout],
-            read_timeout: @config[:read_timeout],
-            write_timeout: @config[:write_timeout],
-            keep_alive_timeout: @config[:keep_alive_timeout]
+            open_timeout: self.class.type_cast_config_to_integer(@config[:open_timeout]),
+            read_timeout: self.class.type_cast_config_to_integer(@config[:read_timeout]),
+            write_timeout: self.class.type_cast_config_to_integer(@config[:write_timeout]),
+            keep_alive_timeout: self.class.type_cast_config_to_integer(@config[:keep_alive_timeout])
           }
         end
         @connection_parameters = connection
@@ -172,10 +175,10 @@ module ActiveRecord
           user: @config[:username],
           password: @config[:password],
           database: @config[:database],
-          max_execution_time: @config[:max_execution_time],
-          cancel_http_readonly_queries_on_client_close: @config[:cancel_http_readonly_queries_on_client_close],
+          max_execution_time: self.class.type_cast_config_to_integer(@config[:max_execution_time]),
+          cancel_http_readonly_queries_on_client_close: self.class.type_cast_config_to_boolean(@config[:cancel_http_readonly_queries_on_client_close]),
         }.compact
-        @debug = @config[:debug] || false
+        @debug = self.class.type_cast_config_to_boolean(@config[:debug]) || false
         @default_response_format = @config[:format] || DEFAULT_RESPONSE_FORMAT
         @http_auth = @config[:http_auth]&.to_sym
 
