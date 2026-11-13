@@ -49,9 +49,12 @@ module ClickhouseActiverecord
     private
 
     def function_definitions
-      definitions = @connection.functions.map do |name|
-        sql = @connection.show_create_function(name).gsub('\\n', "\n")
-        Definition.new(name: name, kind: :function, sql: sql, dependencies: Set.new)
+      # A function dropped since `functions` listed it has no definition left to dump.
+      definitions = @connection.functions.filter_map do |name|
+        sql = @connection.show_create_function(name)
+        next if sql.nil?
+
+        Definition.new(name: name, kind: :function, sql: sql.gsub('\\n', "\n"), dependencies: Set.new)
       end
 
       names = definitions.map(&:name)
