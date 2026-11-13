@@ -13,6 +13,10 @@ module ActiveRecord
         HTTP_AUTH_X_HEADERS = :x_clickhouse_headers
         HTTP_AUTH_TYPES = [HTTP_AUTH_QUERY_PARAMS, HTTP_AUTH_BASIC, HTTP_AUTH_X_HEADERS].freeze
 
+        # Same threshold as `primary_keys`: before it the primary key is guessed from the column
+        # named `id`, which `system.columns` cannot reproduce.
+        BULK_SCHEMA_MIN_VERSION = Gem::Version.new('23.4')
+
         # Connection-level failures worth a single retry on a fresh connection.
         RETRYABLE_CONNECTION_ERRORS = [Net::OpenTimeout, EOFError, Errno::ECONNRESET, IOError].freeze
 
@@ -254,9 +258,26 @@ module ActiveRecord
           end
         end
 
+        # Read the columns and primary keys of every table in one request for the duration of
+        # the block. Lookups for a table inside the block are answered from that result; a table
+        # the result does not contain still falls back to its own request.
+        # Servers older than BULK_SCHEMA_MIN_VERSION keep the request per table.
+        def with_bulk_schema_load
+          return yield if @bulk_schema || Gem::Version.new(server_version) < BULK_SCHEMA_MIN_VERSION
+
+          begin
+            @bulk_schema = load_bulk_schema
+            yield
+          ensure
+            @bulk_schema = nil
+          end
+        end
+
         protected
 
         def table_structure(table_name)
+          return @bulk_schema[:structures][table_name] if @bulk_schema&.dig(:structures, table_name)
+
           result = do_system_execute("DESCRIBE TABLE `#{table_name}`", table_name)
           data = result['data']
 
@@ -279,6 +300,35 @@ module ActiveRecord
         end
 
         private
+
+        # One query for all tables. It gives what `DESCRIBE TABLE` gives for the columns (same
+        # order, ephemeral columns included) and what `SHOW COLUMNS` gives for the primary keys
+        # (alphabetical). Same table filter as `tables`.
+        def load_bulk_schema
+          result = do_system_execute(<<~SQL.squish, 'SCHEMA')
+            SELECT table, name, type, default_kind, default_expression, comment, compression_codec, is_in_primary_key
+            FROM system.columns
+            WHERE database = currentDatabase() AND table NOT LIKE '.inner_id.%'
+            ORDER BY table, position
+          SQL
+
+          schema = { structures: {}, primary_keys: {} }
+          result['data'].each do |table, name, type, default_kind, default_expression, comment, codec, in_primary_key|
+            (schema[:structures][table] ||= []) << Clickhouse::DescribedColumn.new(
+              name: name,
+              sql_type: type,
+              default_type: default_kind,
+              default_expression: default_expression,
+              comment: comment,
+              # `system.columns` wraps the codec as `CODEC(...)`, `DESCRIBE TABLE` does not
+              codec: codec.sub(/\ACODEC\((.*)\)\z/m, '\1'),
+            )
+            keys = (schema[:primary_keys][table] ||= [])
+            keys << name if in_primary_key.to_i == 1
+          end
+          schema[:primary_keys].each_value(&:sort!)
+          schema
+        end
 
         def schema_creation
           Clickhouse::SchemaCreation.new(self)

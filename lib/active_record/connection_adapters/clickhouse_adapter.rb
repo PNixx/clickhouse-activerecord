@@ -381,7 +381,9 @@ module ActiveRecord
       # SCHEMA STATEMENTS ========================================
 
       def primary_keys(table_name)
-        if Gem::Version.new(server_version) >= Gem::Version.new('23.4')
+        return @bulk_schema[:primary_keys][table_name] if @bulk_schema&.dig(:primary_keys, table_name)
+
+        if Gem::Version.new(server_version) >= Clickhouse::SchemaStatements::BULK_SCHEMA_MIN_VERSION
           structure = do_system_execute("SHOW COLUMNS FROM `#{table_name}`")
           return structure['data'].select {|m| m[3]&.include?('PRI') }.pluck(0)
         end
