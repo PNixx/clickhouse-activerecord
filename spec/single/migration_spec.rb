@@ -471,6 +471,15 @@ RSpec.describe 'Migration', :migrations do
           expect(ActiveRecord::Base.connection.functions).to match_array(['forced_fun', 'some_fun'])
           expect(ActiveRecord::Base.connection.show_create_function('forced_fun').chomp).to eq('CREATE OR REPLACE FUNCTION forced_fun AS (x, y) -> (x + y)')
         end
+
+        it 'dumps the function body without its CREATE statement' do
+          require 'clickhouse-activerecord/schema_dumper'
+
+          subject
+          dumped = ClickhouseActiverecord::SchemaDumper.dump(ActiveRecord::Base.connection, StringIO.new).string
+
+          expect(dumped).to include('create_function "forced_fun", "(x, y) -> (x + y)", force: true')
+        end
       end
     end
   end
