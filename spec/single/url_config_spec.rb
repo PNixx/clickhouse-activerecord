@@ -63,7 +63,7 @@ RSpec.describe 'URL-based configuration' do
   end
 
   context 'URL with query parameters' do
-    let(:config) { { url: 'clickhouse://user:pass@localhost:8123/db?ssl=true&debug=true&read_timeout=120&write_timeout=90&keep_alive_timeout=30&http_auth=basic&cluster_name=mycluster' } }
+    let(:config) { { url: 'clickhouse://user:pass@localhost:8123/db?ssl=true&debug=true&read_timeout=120&write_timeout=90&keep_alive_timeout=30&http_auth=basic&cluster_name=mycluster&retry_on_connect_error=true' } }
 
     before do
       allow(http_connection).to receive(:read_timeout=)
@@ -94,6 +94,10 @@ RSpec.describe 'URL-based configuration' do
 
     it 'sets http_auth from query params' do
       expect(adapter.instance_variable_get(:@http_auth)).to eq(:basic)
+    end
+
+    it 'sets retry_on_connect_error from query params' do
+      expect(adapter.instance_variable_get(:@config)[:retry_on_connect_error]).to eq(true)
     end
   end
 

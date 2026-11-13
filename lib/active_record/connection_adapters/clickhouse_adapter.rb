@@ -178,6 +178,8 @@ module ActiveRecord
         @debug = @config[:debug] || false
         @default_response_format = @config[:format] || DEFAULT_RESPONSE_FORMAT
         @http_auth = @config[:http_auth]&.to_sym
+        # Rails passes the query parameters of a `clickhouse://` URL through as strings, so "false" must be cast.
+        @retry_on_connect_error = self.class.type_cast_config_to_boolean(@config[:retry_on_connect_error]) || false
 
         @prepared_statements = false
 
@@ -262,6 +264,8 @@ module ActiveRecord
               when 'max_execution_time' then config[:max_execution_time] = value.to_i
               when 'cancel_http_readonly_queries_on_client_close'
                 config[:cancel_http_readonly_queries_on_client_close] = (value == 'true')
+              when 'retry_on_connect_error'
+                config[:retry_on_connect_error] = (value == 'true')
               end
             end
           end
