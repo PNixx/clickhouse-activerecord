@@ -174,6 +174,18 @@ module ActiveRecord
           result['data'].flatten.first.sub(/\ACREATE FUNCTION/, 'CREATE OR REPLACE FUNCTION')
         end
 
+        # The body that `create_function` takes. Raises on a definition in any other shape, because a
+        # whole statement passed back as the body fails only when it runs.
+        def function_body(function)
+          sql = show_create_function(function)
+          return if sql.nil?
+
+          match = sql.match(/\ACREATE OR REPLACE FUNCTION `?#{Regexp.escape(function)}`? AS (.*)\z/m)
+          raise ArgumentError, "Unexpected definition for function #{function}: #{sql}" unless match
+
+          match[1].strip
+        end
+
         def table_options(table)
           sql = show_create_table(table)
           { options: sql.gsub(/^(?:.*?)(?:ENGINE = (.*?))?( AS SELECT .*?)?$/, '\\1').presence, as: sql.match(/^CREATE (?:.*?) AS (SELECT .*?)$/).try(:[], 1) }.compact
