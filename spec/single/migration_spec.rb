@@ -447,6 +447,21 @@ RSpec.describe 'Migration', :migrations do
       end
     end
 
+    context 'with distributed_service_tables as the string "false"' do
+      it 'creates schema_migrations without a Distributed table' do
+        ActiveRecord::Base.establish_connection(connection_config.merge(distributed_service_tables: 'false'))
+        connection = ActiveRecord::Base.connection
+        connection.drop_table('schema_migrations', if_exists: true)
+        allow(connection).to receive(:create_table).and_call_original
+
+        connection.schema_migration.create_table
+
+        expect(connection).to have_received(:create_table).with('schema_migrations', hash_excluding(:with_distributed))
+      ensure
+        ActiveRecord::Base.establish_connection(connection_config)
+      end
+    end
+
     context 'function creation' do
       after do
         ActiveRecord::Base.connection.drop_functions

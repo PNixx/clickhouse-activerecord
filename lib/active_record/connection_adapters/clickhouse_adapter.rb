@@ -153,14 +153,13 @@ module ActiveRecord
             connection: @config[:connection]
           }
         else
-          # Rails passes the query parameters of a clickhouse:// URL through as strings, as it does an
-          # ERB value in database.yml, so each setting is cast where it is read.
+          # Rails gives the query parameters of a clickhouse:// URL, and a quoted value in database.yml,
+          # as strings, so each setting is cast where it is read.
           port = self.class.type_cast_config_to_integer(@config[:port]) || 8123
-          ssl = self.class.type_cast_config_to_boolean(@config[:ssl])
           connection = {
             host: @config[:host] || 'localhost',
             port: port,
-            ssl: ssl.present? ? ssl : port == 443,
+            ssl: @config[:ssl].to_s.empty? ? port == 443 : self.class.type_cast_config_to_boolean(@config[:ssl]),
             insecure: self.class.type_cast_config_to_boolean(@config.fetch(:insecure, true)),
             sslca: @config[:sslca],
             open_timeout: self.class.type_cast_config_to_integer(@config[:open_timeout]),
@@ -574,7 +573,7 @@ module ActiveRecord
       end
 
       def use_default_replicated_merge_tree_params?
-        database_engine_atomic? && @config[:use_default_replicated_merge_tree_params]
+        database_engine_atomic? && self.class.type_cast_config_to_boolean(@config[:use_default_replicated_merge_tree_params])
       end
 
       def use_replica?
