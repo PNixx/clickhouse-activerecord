@@ -471,14 +471,38 @@ RSpec.describe 'Migration', :migrations do
           expect(ActiveRecord::Base.connection.functions).to match_array(['forced_fun', 'some_fun'])
           expect(ActiveRecord::Base.connection.show_create_function('forced_fun').chomp).to eq('CREATE OR REPLACE FUNCTION forced_fun AS (x, y) -> (x + y)')
         end
+      end
 
-        it 'dumps the function body without its CREATE statement' do
-          require 'clickhouse-activerecord/schema_dumper'
+      context 'schema dump' do
+        before { require 'clickhouse-activerecord/schema_dumper' }
 
-          subject
-          dumped = ClickhouseActiverecord::SchemaDumper.dump(ActiveRecord::Base.connection, StringIO.new).string
+        def dump
+          ClickhouseActiverecord::SchemaDumper.dump(ActiveRecord::Base.connection, StringIO.new).string
+        end
 
-          expect(dumped).to include('create_function "forced_fun", "(x, y) -> (x + y)", force: true')
+        it 'loads a function back unchanged, with a quote, a backslash and #{ in its body' do
+          ActiveRecord::Base.connection.execute(<<~'SQL')
+            CREATE FUNCTION quoted_fun AS (s) -> concat('"', replaceRegexpAll(s, '\\d', '#{x}'))
+          SQL
+          original = ActiveRecord::Base.connection.show_create_function('quoted_fun')
+          schema = dump
+          ActiveRecord::Base.connection.drop_functions
+
+          Tempfile.create(['schema', '.rb']) do |file|
+            file.write(schema)
+            file.flush
+            quietly { load file.path }
+          end
+
+          expect(ActiveRecord::Base.connection.show_create_function('quoted_fun')).to eq(original)
+        end
+
+        it 'raises on a function definition in an unexpected shape' do
+          ActiveRecord::Base.connection.execute('CREATE FUNCTION odd_fun AS (x) -> x')
+          allow(ActiveRecord::Base.connection).to receive(:show_create_function).with('odd_fun')
+                                                                               .and_return('CREATE FUNCTION odd_fun AS (x) -> x')
+
+          expect { dump }.to raise_error(ArgumentError, /odd_fun/)
         end
       end
     end

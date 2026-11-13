@@ -134,9 +134,18 @@ module ClickhouseActiverecord
       sql = @connection.show_create_function(function)
       if sql
         stream.puts "  # SQL: #{sql}"
-        stream.puts "  create_function \"#{function}\", \"#{sql.sub(/\ACREATE (?:OR REPLACE )?FUNCTION .*? AS/, '').strip}\", force: true"
+        stream.puts "  create_function #{function.inspect}, #{function_body(function, sql).inspect}, force: true"
         stream.puts
       end
+    end
+
+    # Raises on a statement in any other shape: dumped whole as the body, it would break schema.rb
+    # only when it loads.
+    def function_body(function, sql)
+      match = sql.match(/\ACREATE OR REPLACE FUNCTION `?#{Regexp.escape(function)}`?(?: ON CLUSTER \S+)? AS (.*)\z/m)
+      raise ArgumentError, "Cannot dump function #{function}, unexpected definition: #{sql}" unless match
+
+      match[1].strip
     end
 
     def format_options(options)
