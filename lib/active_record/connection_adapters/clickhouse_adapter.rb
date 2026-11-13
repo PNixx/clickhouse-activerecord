@@ -399,7 +399,8 @@ module ActiveRecord
       # @option [Boolean] single_line
       # @return [String]
       def show_create_table(table, single_line: true)
-        sql = do_system_execute("SHOW CREATE TABLE `#{table}`")['data'].try(:first).try(:first).gsub("#{@config[:database]}.", '')
+        sql = do_system_execute("SHOW CREATE TABLE `#{table}`")['data'].try(:first).try(:first)
+        sql = remove_database_qualifier(sql)
         single_line ? sql.squish : sql
       end
 
@@ -638,6 +639,33 @@ module ActiveRecord
       end
 
       private
+
+      # Removes the database qualifier from the names in a statement, so it loads into a database
+      # with another name. The dictionary functions (dictGet and its variants, dictHas, dictIsIn)
+      # take the dictionary name as a string, and ClickHouse qualifies that string with the current
+      # database again on CREATE, so the qualifier comes off there too. Every other string stays as
+      # it is: most are data (a default, an Enum label, a comment), and joinGet and dictionary()
+      # resolve an unqualified name against the database of the session that runs the query, not
+      # the one that created the view. A backquoted identifier stays as it is, so a database name
+      # that needs backquotes keeps its qualifier.
+      #
+      # The order of the alternatives matters: the dictionary function comes before the general
+      # string, which would otherwise match it, and each string and identifier comes before the
+      # bare qualifier.
+      def remove_database_qualifier(sql)
+        return sql if database.blank?
+
+        qualifier = Regexp.escape(database)
+        pattern = /(?<identifier>`(?:[^`\\]|\\.)*`)|(?<function>\bdict(?:Get\w*|Has|IsIn)\(\s*)'#{qualifier}\.(?<name>[^'\\]+)'|(?<string>'(?:[^'\\]|\\.)*')|(?<![\w.`])#{qualifier}\./
+        sql.gsub(pattern) do
+          match = Regexp.last_match
+          if match[:identifier] then match[:identifier]
+          elsif match[:function] then "#{match[:function]}'#{match[:name]}'"
+          elsif match[:string] then match[:string]
+          else ''
+          end
+        end
+      end
 
       def connect
         @connection = @connection_parameters[:connection] || Net::HTTP.start(
