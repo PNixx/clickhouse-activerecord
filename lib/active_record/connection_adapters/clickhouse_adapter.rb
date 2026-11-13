@@ -179,7 +179,7 @@ module ActiveRecord
         @default_response_format = @config[:format] || DEFAULT_RESPONSE_FORMAT
         @http_auth = @config[:http_auth]&.to_sym
         # Rails passes the query parameters of a `clickhouse://` URL through as strings, so "false" must be cast.
-        @retry_on_connect_error = ActiveModel::Type::Boolean.new.cast(@config[:retry_on_connect_error]) || false
+        @retry_on_connect_error = self.class.type_cast_config_to_boolean(@config[:retry_on_connect_error]) || false
 
         @prepared_statements = false
 
