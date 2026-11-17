@@ -24,7 +24,7 @@ module ClickhouseActiverecord
       materialized_view_tables = @connection.materialized_views.sort
       sorted_tables = @connection.tables.sort - view_tables - materialized_view_tables
 
-      (sorted_tables + view_tables + materialized_view_tables).each do |table_name|
+      (sorted_tables + materialized_view_tables + view_tables).each do |table_name|
         table(table_name, stream) unless ignored?(table_name)
       end
     end

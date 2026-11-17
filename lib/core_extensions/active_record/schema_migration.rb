@@ -7,7 +7,7 @@ module CoreExtensions
 
         return if table_exists?
 
-        version_options = connection.internal_string_options_for_primary_key
+        version_options = { primary_key: true }
         table_options = {
           id: false, options: 'ReplacingMergeTree(ver) ORDER BY (version)', if_not_exists: true
         }
@@ -19,6 +19,10 @@ module CoreExtensions
           distributed_suffix = "_#{full_config[:distributed_service_tables_suffix] || 'distributed'}"
         else
           distributed_suffix = ''
+        end
+
+        if full_config[:cluster_name]
+          table_options.merge!(options: 'ReplicatedReplacingMergeTree(ver) ORDER BY (version)')
         end
 
         connection.create_table(table_name + distributed_suffix.to_s, **table_options) do |t|
@@ -44,6 +48,7 @@ module CoreExtensions
         sm.project(arel_table[primary_key])
         sm.order(arel_table[primary_key].asc)
         sm.where([arel_table['active'].eq(1)])
+        sm.settings({max_replica_delay_for_distributed_queries: 1})
 
         connection.select_values(sm, "#{self.class} Load")
       end

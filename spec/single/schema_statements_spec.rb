@@ -17,8 +17,8 @@ RSpec.describe 'ActiveRecord::ConnectionAdapters::Clickhouse::SchemaStatements' 
 
     it 'truncates multiple tables' do
       connection.execute('CREATE TABLE truncate_test2 (id UInt64, value Int32) ENGINE = MergeTree ORDER BY id')
-      connection.exec_insert("INSERT INTO truncate_test (id, name) VALUES (1, 'Alice'), (2, 'Bob')")
-      connection.exec_insert("INSERT INTO truncate_test2 (id, value) VALUES (1, 100), (2, 200)")
+      connection.insert("INSERT INTO truncate_test (id, name) VALUES (1, 'Alice'), (2, 'Bob')")
+      connection.insert("INSERT INTO truncate_test2 (id, value) VALUES (1, 100), (2, 200)")
 
       expect(connection.select_value('SELECT count() FROM truncate_test').to_i).to eq(2)
       expect(connection.select_value('SELECT count() FROM truncate_test2').to_i).to eq(2)
@@ -41,7 +41,7 @@ RSpec.describe 'ActiveRecord::ConnectionAdapters::Clickhouse::SchemaStatements' 
         LIFETIME(MIN 0 MAX 0)
         LAYOUT(FLAT())
       SQL
-      connection.exec_insert("INSERT INTO truncate_test (id, name) VALUES (1, 'Alice')")
+      connection.insert("INSERT INTO truncate_test (id, name) VALUES (1, 'Alice')")
 
       expect { connection.truncate_tables(*connection.tables) }.not_to raise_error
 

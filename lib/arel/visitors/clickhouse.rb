@@ -1,4 +1,4 @@
-require 'arel/visitors/to_sql'
+require 'arel'
 
 module Arel
   module Visitors
