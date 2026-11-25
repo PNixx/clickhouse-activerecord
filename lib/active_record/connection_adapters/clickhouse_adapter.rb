@@ -153,17 +153,19 @@ module ActiveRecord
             connection: @config[:connection]
           }
         else
-          port = @config[:port] || 8123
+          # Rails gives the query parameters of a clickhouse:// URL, and a quoted value in database.yml,
+          # as strings, so each setting is cast where it is read.
+          port = self.class.type_cast_config_to_integer(@config[:port]) || 8123
           connection = {
             host: @config[:host] || 'localhost',
             port: port,
-            ssl: @config[:ssl].present? ? @config[:ssl] : port == 443,
-            insecure: @config.fetch(:insecure, true),
+            ssl: @config[:ssl].to_s.empty? ? port == 443 : self.class.type_cast_config_to_boolean(@config[:ssl]),
+            insecure: self.class.type_cast_config_to_boolean(@config.fetch(:insecure, true)),
             sslca: @config[:sslca],
-            open_timeout: @config[:open_timeout],
-            read_timeout: @config[:read_timeout],
-            write_timeout: @config[:write_timeout],
-            keep_alive_timeout: @config[:keep_alive_timeout]
+            open_timeout: self.class.type_cast_config_to_integer(@config[:open_timeout]),
+            read_timeout: self.class.type_cast_config_to_integer(@config[:read_timeout]),
+            write_timeout: self.class.type_cast_config_to_integer(@config[:write_timeout]),
+            keep_alive_timeout: self.class.type_cast_config_to_integer(@config[:keep_alive_timeout])
           }
         end
         @connection_parameters = connection
@@ -172,12 +174,14 @@ module ActiveRecord
           user: @config[:username],
           password: @config[:password],
           database: @config[:database],
-          max_execution_time: @config[:max_execution_time],
-          cancel_http_readonly_queries_on_client_close: @config[:cancel_http_readonly_queries_on_client_close],
+          max_execution_time: self.class.type_cast_config_to_integer(@config[:max_execution_time]),
+          cancel_http_readonly_queries_on_client_close: self.class.type_cast_config_to_boolean(@config[:cancel_http_readonly_queries_on_client_close]),
         }.compact
-        @debug = @config[:debug] || false
+        @debug = self.class.type_cast_config_to_boolean(@config[:debug]) || false
         @default_response_format = @config[:format] || DEFAULT_RESPONSE_FORMAT
         @http_auth = @config[:http_auth]&.to_sym
+        # Rails passes the query parameters of a `clickhouse://` URL through as strings, so "false" must be cast.
+        @retry_on_connect_error = self.class.type_cast_config_to_boolean(@config[:retry_on_connect_error]) || false
 
         @prepared_statements = false
 
@@ -262,6 +266,8 @@ module ActiveRecord
               when 'max_execution_time' then config[:max_execution_time] = value.to_i
               when 'cancel_http_readonly_queries_on_client_close'
                 config[:cancel_http_readonly_queries_on_client_close] = (value == 'true')
+              when 'retry_on_connect_error'
+                config[:retry_on_connect_error] = (value == 'true')
               end
             end
           end
@@ -401,7 +407,8 @@ module ActiveRecord
       # @option [Boolean] single_line
       # @return [String]
       def show_create_table(table, single_line: true)
-        sql = do_system_execute("SHOW CREATE TABLE `#{table}`")['data'].try(:first).try(:first).gsub("#{@config[:database]}.", '')
+        sql = do_system_execute("SHOW CREATE TABLE `#{table}`")['data'].try(:first).try(:first)
+        sql = remove_database_qualifier(sql)
         single_line ? sql.squish : sql
       end
 
@@ -573,7 +580,7 @@ module ActiveRecord
       end
 
       def use_default_replicated_merge_tree_params?
-        database_engine_atomic? && @config[:use_default_replicated_merge_tree_params]
+        database_engine_atomic? && self.class.type_cast_config_to_boolean(@config[:use_default_replicated_merge_tree_params])
       end
 
       def use_replica?
@@ -618,8 +625,7 @@ module ActiveRecord
       end
 
       def build_insert_sql(insert) # :nodoc:
-        sql = +"INSERT #{insert.into} #{insert.values_list}"
-        sql
+        ['INSERT', insert.into, insert.settings_list, insert.values_list].compact.join(' ')
       end
 
       protected
@@ -641,16 +647,42 @@ module ActiveRecord
 
       private
 
+      # Removes the database qualifier from the names in a statement, so it loads into a database
+      # with another name. The dictionary functions (dictGet and its variants, dictHas, dictIsIn)
+      # take the dictionary name as a string, and ClickHouse qualifies that string with the current
+      # database again on CREATE, so the qualifier comes off there too. Every other string stays as
+      # it is: most are data (a default, an Enum label, a comment), and joinGet and dictionary()
+      # resolve an unqualified name against the database of the session that runs the query, not
+      # the one that created the view. A backquoted identifier stays as it is, so a database name
+      # that needs backquotes keeps its qualifier.
+      #
+      # The order of the alternatives matters: the dictionary function comes before the general
+      # string, which would otherwise match it, and each string and identifier comes before the
+      # bare qualifier.
+      def remove_database_qualifier(sql)
+        return sql if database.blank?
+
+        qualifier = Regexp.escape(database)
+        pattern = /(?<identifier>`(?:[^`\\]|\\.)*`)|(?<function>\bdict(?:Get\w*|Has|IsIn)\(\s*)'#{qualifier}\.(?<name>[^'\\]+)'|(?<string>'(?:[^'\\]|\\.)*')|(?<![\w.`])#{qualifier}\./
+        sql.gsub(pattern) do
+          match = Regexp.last_match
+          if match[:identifier] then match[:identifier]
+          elsif match[:function] then "#{match[:function]}'#{match[:name]}'"
+          elsif match[:string] then match[:string]
+          else ''
+          end
+        end
+      end
+
       def connect
         @connection = @connection_parameters[:connection] || Net::HTTP.start(
           @connection_parameters[:host],
           @connection_parameters[:port],
           use_ssl: @connection_parameters[:ssl],
           verify_mode: @connection_parameters[:insecure] ? OpenSSL::SSL::VERIFY_NONE : OpenSSL::SSL::VERIFY_PEER,
-          **{ open_timeout: @connection_parameters[:open_timeout] }.compact
+          **{ open_timeout: @connection_parameters[:open_timeout], ca_file: @connection_parameters[:sslca] }.compact
         )
 
-        @connection.ca_file = @connection_parameters[:sslca] if @connection_parameters[:sslca]
         @connection.read_timeout = @connection_parameters[:read_timeout] if @connection_parameters[:read_timeout]
         @connection.write_timeout = @connection_parameters[:write_timeout] if @connection_parameters[:write_timeout]
 

@@ -17,8 +17,15 @@ module ActiveRecord
         # named `id`, which `system.columns` cannot reproduce.
         BULK_SCHEMA_MIN_VERSION = Gem::Version.new('23.4')
 
-        # Connection-level failures worth a single retry on a fresh connection.
+        # Connection-level failures worth a single retry of a read on a fresh connection. With
+        # `retry_on_connect_error`, `with_http_session` retries Net::OpenTimeout first, so a read sees
+        # it here only when that setting is off.
         RETRYABLE_CONNECTION_ERRORS = [Net::OpenTimeout, EOFError, Errno::ECONNRESET, IOError].freeze
+
+        # The connection fails to open, before Net::HTTP writes the request. Nothing reached the
+        # server, so with `retry_on_connect_error` every statement, a write included, retries once
+        # on these.
+        CONNECT_ERRORS = [Net::OpenTimeout, SocketError, Errno::ECONNREFUSED].freeze
 
         def with_settings(**settings)
           @block_settings ||= {}
@@ -53,11 +60,7 @@ module ActiveRecord
         end
 
         def execute(sql, name = nil, format: response_format, settings: {})
-          with_response_format(format) do
-            log(sql, [adapter_name, name].compact.join(' ')) do
-              raw_execute(sql, settings: settings)
-            end
-          end
+          execute_statement(sql, name, format: format, settings: settings)
         end
 
         def execute_batch(statements, name = nil, **kwargs)
@@ -93,7 +96,8 @@ module ActiveRecord
         def internal_exec_query(sql, name = nil, binds = [], prepare: false, async: false, allow_retry: false)
           connection_retries = 0
           begin
-            result = execute(sql, name)
+            # `select_all` reaches here on each cache miss, so this must not clear the cache.
+            result = execute_statement(sql, name)
             columns = result['meta'].map { |m| m['name'] }
             types = {}
             result['meta'].each_with_index do |m, i|
@@ -172,10 +176,22 @@ module ActiveRecord
         end
 
         def show_create_function(function)
-          result = do_system_execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'")
+          result = do_system_execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = #{quote(function)}")
           return if result.nil?
 
-          result['data'].flatten.first.sub(/\ACREATE FUNCTION/, 'CREATE OR REPLACE FUNCTION')
+          result['data'].flatten.first&.sub(/\ACREATE FUNCTION/, 'CREATE OR REPLACE FUNCTION')
+        end
+
+        # The body that `create_function` takes. Raises on a definition in any other shape, because a
+        # whole statement passed back as the body fails only when it runs.
+        def function_body(function)
+          sql = show_create_function(function)
+          return if sql.nil?
+
+          match = sql.match(/\ACREATE OR REPLACE FUNCTION `?#{Regexp.escape(function)}`? AS (.*)\z/m)
+          raise ActiveRecord::ActiveRecordError, "Unexpected definition for function #{function}: #{sql}" unless match
+
+          match[1].strip
         end
 
         def table_options(table)
@@ -371,6 +387,16 @@ module ActiveRecord
           (%r{\w+\(.*\)} === default)
         end
 
+        # `execute` without the cache-clearing wrapper ClickhouseAdapter puts on it. Not named
+        # `internal_execute`: Rails calls that with positional binds and `allow_retry:`.
+        def execute_statement(sql, name = nil, format: response_format, settings: {})
+          with_response_format(format) do
+            log(sql, [adapter_name, name].compact.join(' ')) do
+              raw_execute(sql, settings: settings)
+            end
+          end
+        end
+
         def raw_execute(sql, settings: {}, except_params: [])
           statement = Statement.new(sql, format: response_format)
           response = request(statement, settings: settings, except_params: except_params)
@@ -390,11 +416,26 @@ module ActiveRecord
           end
         end
 
+        # The connection can fail to open in `start` or, when Net::HTTP reopens a stale keep-alive
+        # socket, inside the yielded request. Both happen before Net::HTTP writes the request, so with
+        # `retry_on_connect_error` the whole block runs again on a new session.
+        #
+        # Any other Exception, an interrupt included, also finishes the session: the reply left unread
+        # on the keep-alive socket would otherwise answer the next request.
         def with_http_session
+          connect_retries = 0
           @lock.synchronize do
-            @connection.start unless @connection.started?
             begin
+              @connection.start unless @connection.started?
               yield
+            rescue *CONNECT_ERRORS => e
+              @connection.finish if @connection.started?
+              raise unless @retry_on_connect_error
+              raise ActiveRecord::ConnectionNotEstablished, "Response: #{e.message}" if connect_retries.positive?
+
+              connect_retries += 1
+              logger&.warn("[clickhouse-activerecord] retrying statement after the connection failed to open (#{e.class}: #{e.message})")
+              retry
             rescue Exception
               @connection.finish if @connection.started?
               raise
