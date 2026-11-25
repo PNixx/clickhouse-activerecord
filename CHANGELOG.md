@@ -1,3 +1,16 @@
+### Version 1.7.1 (Nov 25, 2026)
+
+* Compare ClickHouse server versions as versions, not floats #276
+* Order structure dump by a dependency graph #267
+* Close the HTTP session when a request is interrupted #282
+* Apply relation settings to `insert_all` (#279)
+* Keep the types of settings that Rails gives as strings (#286)
+* Round-trip schema.rb functions and structure.sql dumps (#285)
+* Retry any statement once when its connection fails to open (#283)
+* Keep the query cache when a read misses it (#278)
+* Pass sslca to Net::HTTP.start so the TLS handshake uses it. (#275)
+* Fill the schema cache with one query instead of two per table (#284)
+
 ### Version 1.7.0 (Sep 29, 2026)
 
 * Fix structure dump table sort
