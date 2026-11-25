@@ -97,6 +97,50 @@ RSpec.describe 'URL-based configuration' do
     end
   end
 
+  context 'settings that Rails resolved from a clickhouse:// URL, which arrive as strings' do
+    let(:config) do
+      ActiveRecord::DatabaseConfigurations::UrlConfig.new(
+        'test', 'primary',
+        'clickhouse://user:pass@localhost:8123/db?ssl=false&insecure=false&debug=false&open_timeout=5&read_timeout=120&write_timeout=90&keep_alive_timeout=30&max_execution_time=25&cancel_http_readonly_queries_on_client_close=false&use_default_replicated_merge_tree_params=false',
+        { adapter: 'clickhouse' }
+      ).configuration_hash
+    end
+
+    before do
+      allow(http_connection).to receive(:read_timeout=)
+      allow(http_connection).to receive(:write_timeout=)
+    end
+
+    subject(:adapter) { ActiveRecord::Base.clickhouse_connection(config) }
+
+    it 'reads "false" as false and a number as an integer' do
+      expect(adapter.instance_variable_get(:@connection_parameters))
+        .to include(ssl: false, insecure: false, open_timeout: 5, read_timeout: 120, write_timeout: 90, keep_alive_timeout: 30)
+      expect(adapter.instance_variable_get(:@connection_config)).to include(max_execution_time: 25, cancel_http_readonly_queries_on_client_close: false)
+      expect(adapter.instance_variable_get(:@debug)).to eq(false)
+    end
+
+    it 'verifies the TLS certificate when insecure=false' do
+      expect(net_http_start_args[:kwargs][:verify_mode]).to eq(OpenSSL::SSL::VERIFY_PEER)
+    end
+
+    it 'does not use the default replicated MergeTree parameters when that setting is false' do
+      allow(adapter).to receive(:database_engine_atomic?).and_return(true)
+
+      expect(adapter.use_default_replicated_merge_tree_params?).to be(false)
+    end
+  end
+
+  context 'ssl: false on port 443' do
+    let(:config) { { adapter: 'clickhouse', host: 'localhost', port: 443, database: 'db', ssl: false } }
+
+    subject(:adapter) { ActiveRecord::Base.clickhouse_connection(config) }
+
+    it 'keeps SSL off' do
+      expect(adapter.instance_variable_get(:@connection_parameters)[:ssl]).to be(false)
+    end
+  end
+
   context 'explicit config keys override URL values' do
     let(:config) do
       {
