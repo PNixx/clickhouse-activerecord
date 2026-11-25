@@ -17,7 +17,7 @@ module CoreExtensions
         self
       end
 
-      # Define settings in the SETTINGS clause of the SELECT query. The setting value is applied only to that query and is reset to the default or previous value after the query is executed.
+      # Define settings in the SETTINGS clause of the SELECT or INSERT query. The setting value is applied only to that query and is reset to the default or previous value after the query is executed.
       # For example:
       #
       #   users = User.settings(optimize_read_in_order: 1, cast_keep_nullable: 1).where(name: 'John')
