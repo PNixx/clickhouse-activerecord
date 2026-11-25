@@ -49,12 +49,12 @@ module ClickhouseActiverecord
     private
 
     def function_definitions
-      rows = @connection.execute(<<~SQL)['data']
-        SELECT name, create_query FROM system.functions WHERE origin = 'SQLUserDefined' ORDER BY name
-      SQL
+      # A function dropped since `functions` listed it has no definition left to dump.
+      definitions = @connection.functions.filter_map do |name|
+        sql = @connection.show_create_function(name)
+        next if sql.nil?
 
-      definitions = rows.map do |name, create_query|
-        Definition.new(name: name, kind: :function, sql: create_query.gsub('\\n', "\n"), dependencies: Set.new)
+        Definition.new(name: name, kind: :function, sql: sql.gsub('\\n', "\n"), dependencies: Set.new)
       end
 
       names = definitions.map(&:name)
@@ -67,12 +67,13 @@ module ClickhouseActiverecord
     end
 
     def table_definitions
-      rows = table_rows
+      ignore_tables = ActiveRecord::SchemaDumper.ignore_tables
+      rows = table_rows.reject { |name, *| ignore_tables.any? { |pattern| pattern === name } }
       names = Set.new(rows.map(&:first))
 
+      # `show_create_table` already removes the database qualifier.
       definitions = rows.map do |name, *|
         sql = @connection.show_create_table(name, single_line: false)
-                         .gsub("#{@database}.", '')
                          .gsub("/#{@database}/", '/{database}/')
         Definition.new(name: name, kind: kind_of(sql), sql: sql, dependencies: Set.new)
       end

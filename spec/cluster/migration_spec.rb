@@ -76,6 +76,7 @@ RSpec.describe 'Cluster Migration', :migrations, cluster: true do
 
             expect(ActiveRecord::Base.connection.functions).to match_array(['some_fun', 'forced_fun'])
             expect(ActiveRecord::Base.connection.show_create_function('forced_fun').chomp).to eq('CREATE OR REPLACE FUNCTION forced_fun AS (x, y) -> (x + y)')
+            expect(ActiveRecord::Base.connection.function_body('forced_fun')).to eq('(x, y) -> (x + y)')
           end
         end
       end

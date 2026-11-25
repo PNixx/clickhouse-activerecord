@@ -168,10 +168,22 @@ module ActiveRecord
         end
 
         def show_create_function(function)
-          result = do_system_execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'")
+          result = do_system_execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = #{quote(function)}")
           return if result.nil?
 
-          result['data'].flatten.first.sub(/\ACREATE FUNCTION/, 'CREATE OR REPLACE FUNCTION')
+          result['data'].flatten.first&.sub(/\ACREATE FUNCTION/, 'CREATE OR REPLACE FUNCTION')
+        end
+
+        # The body that `create_function` takes. Raises on a definition in any other shape, because a
+        # whole statement passed back as the body fails only when it runs.
+        def function_body(function)
+          sql = show_create_function(function)
+          return if sql.nil?
+
+          match = sql.match(/\ACREATE OR REPLACE FUNCTION `?#{Regexp.escape(function)}`? AS (.*)\z/m)
+          raise ActiveRecord::ActiveRecordError, "Unexpected definition for function #{function}: #{sql}" unless match
+
+          match[1].strip
         end
 
         def table_options(table)
