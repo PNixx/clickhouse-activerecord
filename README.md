@@ -43,6 +43,8 @@ default: &default
   sslca: /path/to/ca.pem # optional, custom CA bundle for TLS verification
   max_execution_time: 25 # optional, server-side query time limit in seconds, sent as a ClickHouse session setting
   cancel_http_readonly_queries_on_client_close: true # optional, tell the server to abort a SELECT once the client disconnects
+  settings: # optional, ClickHouse settings sent with every request; per-query settings override them
+    compatibility: '24.6'
 ```
 
 ### URL-based configuration

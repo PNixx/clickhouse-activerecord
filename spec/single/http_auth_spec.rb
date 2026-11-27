@@ -286,6 +286,16 @@ RSpec.describe 'HTTP auth modes' do
     end
   end
 
+  context 'with connection-level settings' do
+    let(:config) { base_config.merge(settings: { 'compatibility' => '24.6', max_threads: 4 }) }
+
+    it 'sends them with every request, letting per-query settings override them' do
+      payload = request_payload_for(settings: { max_threads: 1 })
+
+      expect(payload[:query_params]).to include('compatibility' => '24.6', 'max_threads' => '1')
+    end
+  end
+
   context 'invalid mode' do
     it 'raises argument error' do
       expect do
