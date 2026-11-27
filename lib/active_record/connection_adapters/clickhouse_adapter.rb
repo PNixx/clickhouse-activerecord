@@ -177,6 +177,7 @@ module ActiveRecord
           max_execution_time: self.class.type_cast_config_to_integer(@config[:max_execution_time]),
           cancel_http_readonly_queries_on_client_close: self.class.type_cast_config_to_boolean(@config[:cancel_http_readonly_queries_on_client_close]),
         }.compact
+        @default_settings = (@config[:settings] || {}).to_h.symbolize_keys
         @debug = self.class.type_cast_config_to_boolean(@config[:debug]) || false
         @default_response_format = @config[:format] || DEFAULT_RESPONSE_FORMAT
         @http_auth = @config[:http_auth]&.to_sym

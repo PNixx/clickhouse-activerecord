@@ -472,7 +472,8 @@ module ActiveRecord
             request_params = request_params.except(:user, :password, :database)
           end
 
-          request_params.merge(block_settings)
+          request_params.merge(@default_settings || {})
+                        .merge(block_settings)
                         .merge(settings)
                         .except(*except)
                         .to_param
